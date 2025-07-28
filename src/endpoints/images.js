@@ -36,39 +36,48 @@ export const router = express.Router();
  * @returns {Object} response - The response object containing the path where the image was saved.
  */
 router.post('/upload', async (request, response) => {
-    // Check for image data
-    if (!request.body || !request.body.image) {
+    if (!request.body || (!request.body.image && !Array.isArray(request.body.images))) {
         return response.status(400).send({ error: 'No image data provided' });
     }
 
+    const images = Array.isArray(request.body.images) ? request.body.images : [request.body.image];
+    const filenames = Array.isArray(request.body.filename) ? request.body.filename : [request.body.filename];
+
     try {
-        // Extracting the base64 data and the image format
-        const splitParts = request.body.image.split(',');
-        const format = splitParts[0].split(';')[0].split('/')[1];
-        const base64Data = splitParts[1];
-        const validFormat = ['png', 'jpg', 'webp', 'jpeg', 'gif', 'mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', '3gp', 'mkv'].includes(format);
-        if (!validFormat) {
-            return response.status(400).send({ error: 'Invalid image format' });
+        const saved = [];
+
+        for (let i = 0; i < images.length; i++) {
+            const image = images[i];
+            const splitParts = image.split(',');
+            const format = splitParts[0].split(';')[0].split('/')[1];
+            const base64Data = splitParts[1];
+            const validFormat = ['png', 'jpg', 'webp', 'jpeg', 'gif', 'mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', '3gp', 'mkv'].includes(format);
+            if (!validFormat) {
+                return response.status(400).send({ error: 'Invalid image format' });
+            }
+
+            let filename;
+            if (filenames[i]) {
+                filename = `${removeFileExtension(filenames[i])}.${format}`;
+            } else if (request.body.filename && !Array.isArray(request.body.filename)) {
+                filename = `${removeFileExtension(request.body.filename)}.${format}`;
+            } else {
+                filename = `${Date.now()}_${i}.${format}`;
+            }
+
+            let pathToNewFile = path.join(request.user.directories.userImages, sanitize(filename));
+            if (request.body.ch_name) {
+                pathToNewFile = path.join(request.user.directories.userImages, sanitize(request.body.ch_name), sanitize(filename));
+            }
+
+            ensureDirectoryExistence(pathToNewFile);
+            const imageBuffer = Buffer.from(base64Data, 'base64');
+            await fs.promises.writeFile(pathToNewFile, new Uint8Array(imageBuffer));
+            saved.push(clientRelativePath(request.user.directories.root, pathToNewFile));
         }
 
-        // Constructing filename and path
-        let filename;
-        if (request.body.filename) {
-            filename = `${removeFileExtension(request.body.filename)}.${format}`;
-        } else {
-            filename = `${Date.now()}.${format}`;
-        }
-
-        // if character is defined, save to a sub folder for that character
-        let pathToNewFile = path.join(request.user.directories.userImages, sanitize(filename));
-        if (request.body.ch_name) {
-            pathToNewFile = path.join(request.user.directories.userImages, sanitize(request.body.ch_name), sanitize(filename));
-        }
-
-        ensureDirectoryExistence(pathToNewFile);
-        const imageBuffer = Buffer.from(base64Data, 'base64');
-        await fs.promises.writeFile(pathToNewFile, new Uint8Array(imageBuffer));
-        response.send({ path: clientRelativePath(request.user.directories.root, pathToNewFile) });
+        const resultKey = saved.length === 1 ? 'path' : 'paths';
+        return response.send({ [resultKey]: saved.length === 1 ? saved[0] : saved });
     } catch (error) {
         console.error(error);
         response.status(500).send({ error: 'Failed to save the image' });

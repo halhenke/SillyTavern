@@ -606,7 +606,7 @@ function setOpenAIMessages(chat) {
         // Apply the "wrap in quotes" option
         if (role == 'user' && oai_settings.wrap_in_quotes) content = `"${content}"`;
         const name = chat[j]['name'];
-        const image = chat[j]?.extra?.image;
+        const image = chat[j]?.extra?.images || (chat[j]?.extra?.image ? [chat[j].extra.image] : undefined);
         const video = chat[j]?.extra?.video;
         const invocations = chat[j]?.extra?.tool_invocations;
         messages[i] = { 'role': role, 'content': content, name: name, 'image': image, 'video': video, 'invocations': invocations };
@@ -921,7 +921,10 @@ async function populateChatHistory(messages, prompts, chatCompletion, type = nul
         }
 
         if (imageInlining && chatPrompt.image) {
-            await chatMessage.addImage(chatPrompt.image);
+            const images = Array.isArray(chatPrompt.image) ? chatPrompt.image : [chatPrompt.image];
+            for (const image of images) {
+                await chatMessage.addImage(image);
+            }
         }
 
         if (videoInlining && chatPrompt.video) {
@@ -2874,7 +2877,7 @@ class Message {
      * @returns {Promise<void>}
      */
     async addImage(image) {
-        const textContent = this.content;
+        const textContent = Array.isArray(this.content) ? this.content.find(p => p.type === 'text')?.text || '' : this.content;
         const isDataUrl = isDataURL(image);
         if (!isDataUrl) {
             try {
@@ -2891,10 +2894,10 @@ class Message {
         image = await this.compressImage(image);
 
         const quality = oai_settings.inline_image_quality || default_settings.inline_image_quality;
-        this.content = [
-            { type: 'text', text: textContent },
-            { type: 'image_url', image_url: { 'url': image, 'detail': quality } },
-        ];
+        if (!Array.isArray(this.content)) {
+            this.content = [{ type: 'text', text: textContent }];
+        }
+        this.content.push({ type: 'image_url', image_url: { 'url': image, 'detail': quality } });
 
         try {
             const tokens = await this.getImageTokenCost(image, quality);

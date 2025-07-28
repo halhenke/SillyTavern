@@ -75,6 +75,22 @@ const ATTACHMENT_SOURCE = {
     CHAT: 'chat',
 };
 
+// Files selected for sending but not yet uploaded
+let pendingFiles = [];
+
+function renderPendingFiles() {
+    const list = $('#file_attachments');
+    list.empty();
+    pendingFiles.forEach((file, idx) => {
+        const item = $('#pending_file_template .file_attached').clone();
+        item.find('.file_name').text(file.name);
+        item.find('.file_size').text(humanFileSize(file.size));
+        item.find('.file_remove').attr('data-index', idx);
+        list.append(item);
+    });
+    $('#file_form').toggleClass('displayNone', pendingFiles.length === 0);
+}
+
 /**
  * @type {Record<string, ConverterFunction>} File converters
  */
@@ -191,64 +207,79 @@ export async function unhideChatMessage(messageId, _messageBlock) {
  * @param {object} message Message object
  * @returns {Promise<void>} A promise that resolves when file is uploaded.
  */
-export async function populateFileAttachment(message, inputId = 'file_form_input') {
+export async function populateFileAttachment(message, inputId = 'file_form_input', files = null) {
     try {
         if (!message) return;
         if (!message.extra) message.extra = {};
-        const fileInput = document.getElementById(inputId);
-        if (!(fileInput instanceof HTMLInputElement)) return;
-        const file = fileInput.files[0];
-        if (!file) return;
-
-        const slug = getStringHash(file.name);
-        const fileNamePrefix = `${Date.now()}_${slug}`;
-        const fileBase64 = await getBase64Async(file);
-        let base64Data = fileBase64.split(',')[1];
-
-        // If file is image
-        if (file.type.startsWith('image/')) {
-            const extension = file.type.split('/')[1];
-            const imageUrl = await saveBase64AsFile(base64Data, name2, fileNamePrefix, extension);
-            message.extra.image = imageUrl;
-            message.extra.inline_image = true;
+        let filesToProcess = files;
+        if (!Array.isArray(filesToProcess)) {
+            if (inputId === 'file_form_input') {
+                filesToProcess = pendingFiles;
+            } else {
+                const fileInput = document.getElementById(inputId);
+                if (!(fileInput instanceof HTMLInputElement)) return;
+                filesToProcess = Array.from(fileInput.files);
+            }
         }
-        // If file is video
-        else if (file.type.startsWith('video/')) {
-            const extension = file.type.split('/')[1];
-            const videoUrl = await saveBase64AsFile(base64Data, name2, fileNamePrefix, extension);
-            message.extra.video = videoUrl;
-        } else {
-            const uniqueFileName = `${fileNamePrefix}.txt`;
+        if (!filesToProcess || filesToProcess.length === 0) return;
 
-            if (isConvertible(file.type)) {
-                try {
-                    const converter = getConverter(file.type);
-                    const fileText = await converter(file);
-                    base64Data = window.btoa(unescape(encodeURIComponent(fileText)));
-                } catch (error) {
-                    toastr.error(String(error), t`Could not convert file`);
-                    console.error('Could not convert file', error);
+        for (const file of filesToProcess) {
+            const slug = getStringHash(file.name);
+            const fileNamePrefix = `${Date.now()}_${slug}`;
+            const fileBase64 = await getBase64Async(file);
+            let base64Data = fileBase64.split(',')[1];
+
+            if (file.type.startsWith('image/')) {
+                const extension = file.type.split('/')[1];
+                const imageUrl = await saveBase64AsFile(base64Data, name2, fileNamePrefix, extension);
+                if (!Array.isArray(message.extra.images)) {
+                    message.extra.images = [];
                 }
+                message.extra.images.push(imageUrl);
+                message.extra.image = message.extra.images[0];
+                message.extra.inline_image = true;
+            } else if (file.type.startsWith('video/')) {
+                const extension = file.type.split('/')[1];
+                const videoUrl = await saveBase64AsFile(base64Data, name2, fileNamePrefix, extension);
+                message.extra.video = videoUrl;
+            } else {
+                const uniqueFileName = `${fileNamePrefix}.txt`;
+
+                if (isConvertible(file.type)) {
+                    try {
+                        const converter = getConverter(file.type);
+                        const fileText = await converter(file);
+                        base64Data = window.btoa(unescape(encodeURIComponent(fileText)));
+                    } catch (error) {
+                        toastr.error(String(error), t`Could not convert file`);
+                        console.error('Could not convert file', error);
+                    }
+                }
+
+                const fileUrl = await uploadFileAttachment(uniqueFileName, base64Data);
+
+                if (!fileUrl) {
+                    continue;
+                }
+
+                message.extra.file = {
+                    url: fileUrl,
+                    size: file.size,
+                    name: file.name,
+                    created: Date.now(),
+                };
             }
-
-            const fileUrl = await uploadFileAttachment(uniqueFileName, base64Data);
-
-            if (!fileUrl) {
-                return;
-            }
-
-            message.extra.file = {
-                url: fileUrl,
-                size: file.size,
-                name: file.name,
-                created: Date.now(),
-            };
         }
-
     } catch (error) {
         console.error('Could not upload file', error);
     } finally {
-        $('#file_form').trigger('reset');
+        if (inputId === 'file_form_input') {
+            $('#file_form').trigger('reset');
+            pendingFiles = [];
+        } else {
+            const el = document.getElementById(inputId);
+            if (el instanceof HTMLInputElement) el.value = '';
+        }
     }
 }
 
@@ -333,10 +364,7 @@ async function validateFile(file) {
 }
 
 export function hasPendingFileAttachment() {
-    const fileInput = document.getElementById('file_form_input');
-    if (!(fileInput instanceof HTMLInputElement)) return false;
-    const file = fileInput.files[0];
-    return !!file;
+    return pendingFiles.length > 0;
 }
 
 /**
@@ -344,22 +372,21 @@ export function hasPendingFileAttachment() {
  * @param {File} file File object
  * @returns {Promise<void>}
  */
-async function onFileAttach(file) {
-    if (!file) return;
+async function onFileAttach(files) {
+    if (!files || files.length === 0) return;
 
-    const isValid = await validateFile(file);
+    for (const file of files) {
+        const isValid = await validateFile(file);
 
-    // If file is binary
-    if (!isValid) {
-        $('#file_form').trigger('reset');
-        return;
+        if (!isValid) {
+            $('#file_form').trigger('reset');
+            return;
+        }
+
+        pendingFiles.push(file);
     }
+    renderPendingFiles();
 
-    $('#file_form .file_name').text(file.name);
-    $('#file_form .file_size').text(humanFileSize(file.size));
-    $('#file_form').removeClass('displayNone');
-
-    // Reset form on chat change (if not on a welcome screen)
     const currentChatId = getCurrentChatId();
     if (currentChatId) {
         eventSource.once(event_types.CHAT_CHANGED, () => {
@@ -431,17 +458,18 @@ function embedMessageFile(messageId, messageBlock) {
         .trigger('click');
 
     async function parseAndUploadEmbed(e) {
-        const file = e.target.files[0];
-        if (!file) return;
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
 
-        const isValid = await validateFile(file);
-
-        if (!isValid) {
-            $('#file_form').trigger('reset');
-            return;
+        for (const file of files) {
+            const isValid = await validateFile(file);
+            if (!isValid) {
+                $('#file_form').trigger('reset');
+                return;
+            }
         }
 
-        await populateFileAttachment(message, 'embed_file_input');
+        await populateFileAttachment(message, 'embed_file_input', files);
         await eventSource.emit(event_types.MESSAGE_FILE_EMBEDDED, messageId);
         appendMediaToMessage(message, messageBlock);
         await saveChatConditional();
@@ -787,10 +815,11 @@ export function isExternalMediaAllowed() {
 }
 
 function expandMessageImage(event) {
-    const mesBlock = $(event.currentTarget).closest('.mes');
+    const container = $(event.currentTarget).closest('.mes_img_container');
+    const mesBlock = container.closest('.mes');
     const mesId = mesBlock.attr('mesid');
     const message = chat[mesId];
-    const imgSrc = message?.extra?.image;
+    const imgSrc = container.find('.mes_img').attr('data-image-path') || message?.extra?.image;
     const title = message?.extra?.title;
 
     if (!imgSrc) {
@@ -860,33 +889,41 @@ async function deleteMessageImage() {
         return;
     }
 
-    const mesBlock = $(this).closest('.mes');
+    const container = $(this).closest('.mes_img_container');
+    const mesBlock = container.closest('.mes');
     const mesId = mesBlock.attr('mesid');
     const message = chat[mesId];
 
+    const imgPath = container.find('.mes_img').attr('data-image-path') || message.extra.image;
+
     let isLastImage = true;
 
+    if (Array.isArray(message.extra.images)) {
+        const indexOf = message.extra.images.indexOf(imgPath);
+        if (indexOf > -1) {
+            message.extra.images.splice(indexOf, 1);
+            isLastImage = message.extra.images.length === 0;
+        }
+        message.extra.image = message.extra.images[0];
+    }
+
     if (Array.isArray(message.extra.image_swipes)) {
-        const indexOf = message.extra.image_swipes.indexOf(message.extra.image);
+        const indexOf = message.extra.image_swipes.indexOf(imgPath);
         if (indexOf > -1) {
             message.extra.image_swipes.splice(indexOf, 1);
-            isLastImage = message.extra.image_swipes.length === 0;
-            if (!isLastImage) {
-                const newIndex = Math.min(indexOf, message.extra.image_swipes.length - 1);
-                message.extra.image = message.extra.image_swipes[newIndex];
-            }
         }
     }
 
     if (isLastImage || value === POPUP_RESULT.CUSTOM1) {
         delete message.extra.image;
+        delete message.extra.images;
         delete message.extra.inline_image;
         delete message.extra.title;
         delete message.extra.append_title;
         delete message.extra.image_swipes;
-        mesBlock.find('.mes_img_container').removeClass('img_extra');
-        mesBlock.find('.mes_img').attr('src', '');
+        container.remove();
     } else {
+        container.remove();
         appendMediaToMessage(message, mesBlock);
     }
 
@@ -1860,11 +1897,32 @@ export function initChatUtilities() {
     $('#file_form_input').on('change', async () => {
         const fileInput = document.getElementById('file_form_input');
         if (!(fileInput instanceof HTMLInputElement)) return;
-        const file = fileInput.files[0];
-        await onFileAttach(file);
+        const files = Array.from(fileInput.files);
+        await onFileAttach(files);
+        const dt = new DataTransfer();
+        pendingFiles.forEach(f => dt.items.add(f));
+        fileInput.files = dt.files;
     });
     $('#file_form').on('reset', function () {
+        $('#file_attachments').empty();
         $('#file_form').addClass('displayNone');
+        pendingFiles = [];
+        const input = document.getElementById('file_form_input');
+        if (input instanceof HTMLInputElement) input.value = '';
+    });
+
+    $(document).on('click', '#file_form .file_remove', function () {
+        const idx = Number($(this).attr('data-index'));
+        if (idx >= 0 && idx < pendingFiles.length) {
+            pendingFiles.splice(idx, 1);
+            renderPendingFiles();
+            const fileInput = document.getElementById('file_form_input');
+            if (fileInput instanceof HTMLInputElement) {
+                const dt = new DataTransfer();
+                pendingFiles.forEach(f => dt.items.add(f));
+                fileInput.files = dt.files;
+            }
+        }
     });
 
     document.getElementById('send_textarea').addEventListener('paste', async function (event) {
@@ -1878,14 +1936,11 @@ export function initChatUtilities() {
         const fileInput = document.getElementById('file_form_input');
         if (!(fileInput instanceof HTMLInputElement)) return;
 
-        // Workaround for Firefox: Use a DataTransfer object to indirectly set fileInput.files
-        const dataTransfer = new DataTransfer();
-        for (let i = 0; i < event.clipboardData.files.length; i++) {
-            dataTransfer.items.add(event.clipboardData.files[i]);
-        }
+        await onFileAttach(Array.from(event.clipboardData.files));
 
+        const dataTransfer = new DataTransfer();
+        pendingFiles.forEach(f => dataTransfer.items.add(f));
         fileInput.files = dataTransfer.files;
-        await onFileAttach(fileInput.files[0]);
     });
 
     eventSource.on(event_types.CHAT_CHANGED, checkForCreatorNotesStyles);

@@ -2448,10 +2448,10 @@ export function updateMessageBlock(messageId, message, { rerenderMessage = true 
  */
 export function appendMediaToMessage(mes, messageElement, adjustScroll = true) {
     // Add image to message
-    if (mes.extra?.image) {
-        const container = messageElement.find('.mes_img_container');
+    if (Array.isArray(mes.extra?.images) && mes.extra.images.length > 0) {
+        const block = messageElement.find('.mes_block');
+        messageElement.find('.mes_img_container').remove();
         const chatHeight = $('#chat').prop('scrollHeight');
-        const image = messageElement.find('.mes_img');
         const text = messageElement.find('.mes_text');
         const isInline = !!mes.extra?.inline_image;
         const doAdjustScroll = () => {
@@ -2463,39 +2463,48 @@ export function appendMediaToMessage(mes, messageElement, adjustScroll = true) {
             const diff = newChatHeight - chatHeight;
             $('#chat').scrollTop(scrollPosition + diff);
         };
-        image.off('load').on('load', function () {
-            image.removeAttr('alt');
-            image.removeClass('error');
-            doAdjustScroll();
+
+        mes.extra.images.forEach(imgUrl => {
+            const container = $('#message_template .mes_img_container').clone();
+            const image = container.find('.mes_img');
+            image.attr('src', imgUrl);
+            image.attr('data-image-path', imgUrl);
+            image.attr('title', mes.extra?.title || mes.title || '');
+            image.toggleClass('img_inline', isInline);
+            container.addClass('img_extra');
+
+            image.off('load').on('load', function () {
+                image.removeAttr('alt');
+                image.removeClass('error');
+                doAdjustScroll();
+            });
+            image.off('error').on('error', function () {
+                image.attr('alt', '');
+                image.addClass('error');
+                doAdjustScroll();
+            });
+
+            const imageSwipes = mes.extra.image_swipes;
+            if (Array.isArray(imageSwipes) && imageSwipes.length > 0) {
+                container.addClass('img_swipes');
+                const counter = container.find('.mes_img_swipe_counter');
+                const currentImage = imageSwipes.indexOf(mes.extra.image) + 1;
+                counter.text(`${currentImage}/${imageSwipes.length}`);
+
+                const swipeLeft = container.find('.mes_img_swipe_left');
+                swipeLeft.off('click').on('click', function () {
+                    eventSource.emit(event_types.IMAGE_SWIPED, { message: mes, element: messageElement, direction: 'left' });
+                });
+
+                const swipeRight = container.find('.mes_img_swipe_right');
+                swipeRight.off('click').on('click', function () {
+                    eventSource.emit(event_types.IMAGE_SWIPED, { message: mes, element: messageElement, direction: 'right' });
+                });
+            }
+
+            block.find('.mes_bias').before(container);
         });
-        image.off('error').on('error', function () {
-            image.attr('alt', '');
-            image.addClass('error');
-            doAdjustScroll();
-        });
-        image.attr('src', mes.extra?.image);
-        image.attr('title', mes.extra?.title || mes.title || '');
-        container.addClass('img_extra');
-        image.toggleClass('img_inline', isInline);
         text.toggleClass('displayNone', !isInline);
-
-        const imageSwipes = mes.extra.image_swipes;
-        if (Array.isArray(imageSwipes) && imageSwipes.length > 0) {
-            container.addClass('img_swipes');
-            const counter = container.find('.mes_img_swipe_counter');
-            const currentImage = imageSwipes.indexOf(mes.extra.image) + 1;
-            counter.text(`${currentImage}/${imageSwipes.length}`);
-
-            const swipeLeft = container.find('.mes_img_swipe_left');
-            swipeLeft.off('click').on('click', function () {
-                eventSource.emit(event_types.IMAGE_SWIPED, { message: mes, element: messageElement, direction: 'left' });
-            });
-
-            const swipeRight = container.find('.mes_img_swipe_right');
-            swipeRight.off('click').on('click', function () {
-                eventSource.emit(event_types.IMAGE_SWIPED, { message: mes, element: messageElement, direction: 'right' });
-            });
-        }
     }
 
     // Add video to message
@@ -6370,18 +6379,23 @@ export function cleanUpMessage({ getMessage, isImpersonate, isContinue, displayI
  *
  * @returns {Promise<void>}
  */
-async function processImageAttachment(message, { imageUrl }) {
-    if (!imageUrl) {
+async function processImageAttachment(message, { imageUrl, imageUrls = [] }) {
+    const urls = [];
+    if (imageUrl) urls.push(imageUrl);
+    if (Array.isArray(imageUrls)) urls.push(...imageUrls);
+    if (urls.length === 0) {
         return;
     }
 
-    let url = imageUrl;
-    if (isDataURL(url)) {
-        const fileName = `inline_image_${Date.now().toString()}`;
-        const [mime, base64] = /^data:(.*?);base64,(.*)$/.exec(imageUrl).slice(1);
-        url = await saveBase64AsFile(base64, message.name, fileName, mime.split('/')[1]);
+    for (const original of urls) {
+        let url = original;
+        if (isDataURL(url)) {
+            const fileName = `inline_image_${Date.now().toString()}`;
+            const [mime, base64] = /^data:(.*?);base64,(.*)$/.exec(url).slice(1);
+            url = await saveBase64AsFile(base64, message.name, fileName, mime.split('/')[1]);
+        }
+        saveImageToMessage({ image: url, inline: true }, message);
     }
-    saveImageToMessage({ image: url, inline: true }, message);
 }
 
 /**
@@ -6710,7 +6724,11 @@ function saveImageToMessage(img, mes) {
         if (!mes.extra || typeof mes.extra !== 'object') {
             mes.extra = {};
         }
-        mes.extra.image = img.image;
+        if (!Array.isArray(mes.extra.images)) {
+            mes.extra.images = [];
+        }
+        mes.extra.images.push(img.image);
+        mes.extra.image = mes.extra.images[0];
         mes.extra.title = img.title;
         mes.extra.inline_image = img.inline;
     }

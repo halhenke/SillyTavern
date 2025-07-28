@@ -209,7 +209,11 @@ export async function populateFileAttachment(message, inputId = 'file_form_input
         if (file.type.startsWith('image/')) {
             const extension = file.type.split('/')[1];
             const imageUrl = await saveBase64AsFile(base64Data, name2, fileNamePrefix, extension);
-            message.extra.image = imageUrl;
+            if (!Array.isArray(message.extra.images)) {
+                message.extra.images = [];
+            }
+            message.extra.images.push(imageUrl);
+            message.extra.image = message.extra.images[0];
             message.extra.inline_image = true;
         }
         // If file is video
@@ -787,10 +791,11 @@ export function isExternalMediaAllowed() {
 }
 
 function expandMessageImage(event) {
-    const mesBlock = $(event.currentTarget).closest('.mes');
+    const container = $(event.currentTarget).closest('.mes_img_container');
+    const mesBlock = container.closest('.mes');
     const mesId = mesBlock.attr('mesid');
     const message = chat[mesId];
-    const imgSrc = message?.extra?.image;
+    const imgSrc = container.find('.mes_img').attr('data-image-path') || message?.extra?.image;
     const title = message?.extra?.title;
 
     if (!imgSrc) {
@@ -860,33 +865,41 @@ async function deleteMessageImage() {
         return;
     }
 
-    const mesBlock = $(this).closest('.mes');
+    const container = $(this).closest('.mes_img_container');
+    const mesBlock = container.closest('.mes');
     const mesId = mesBlock.attr('mesid');
     const message = chat[mesId];
 
+    const imgPath = container.find('.mes_img').attr('data-image-path') || message.extra.image;
+
     let isLastImage = true;
 
+    if (Array.isArray(message.extra.images)) {
+        const indexOf = message.extra.images.indexOf(imgPath);
+        if (indexOf > -1) {
+            message.extra.images.splice(indexOf, 1);
+            isLastImage = message.extra.images.length === 0;
+        }
+        message.extra.image = message.extra.images[0];
+    }
+
     if (Array.isArray(message.extra.image_swipes)) {
-        const indexOf = message.extra.image_swipes.indexOf(message.extra.image);
+        const indexOf = message.extra.image_swipes.indexOf(imgPath);
         if (indexOf > -1) {
             message.extra.image_swipes.splice(indexOf, 1);
-            isLastImage = message.extra.image_swipes.length === 0;
-            if (!isLastImage) {
-                const newIndex = Math.min(indexOf, message.extra.image_swipes.length - 1);
-                message.extra.image = message.extra.image_swipes[newIndex];
-            }
         }
     }
 
     if (isLastImage || value === POPUP_RESULT.CUSTOM1) {
         delete message.extra.image;
+        delete message.extra.images;
         delete message.extra.inline_image;
         delete message.extra.title;
         delete message.extra.append_title;
         delete message.extra.image_swipes;
-        mesBlock.find('.mes_img_container').removeClass('img_extra');
-        mesBlock.find('.mes_img').attr('src', '');
+        container.remove();
     } else {
+        container.remove();
         appendMediaToMessage(message, mesBlock);
     }
 

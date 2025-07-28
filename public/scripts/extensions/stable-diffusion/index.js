@@ -4081,15 +4081,25 @@ async function sdMessageButton(e) {
 
         const swipes = message.extra.image_swipes;
 
-        if (message.extra.image && !swipes.includes(message.extra.image)) {
+        if (Array.isArray(message.extra.images)) {
+            message.extra.images.forEach(img => {
+                if (!swipes.includes(img)) {
+                    swipes.push(img);
+                }
+            });
+        } else if (message.extra.image && !swipes.includes(message.extra.image)) {
             swipes.push(message.extra.image);
         }
 
         swipes.push(image);
 
         // If already contains an image and it's not inline - leave it as is
-        message.extra.inline_image = !(message.extra.image && !message.extra.inline_image);
-        message.extra.image = image;
+        message.extra.inline_image = !((message.extra.images || [message.extra.image]).length > 0 && !message.extra.inline_image);
+        if (!Array.isArray(message.extra.images)) {
+            message.extra.images = [];
+        }
+        message.extra.images.push(image);
+        message.extra.image = message.extra.images[0];
         message.extra.title = prompt;
         message.extra.generationType = generationType;
         message.extra.negative = negative;
@@ -4161,6 +4171,9 @@ async function onImageSwiped({ message, element, direction }) {
     if (direction === 'left') {
         const newIndex = currentIndex === 0 ? swipes.length - 1 : currentIndex - 1;
         message.extra.image = swipes[newIndex];
+        if (Array.isArray(message.extra.images)) {
+            message.extra.images[0] = message.extra.image;
+        }
 
         // Update the image in the message
         appendMediaToMessage(message, element, false);
@@ -4213,6 +4226,9 @@ async function onImageSwiped({ message, element, direction }) {
         }
 
         message.extra.image = swipes[newIndex];
+        if (Array.isArray(message.extra.images)) {
+            message.extra.images[0] = message.extra.image;
+        }
         appendMediaToMessage(message, element, false);
     }
 

@@ -119,11 +119,12 @@ async function wrapCaptionTemplate(caption) {
  * @returns {Promise<void>}
  */
 async function captionExistingMessage(data) {
-    if (!(data?.extra?.image)) {
+    if (!(data?.extra?.image) && !Array.isArray(data?.extra?.images)) {
         return;
     }
 
-    const imageData = await fetch(data.extra.image);
+    const imagePath = Array.isArray(data.extra.images) ? data.extra.images[0] : data.extra.image;
+    const imageData = await fetch(imagePath);
     const blob = await imageData.blob();
     const type = imageData.headers.get('Content-Type');
     const file = new File([blob], 'image.png', { type });
@@ -363,9 +364,10 @@ async function captionCommandCallback(args, prompt) {
 
     if (!isNaN(Number(mesId))) {
         const message = getContext().chat[mesId];
-        if (message?.extra?.image) {
+        if (message?.extra?.image || Array.isArray(message?.extra?.images)) {
             try {
-                const fetchResult = await fetch(message.extra.image);
+                const path = Array.isArray(message.extra.images) ? message.extra.images[0] : message.extra.image;
+                const fetchResult = await fetch(path);
                 const blob = await fetchResult.blob();
                 const file = new File([blob], 'image.jpg', { type: blob.type });
                 return await getCaptionForFile(file, prompt, quiet);

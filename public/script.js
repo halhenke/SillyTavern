@@ -2450,7 +2450,13 @@ export function appendMediaToMessage(mes, messageElement, adjustScroll = true) {
     // Add image to message
     if (Array.isArray(mes.extra?.images) && mes.extra.images.length > 0) {
         const block = messageElement.find('.mes_block');
+        let imageList = block.find('.mes_images');
         messageElement.find('.mes_img_container').remove();
+        if (imageList.length === 0) {
+            imageList = $('<div class="mes_images"></div>');
+            imageList.insertBefore(block.find('.mes_bias'));
+        }
+        imageList.empty();
         const chatHeight = $('#chat').prop('scrollHeight');
         const text = messageElement.find('.mes_text');
         const isInline = !!mes.extra?.inline_image;
@@ -2502,7 +2508,7 @@ export function appendMediaToMessage(mes, messageElement, adjustScroll = true) {
                 });
             }
 
-            block.find('.mes_bias').before(container);
+            imageList.append(container);
         });
         text.toggleClass('displayNone', !isInline);
     }

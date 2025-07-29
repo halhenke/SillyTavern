@@ -5033,6 +5033,12 @@ a:hover {
     display: none;
 }
 
+.mes .mes_images {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
 /* Message images */
 .mes .mes_img_container {
     max-width: 100%;

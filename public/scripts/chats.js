@@ -75,6 +75,9 @@ const ATTACHMENT_SOURCE = {
     CHAT: 'chat',
 };
 
+// Files selected for sending but not yet uploaded
+let pendingFiles = [];
+
 /**
  * @type {Record<string, ConverterFunction>} File converters
  */
@@ -191,68 +194,79 @@ export async function unhideChatMessage(messageId, _messageBlock) {
  * @param {object} message Message object
  * @returns {Promise<void>} A promise that resolves when file is uploaded.
  */
-export async function populateFileAttachment(message, inputId = 'file_form_input') {
+export async function populateFileAttachment(message, inputId = 'file_form_input', files = null) {
     try {
         if (!message) return;
         if (!message.extra) message.extra = {};
-        const fileInput = document.getElementById(inputId);
-        if (!(fileInput instanceof HTMLInputElement)) return;
-        const file = fileInput.files[0];
-        if (!file) return;
-
-        const slug = getStringHash(file.name);
-        const fileNamePrefix = `${Date.now()}_${slug}`;
-        const fileBase64 = await getBase64Async(file);
-        let base64Data = fileBase64.split(',')[1];
-
-        // If file is image
-        if (file.type.startsWith('image/')) {
-            const extension = file.type.split('/')[1];
-            const imageUrl = await saveBase64AsFile(base64Data, name2, fileNamePrefix, extension);
-            if (!Array.isArray(message.extra.images)) {
-                message.extra.images = [];
+        let filesToProcess = files;
+        if (!Array.isArray(filesToProcess)) {
+            if (inputId === 'file_form_input') {
+                filesToProcess = pendingFiles;
+            } else {
+                const fileInput = document.getElementById(inputId);
+                if (!(fileInput instanceof HTMLInputElement)) return;
+                filesToProcess = Array.from(fileInput.files);
             }
-            message.extra.images.push(imageUrl);
-            message.extra.image = message.extra.images[0];
-            message.extra.inline_image = true;
         }
-        // If file is video
-        else if (file.type.startsWith('video/')) {
-            const extension = file.type.split('/')[1];
-            const videoUrl = await saveBase64AsFile(base64Data, name2, fileNamePrefix, extension);
-            message.extra.video = videoUrl;
-        } else {
-            const uniqueFileName = `${fileNamePrefix}.txt`;
+        if (!filesToProcess || filesToProcess.length === 0) return;
 
-            if (isConvertible(file.type)) {
-                try {
-                    const converter = getConverter(file.type);
-                    const fileText = await converter(file);
-                    base64Data = window.btoa(unescape(encodeURIComponent(fileText)));
-                } catch (error) {
-                    toastr.error(String(error), t`Could not convert file`);
-                    console.error('Could not convert file', error);
+        for (const file of filesToProcess) {
+            const slug = getStringHash(file.name);
+            const fileNamePrefix = `${Date.now()}_${slug}`;
+            const fileBase64 = await getBase64Async(file);
+            let base64Data = fileBase64.split(',')[1];
+
+            if (file.type.startsWith('image/')) {
+                const extension = file.type.split('/')[1];
+                const imageUrl = await saveBase64AsFile(base64Data, name2, fileNamePrefix, extension);
+                if (!Array.isArray(message.extra.images)) {
+                    message.extra.images = [];
                 }
+                message.extra.images.push(imageUrl);
+                message.extra.image = message.extra.images[0];
+                message.extra.inline_image = true;
+            } else if (file.type.startsWith('video/')) {
+                const extension = file.type.split('/')[1];
+                const videoUrl = await saveBase64AsFile(base64Data, name2, fileNamePrefix, extension);
+                message.extra.video = videoUrl;
+            } else {
+                const uniqueFileName = `${fileNamePrefix}.txt`;
+
+                if (isConvertible(file.type)) {
+                    try {
+                        const converter = getConverter(file.type);
+                        const fileText = await converter(file);
+                        base64Data = window.btoa(unescape(encodeURIComponent(fileText)));
+                    } catch (error) {
+                        toastr.error(String(error), t`Could not convert file`);
+                        console.error('Could not convert file', error);
+                    }
+                }
+
+                const fileUrl = await uploadFileAttachment(uniqueFileName, base64Data);
+
+                if (!fileUrl) {
+                    continue;
+                }
+
+                message.extra.file = {
+                    url: fileUrl,
+                    size: file.size,
+                    name: file.name,
+                    created: Date.now(),
+                };
             }
-
-            const fileUrl = await uploadFileAttachment(uniqueFileName, base64Data);
-
-            if (!fileUrl) {
-                return;
-            }
-
-            message.extra.file = {
-                url: fileUrl,
-                size: file.size,
-                name: file.name,
-                created: Date.now(),
-            };
         }
-
     } catch (error) {
         console.error('Could not upload file', error);
     } finally {
-        $('#file_form').trigger('reset');
+        if (inputId === 'file_form_input') {
+            $('#file_form').trigger('reset');
+            pendingFiles = [];
+        } else {
+            const el = document.getElementById(inputId);
+            if (el instanceof HTMLInputElement) el.value = '';
+        }
     }
 }
 
@@ -337,10 +351,7 @@ async function validateFile(file) {
 }
 
 export function hasPendingFileAttachment() {
-    const fileInput = document.getElementById('file_form_input');
-    if (!(fileInput instanceof HTMLInputElement)) return false;
-    const file = fileInput.files[0];
-    return !!file;
+    return pendingFiles.length > 0;
 }
 
 /**
@@ -348,22 +359,29 @@ export function hasPendingFileAttachment() {
  * @param {File} file File object
  * @returns {Promise<void>}
  */
-async function onFileAttach(file) {
-    if (!file) return;
+async function onFileAttach(files) {
+    if (!files || files.length === 0) return;
 
-    const isValid = await validateFile(file);
+    for (const file of files) {
+        const isValid = await validateFile(file);
 
-    // If file is binary
-    if (!isValid) {
-        $('#file_form').trigger('reset');
-        return;
+        if (!isValid) {
+            $('#file_form').trigger('reset');
+            return;
+        }
+
+        pendingFiles.push(file);
     }
 
-    $('#file_form .file_name').text(file.name);
-    $('#file_form .file_size').text(humanFileSize(file.size));
+    const totalSize = pendingFiles.reduce((s, f) => s + f.size, 0);
+    if (pendingFiles.length === 1) {
+        $('#file_form .file_name').text(pendingFiles[0].name);
+    } else {
+        $('#file_form .file_name').text(`${pendingFiles.length} files selected`);
+    }
+    $('#file_form .file_size').text(humanFileSize(totalSize));
     $('#file_form').removeClass('displayNone');
 
-    // Reset form on chat change (if not on a welcome screen)
     const currentChatId = getCurrentChatId();
     if (currentChatId) {
         eventSource.once(event_types.CHAT_CHANGED, () => {
@@ -435,17 +453,18 @@ function embedMessageFile(messageId, messageBlock) {
         .trigger('click');
 
     async function parseAndUploadEmbed(e) {
-        const file = e.target.files[0];
-        if (!file) return;
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
 
-        const isValid = await validateFile(file);
-
-        if (!isValid) {
-            $('#file_form').trigger('reset');
-            return;
+        for (const file of files) {
+            const isValid = await validateFile(file);
+            if (!isValid) {
+                $('#file_form').trigger('reset');
+                return;
+            }
         }
 
-        await populateFileAttachment(message, 'embed_file_input');
+        await populateFileAttachment(message, 'embed_file_input', files);
         await eventSource.emit(event_types.MESSAGE_FILE_EMBEDDED, messageId);
         appendMediaToMessage(message, messageBlock);
         await saveChatConditional();
@@ -1873,11 +1892,17 @@ export function initChatUtilities() {
     $('#file_form_input').on('change', async () => {
         const fileInput = document.getElementById('file_form_input');
         if (!(fileInput instanceof HTMLInputElement)) return;
-        const file = fileInput.files[0];
-        await onFileAttach(file);
+        const files = Array.from(fileInput.files);
+        await onFileAttach(files);
+        const dt = new DataTransfer();
+        pendingFiles.forEach(f => dt.items.add(f));
+        fileInput.files = dt.files;
     });
     $('#file_form').on('reset', function () {
         $('#file_form').addClass('displayNone');
+        $('#file_form .file_name').text('File Name');
+        $('#file_form .file_size').text('File Size');
+        pendingFiles = [];
     });
 
     document.getElementById('send_textarea').addEventListener('paste', async function (event) {
@@ -1891,14 +1916,16 @@ export function initChatUtilities() {
         const fileInput = document.getElementById('file_form_input');
         if (!(fileInput instanceof HTMLInputElement)) return;
 
-        // Workaround for Firefox: Use a DataTransfer object to indirectly set fileInput.files
         const dataTransfer = new DataTransfer();
+        pendingFiles.forEach(f => dataTransfer.items.add(f));
         for (let i = 0; i < event.clipboardData.files.length; i++) {
-            dataTransfer.items.add(event.clipboardData.files[i]);
+            const file = event.clipboardData.files[i];
+            dataTransfer.items.add(file);
+            pendingFiles.push(file);
         }
 
         fileInput.files = dataTransfer.files;
-        await onFileAttach(fileInput.files[0]);
+        await onFileAttach(Array.from(event.clipboardData.files));
     });
 
     eventSource.on(event_types.CHAT_CHANGED, checkForCreatorNotesStyles);

@@ -5035,7 +5035,7 @@ a:hover {
 
 .mes .mes_images {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     gap: 0.5rem;
 }
 

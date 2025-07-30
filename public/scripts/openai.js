@@ -921,7 +921,10 @@ async function populateChatHistory(messages, prompts, chatCompletion, type = nul
         }
 
         if (imageInlining && chatPrompt.image) {
-            await chatMessage.addImage(chatPrompt.image);
+            const images = Array.isArray(chatPrompt.image) ? chatPrompt.image : [chatPrompt.image];
+            for (const image of images) {
+                await chatMessage.addImage(image);
+            }
         }
 
         if (videoInlining && chatPrompt.video) {

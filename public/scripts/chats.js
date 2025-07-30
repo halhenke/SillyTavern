@@ -78,6 +78,19 @@ const ATTACHMENT_SOURCE = {
 // Files selected for sending but not yet uploaded
 let pendingFiles = [];
 
+function renderPendingFiles() {
+    const list = $('#file_attachments');
+    list.empty();
+    pendingFiles.forEach((file, idx) => {
+        const item = $('#pending_file_template .file_attached').clone();
+        item.find('.file_name').text(file.name);
+        item.find('.file_size').text(humanFileSize(file.size));
+        item.find('.file_remove').attr('data-index', idx);
+        list.append(item);
+    });
+    $('#file_form').toggleClass('displayNone', pendingFiles.length === 0);
+}
+
 /**
  * @type {Record<string, ConverterFunction>} File converters
  */
@@ -372,15 +385,7 @@ async function onFileAttach(files) {
 
         pendingFiles.push(file);
     }
-
-    const totalSize = pendingFiles.reduce((s, f) => s + f.size, 0);
-    if (pendingFiles.length === 1) {
-        $('#file_form .file_name').text(pendingFiles[0].name);
-    } else {
-        $('#file_form .file_name').text(`${pendingFiles.length} files selected`);
-    }
-    $('#file_form .file_size').text(humanFileSize(totalSize));
-    $('#file_form').removeClass('displayNone');
+    renderPendingFiles();
 
     const currentChatId = getCurrentChatId();
     if (currentChatId) {
@@ -1899,10 +1904,25 @@ export function initChatUtilities() {
         fileInput.files = dt.files;
     });
     $('#file_form').on('reset', function () {
+        $('#file_attachments').empty();
         $('#file_form').addClass('displayNone');
-        $('#file_form .file_name').text('File Name');
-        $('#file_form .file_size').text('File Size');
         pendingFiles = [];
+        const input = document.getElementById('file_form_input');
+        if (input instanceof HTMLInputElement) input.value = '';
+    });
+
+    $(document).on('click', '#file_form .file_remove', function () {
+        const idx = Number($(this).attr('data-index'));
+        if (idx >= 0 && idx < pendingFiles.length) {
+            pendingFiles.splice(idx, 1);
+            renderPendingFiles();
+            const fileInput = document.getElementById('file_form_input');
+            if (fileInput instanceof HTMLInputElement) {
+                const dt = new DataTransfer();
+                pendingFiles.forEach(f => dt.items.add(f));
+                fileInput.files = dt.files;
+            }
+        }
     });
 
     document.getElementById('send_textarea').addEventListener('paste', async function (event) {
@@ -1916,16 +1936,11 @@ export function initChatUtilities() {
         const fileInput = document.getElementById('file_form_input');
         if (!(fileInput instanceof HTMLInputElement)) return;
 
+        await onFileAttach(Array.from(event.clipboardData.files));
+
         const dataTransfer = new DataTransfer();
         pendingFiles.forEach(f => dataTransfer.items.add(f));
-        for (let i = 0; i < event.clipboardData.files.length; i++) {
-            const file = event.clipboardData.files[i];
-            dataTransfer.items.add(file);
-            pendingFiles.push(file);
-        }
-
         fileInput.files = dataTransfer.files;
-        await onFileAttach(Array.from(event.clipboardData.files));
     });
 
     eventSource.on(event_types.CHAT_CHANGED, checkForCreatorNotesStyles);

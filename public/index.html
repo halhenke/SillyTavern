@@ -7068,6 +7068,16 @@
                 <div class="right_menu_button mes_file_delete fa-solid fa-trash-can" title="Remove the file" data-i18n="[title]Remove the file"></div>
             </div>
         </div>
+        <div id="pending_file_template" class="template_element">
+            <div class="file_attached">
+                <i class="fa-solid fa-file-alt"></i>
+                <span class="file_name">File Name</span>
+                <span class="file_size">File Size</span>
+                <button type="button" class="file_remove menu_button" title="Remove the file" data-i18n="[title]Remove the file">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+        </div>
     </div>
     <div id="movingDivs">
         <div id="floatingPrompt" class="drawer-content flexGap5">
@@ -7423,16 +7433,9 @@
             </div>
             <div id="send_form" class="no-connection">
                 <form id="file_form" class="wide100p displayNone">
-                    <div class="file_attached">
-                        <input id="file_form_input" type="file" hidden multiple>
-                        <input id="embed_file_input" type="file" hidden multiple>
-                        <i class="fa-solid fa-file-alt"></i>
-                        <span class="file_name">File Name</span>
-                        <span class="file_size">File Size</span>
-                        <button id="file_form_reset" type="reset" class="menu_button" title="Remove the file" data-i18n="[title]Remove the file">
-                            <i class="fa fa-times"></i>
-                        </button>
-                    </div>
+                    <input id="file_form_input" type="file" hidden multiple>
+                    <input id="embed_file_input" type="file" hidden multiple>
+                    <div id="file_attachments"></div>
                 </form>
                 <div id="nonQRFormItems">
                     <div id="leftSendForm" class="alignContentCenter">

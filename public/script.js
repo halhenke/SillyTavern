@@ -2543,6 +2543,8 @@ export function addOneMessage(mes, { type = 'normal', insertAfter = null, scroll
     // Set the swipes counter for all non-user messages.
     if (!params.isUser) {
         updateSwipeCounter(newMessageId);
+        const modelName = chat[newMessageId].swipe_info?.[chat[newMessageId].swipe_id]?.extra?.model || '';
+        newMessage.find('.swipe-model-name').text(modelName);
     }
 
     //last_mes should always be updated.
@@ -8973,7 +8975,11 @@ export function refreshSwipeButtons(updateCounters = false, fade = true) {
             div.classList.toggle('swipes_visible', hasSwipes || pristineGreeting);
 
             //updateSwipeCounter does not need to be awaited, It can run a bit later.
-            if (updateCounters) updateSwipeCounter(messageId, { message, messageElement: $(div) });
+            if (updateCounters) {
+                updateSwipeCounter(messageId, { message, messageElement: $(div) });
+                const modelName = chat[messageId].swipe_info?.[chat[messageId].swipe_id]?.extra?.model || '';
+                $(div).find('.swipe-model-name').text(modelName);
+            }
         } else {
             //Hide all messages that are not swipeable.
             div.classList.remove('swipes_visible', 'last_swipe');
@@ -8999,6 +9005,7 @@ export function hideSwipeButtons({ hideCounters = false } = {}) {
 
     if (hideCounters === true) {
         chatElement.find('.last_mes .swipes-counter').prop('hidden', true);
+        chatElement.find('.last_mes .swipe-model-name').prop('hidden', true);
     }
 }
 

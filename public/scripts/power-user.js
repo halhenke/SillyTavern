@@ -335,6 +335,7 @@ export const power_user = {
     reduced_motion: false,
     compact_input_area: true,
     show_swipe_num_all_messages: false,
+    show_swipe_model_names: false,
     auto_connect: false,
     auto_load_chat: false,
     forbid_external_media: true,
@@ -521,6 +522,11 @@ function switchCompactInputArea() {
 function switchSwipeNumAllMessages() {
     $('#show_swipe_num_all_messages').prop('checked', power_user.show_swipe_num_all_messages);
     $('body').toggleClass('swipeAllMessages', !!power_user.show_swipe_num_all_messages);
+}
+
+function switchSwipeModelNames() {
+    $('#show_swipe_model_names').prop('checked', power_user.show_swipe_model_names);
+    $('body').toggleClass('swipeModelNames', !!power_user.show_swipe_model_names);
 }
 
 var originalSliderValues = [];
@@ -1410,6 +1416,13 @@ function applyTheme(name) {
             },
         },
         {
+            key: 'show_swipe_model_names',
+            action: () => {
+                $('#show_swipe_model_names').prop('checked', power_user.show_swipe_model_names);
+                switchSwipeModelNames();
+            },
+        },
+        {
             key: 'click_to_edit',
             action: () => {
                 $('#click_to_edit').prop('checked', power_user.click_to_edit);
@@ -1494,6 +1507,7 @@ export function applyPowerUserSettings() {
     switchTokenCount();
     switchMessageActions();
     switchSwipeNumAllMessages();
+    switchSwipeModelNames();
 }
 
 export function applyStylePins() {
@@ -1781,6 +1795,7 @@ export async function loadPowerUserSettings(settings, data) {
     $('#click_to_edit').prop('checked', power_user.click_to_edit);
     $('#media_display').val(power_user.media_display);
     $('#image_overswipe').val(power_user.image_overswipe);
+    $('#show_swipe_model_names').prop('checked', power_user.show_swipe_model_names);
 
     for (const theme of themes) {
         const option = document.createElement('option');
@@ -2572,6 +2587,7 @@ function getThemeObject(name) {
         reduced_motion: power_user.reduced_motion,
         compact_input_area: power_user.compact_input_area,
         show_swipe_num_all_messages: power_user.show_swipe_num_all_messages,
+        show_swipe_model_names: power_user.show_swipe_model_names,
         click_to_edit: power_user.click_to_edit,
         media_display: power_user.media_display,
     };
@@ -4145,6 +4161,12 @@ jQuery(() => {
     $('#show_swipe_num_all_messages').on('input', function () {
         power_user.show_swipe_num_all_messages = !!$(this).prop('checked');
         switchSwipeNumAllMessages();
+        saveSettingsDebounced();
+    });
+
+    $('#show_swipe_model_names').on('input', function () {
+        power_user.show_swipe_model_names = !!$(this).prop('checked');
+        switchSwipeModelNames();
         saveSettingsDebounced();
     });
 

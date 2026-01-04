@@ -21,6 +21,7 @@ public/stats.json
 *.jsonl
 /config.conf
 /config.yaml
+data-main-branch-clone
 /config.conf.bak
 /docker/config
 /docker/user

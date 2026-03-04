@@ -1,12 +1,20 @@
 import {
     chat_metadata,
-    substituteParams,
     this_chid,
+} from './runtime/chat-adapter.js';
+import {
     eventSource,
     event_types,
+} from './runtime/events-adapter.js';
+import {
+    substituteParams,
+} from './runtime/parser-adapter.js';
+import {
     saveSettingsDebounced,
+} from './runtime/settings-adapter.js';
+import {
     animation_duration,
-} from '../script.js';
+} from './runtime/ui-adapter.js';
 import { extension_settings, saveMetadataDebounced } from './extensions.js';
 import { selected_group } from './group-chats.js';
 import { getCharaFilename, delay } from './utils.js';

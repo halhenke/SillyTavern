@@ -161,3 +161,28 @@
 1. Tackle one heavyweight hub next (`tags`/`world-info` first, then `openai` and `slash-commands`).
 2. Add CI/lint guardrails against new direct `../script.js` imports.
 3. Start replacing one adapter with a real service implementation to move beyond re-export compatibility.
+
+## 2026-03-05 - Adapter Migration Wave 5
+
+### Completed
+- Expanded adapters to cover more UI/runtime bindings:
+  - `runtime/ui-adapter.js` now exports `animation_duration` and `MAX_INJECTION_DEPTH`.
+  - `runtime/extensions-adapter.js` now exports `extension_prompt_roles`.
+  - `runtime/chat-operations-adapter.js` now exports `saveChat`, `openCharacterChat`, `getCharacters`, and `saveItemizedPrompts`.
+- Migrated additional modules off direct `../script.js` imports:
+  - `cfg-scale.js`
+  - `authors-note.js`
+  - `bookmarks.js`
+
+### Measurable Impact
+- Direct `../script.js` imports across `public/scripts` reduced from **40** to **34**.
+- Root-level direct imports reduced from **20** to **17**.
+
+### Insights
+- Continuing to enrich focused adapters is steadily accelerating consumer-file migrations.
+- Remaining direct imports are now concentrated in the largest orchestration files, which should be addressed as dedicated refactor tracks.
+
+### Next
+1. Start a focused migration track for `tags.js` and `world-info.js`.
+2. Then address `openai.js`, `slash-commands.js`, and `power-user.js` as separate large-scope tracks.
+3. Add lint guardrails to prevent regression in import direction.

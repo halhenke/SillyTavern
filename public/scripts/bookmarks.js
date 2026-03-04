@@ -1,17 +1,18 @@
 import {
     characters,
-    saveChat,
-    system_message_types,
     this_chid,
-    openCharacterChat,
     chat_metadata,
-    getRequestHeaders,
-    getThumbnailUrl,
+} from './runtime/chat-adapter.js';
+import {
+    saveChat,
+    openCharacterChat,
     getCharacters,
     chat,
     saveChatConditional,
     saveItemizedPrompts,
-} from '../script.js';
+} from './runtime/chat-operations-adapter.js';
+import { getRequestHeaders, getThumbnailUrl } from './runtime/network-adapter.js';
+import { system_message_types } from './system-messages.js';
 import { humanizedDateTime } from './RossAscends-mods.js';
 import {
     DEFAULT_AUTO_MODE_DELAY,

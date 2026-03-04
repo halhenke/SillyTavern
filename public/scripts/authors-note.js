@@ -1,14 +1,22 @@
 import {
-    MAX_INJECTION_DEPTH,
-    animation_duration,
     chat_metadata,
+    this_chid,
+} from './runtime/chat-adapter.js';
+import {
     eventSource,
     event_types,
+} from './runtime/events-adapter.js';
+import {
     extension_prompt_roles,
     extension_prompt_types,
+} from './runtime/extensions-adapter.js';
+import {
     saveSettingsDebounced,
-    this_chid,
-} from '../script.js';
+} from './runtime/settings-adapter.js';
+import {
+    MAX_INJECTION_DEPTH,
+    animation_duration,
+} from './runtime/ui-adapter.js';
 import { selected_group } from './group-chats.js';
 import { extension_settings, getContext, saveMetadataDebounced } from './extensions.js';
 import { getCharaFilename, debounce, delay } from './utils.js';

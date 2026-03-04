@@ -6,6 +6,7 @@ import {
     deleteCharacter,
     getCharacters,
     getRequestHeaders,
+    groupToEntity,
     printCharacters,
     printCharactersDebounced,
 } from '../../script.js';
@@ -18,6 +19,7 @@ export {
     deleteCharacter,
     getCharacters,
     getRequestHeaders,
+    groupToEntity,
     printCharacters,
     printCharactersDebounced,
 };

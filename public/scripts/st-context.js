@@ -1,59 +1,46 @@
+import { menu_type } from './runtime/app-state-adapter.js';
+import { CONNECT_API_MAP, main_api } from './runtime/api-adapter.js';
+import { characters, getCharacters } from './runtime/character-adapter.js';
+import { chat_metadata, getCurrentChatId, name1, name2, this_chid } from './runtime/chat-adapter.js';
 import {
     activateSendButtons,
     addOneMessage,
     appendMediaToMessage,
-    callPopup,
-    characters,
     chat,
-    chat_metadata,
-    CONNECT_API_MAP,
+    clearChat,
     create_save,
     deactivateSendButtons,
-    event_types,
-    eventSource,
-    extension_prompts,
-    extractMessageFromData,
-    Generate,
-    generateQuietPrompt,
-    getCharacters,
-    getCurrentChatId,
-    getRequestHeaders,
-    getThumbnailUrl,
-    main_api,
-    max_context,
-    menu_type,
-    messageFormatting,
-    name1,
-    name2,
-    online_status,
+    deleteLastMessage,
+    getCharacterCardFields,
     openCharacterChat,
+    printMessages,
     reloadCurrentChat,
     renameChat,
     saveChatConditional,
-    saveMetadata,
     saveReply,
-    saveSettingsDebounced,
-    selectCharacterById,
+    swipe_left,
+    swipe_right,
+    updateChatMetadata,
+} from './runtime/chat-operations-adapter.js';
+import { event_types, eventSource } from './runtime/events-adapter.js';
+import { extension_prompts, setExtensionPrompt } from './runtime/extensions-adapter.js';
+import {
+    Generate,
+    generateQuietPrompt,
+    generateRaw,
+    max_context,
+    online_status,
     sendGenerationRequest,
     sendStreamingRequest,
-    sendSystemMessage,
-    setExtensionPrompt,
     stopGeneration,
     streamingProcessor,
-    substituteParams,
-    substituteParamsExtended,
-    this_chid,
-    updateChatMetadata,
-    updateMessageBlock,
-    printMessages,
-    clearChat,
-    unshallowCharacter,
-    deleteLastMessage,
-    getCharacterCardFields,
-    swipe_right,
-    swipe_left,
-    generateRaw,
-} from '../script.js';
+} from './runtime/generation-adapter.js';
+import { messageFormatting, updateMessageBlock } from './runtime/message-adapter.js';
+import { getRequestHeaders, getThumbnailUrl } from './runtime/network-adapter.js';
+import { extractMessageFromData, substituteParams, substituteParamsExtended } from './runtime/parser-adapter.js';
+import { saveMetadata, saveSettingsDebounced } from './runtime/settings-adapter.js';
+import { selectCharacterById, sendSystemMessage, unshallowCharacter } from './runtime/session-adapter.js';
+import { callPopup } from './runtime/ui-adapter.js';
 import {
     extension_settings,
     ModuleWorkerWrapper,

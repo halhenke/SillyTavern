@@ -1,25 +1,10 @@
-import {
-    buildAvatarList,
-    characterToEntity,
-    characters,
-    chat,
-    chat_metadata,
-    default_user_avatar,
-    eventSource,
-    event_types,
-    getRequestHeaders,
-    getThumbnailUrl,
-    groupToEntity,
-    menu_type,
-    name1,
-    name2,
-    reloadCurrentChat,
-    saveChatConditional,
-    saveMetadata,
-    saveSettingsDebounced,
-    setUserName,
-    this_chid,
-} from '../script.js';
+import { menu_type } from './runtime/app-state-adapter.js';
+import { buildAvatarList, characterToEntity, characters, groupToEntity } from './runtime/character-adapter.js';
+import { chat_metadata, default_user_avatar, name1, name2, setUserName, this_chid } from './runtime/chat-adapter.js';
+import { chat, reloadCurrentChat, saveChatConditional } from './runtime/chat-operations-adapter.js';
+import { eventSource, event_types } from './runtime/events-adapter.js';
+import { getRequestHeaders, getThumbnailUrl } from './runtime/network-adapter.js';
+import { saveMetadata, saveSettingsDebounced } from './runtime/settings-adapter.js';
 import { persona_description_positions, power_user } from './power-user.js';
 import { getTokenCountAsync } from './tokenizers.js';
 import { PAGINATION_TEMPLATE, clearInfoBlock, debounce, delay, download, ensureImageFormatSupported, flashHighlight, getBase64Async, getCharIndex, isFalseBoolean, isTrueBoolean, onlyUnique, parseJsonFile, setInfoBlock, localizePagination, renderPaginationDropdown, paginationDropdownChangeHandler } from './utils.js';

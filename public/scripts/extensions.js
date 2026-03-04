@@ -1,6 +1,10 @@
 import { DOMPurify, Popper } from '../lib.js';
 
-import { eventSource, event_types, saveSettings, saveSettingsDebounced, getRequestHeaders, animation_duration, CLIENT_VERSION } from '../script.js';
+import { eventSource, event_types } from './runtime/events-adapter.js';
+import { saveSettings, saveSettingsDebounced } from './runtime/settings-adapter.js';
+import { getRequestHeaders } from './runtime/network-adapter.js';
+import { animation_duration } from './runtime/ui-adapter.js';
+import { CLIENT_VERSION } from './runtime/api-adapter.js';
 import { showLoader } from './loader.js';
 import { POPUP_RESULT, POPUP_TYPE, Popup, callGenericPopup } from './popup.js';
 import { renderTemplate, renderTemplateAsync } from './templates.js';

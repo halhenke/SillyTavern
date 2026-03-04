@@ -251,3 +251,40 @@
 1. Tackle remaining hubs in priority order: `openai`, `slash-commands`, `power-user`, `chats`, `group-chats`, `st-context`, `welcome-screen`, `RossAscends-mods`, `extensions`.
 2. Add lint constraints for new direct `../script.js` imports.
 3. Begin replacing adapter internals with standalone service modules (starting with settings and event bus).
+
+## 2026-03-05 - Adapter Migration Wave 9
+
+### Completed
+- Added `runtime/session-adapter.js` to isolate high-level session/navigation bindings:
+  - chat switching and entity selection helpers,
+  - assistant/system message helpers,
+  - navbar/send triggers and active entity state.
+- Expanded focused adapters:
+  - `runtime/api-adapter.js` now exports `CLIENT_VERSION`.
+  - `runtime/character-adapter.js` now exports `groupToEntity`.
+  - `runtime/chat-adapter.js` now exports `default_user_avatar` and `setUserName`.
+- Migrated additional root-level modules off direct `../script.js` imports:
+  - `extensions.js`
+  - `personas.js`
+  - `welcome-screen.js`
+  - `RossAscends-mods.js`
+  - `power-user.js`
+  - `st-context.js`
+
+### Measurable Impact
+- Direct `../script.js` imports across `public/scripts` reduced from **10** to **4**.
+- Remaining direct imports are now limited to:
+  - `chats.js`
+  - `group-chats.js`
+  - `openai.js`
+  - `slash-commands.js`
+
+### Insights
+- A narrow `session-adapter` provides a cleaner seam for orchestration-heavy modules than overloading existing settings/chat adapters.
+- `st-context.js` now consumes typed runtime adapters only, which centralizes extension-facing surface composition behind explicit seams.
+- Remaining work is now concentrated in four large orchestration hubs rather than utility or feature leaf modules.
+
+### Next
+1. Continue hub migration in dependency order: `chats`/`group-chats` -> `slash-commands`/`openai`.
+2. Add lint guardrails to prevent new direct `../script.js` imports in `public/scripts`.
+3. Start replacing at least one adapter implementation with standalone service logic instead of pure re-export.

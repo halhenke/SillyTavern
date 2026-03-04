@@ -1,33 +1,24 @@
+import { characters, getCharacters, printCharactersDebounced } from './runtime/character-adapter.js';
+import { getCurrentChatId, this_chid } from './runtime/chat-adapter.js';
+import { addOneMessage, chat, displayVersion, openCharacterChat, system_avatar } from './runtime/chat-operations-adapter.js';
+import { event_types, eventSource } from './runtime/events-adapter.js';
+import { getRequestHeaders, getThumbnailUrl } from './runtime/network-adapter.js';
 import {
-    addOneMessage,
-    characters,
-    chat,
     deleteCharacterChatByName,
-    displayVersion,
     doNewChat,
-    event_types,
-    eventSource,
-    getCharacters,
-    getCurrentChatId,
-    getRequestHeaders,
     getSystemMessageByType,
-    getThumbnailUrl,
-    is_send_press,
     neutralCharacterName,
     newAssistantChat,
-    openCharacterChat,
-    printCharactersDebounced,
     renameGroupOrCharacterChat,
-    saveSettingsDebounced,
     selectCharacterById,
     setActiveCharacter,
     setActiveGroup,
-    system_avatar,
     system_message_types,
-    this_chid,
     unshallowCharacter,
     updateRemoteChatName,
-} from '../script.js';
+} from './runtime/session-adapter.js';
+import { saveSettingsDebounced } from './runtime/settings-adapter.js';
+import { is_send_press } from './runtime/ui-adapter.js';
 import { getRegexedString, regex_placement } from './extensions/regex/engine.js';
 import { deleteGroupChatByName, getGroupAvatar, groups, is_group_generating, openGroupById, openGroupChat } from './group-chats.js';
 import { t } from './i18n.js';

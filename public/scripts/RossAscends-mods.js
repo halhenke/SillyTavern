@@ -1,25 +1,23 @@
 import { DOMPurify, Bowser } from '../lib.js';
 
+import { menu_type } from './runtime/app-state-adapter.js';
+import { main_api } from './runtime/api-adapter.js';
+import { buildAvatarList, characters } from './runtime/character-adapter.js';
+import { eventSource } from './runtime/events-adapter.js';
+import { max_context, online_status } from './runtime/generation-adapter.js';
+import { substituteParams } from './runtime/parser-adapter.js';
 import {
-    characters,
-    online_status,
-    main_api,
-    is_send_press,
-    max_context,
-    saveSettingsDebounced,
-    active_group,
     active_character,
-    setActiveGroup,
-    setActiveCharacter,
-    getEntitiesList,
-    buildAvatarList,
-    selectCharacterById,
-    eventSource,
-    menu_type,
-    substituteParams,
-    sendTextareaMessage,
+    active_group,
     doNavbarIconClick,
-} from '../script.js';
+    getEntitiesList,
+    selectCharacterById,
+    sendTextareaMessage,
+    setActiveCharacter,
+    setActiveGroup,
+} from './runtime/session-adapter.js';
+import { saveSettingsDebounced } from './runtime/settings-adapter.js';
+import { is_send_press } from './runtime/ui-adapter.js';
 
 import {
     power_user,

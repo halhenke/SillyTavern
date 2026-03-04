@@ -1,35 +1,18 @@
 import { Fuse, Handlebars } from '../lib.js';
 
-import {
-    saveSettingsDebounced,
-    scrollChatToBottom,
-    characters,
-    reloadMarkdownProcessor,
-    reloadCurrentChat,
-    getRequestHeaders,
-    substituteParams,
-    eventSource,
-    event_types,
-    getCurrentChatId,
-    printCharactersDebounced,
-    setCharacterId,
-    setEditedMessageId,
-    chat,
-    getFirstDisplayedMessageId,
-    showMoreMessages,
-    saveSettings,
-    saveChatConditional,
-    setAnimationDuration,
-    ANIMATION_DURATION_DEFAULT,
-    setActiveGroup,
-    setActiveCharacter,
-    entitiesFilter,
-    doNewChat,
-    online_status,
-    messageFormatting,
-    extension_prompt_types,
-    extension_prompt_roles,
-} from '../script.js';
+import { entitiesFilter } from './runtime/app-state-adapter.js';
+import { characters, printCharactersDebounced } from './runtime/character-adapter.js';
+import { getCurrentChatId } from './runtime/chat-adapter.js';
+import { chat, reloadCurrentChat, saveChatConditional, showMoreMessages } from './runtime/chat-operations-adapter.js';
+import { eventSource, event_types } from './runtime/events-adapter.js';
+import { extension_prompt_roles, extension_prompt_types } from './runtime/extensions-adapter.js';
+import { online_status } from './runtime/generation-adapter.js';
+import { getFirstDisplayedMessageId, messageFormatting, setEditedMessageId } from './runtime/message-adapter.js';
+import { getRequestHeaders } from './runtime/network-adapter.js';
+import { substituteParams } from './runtime/parser-adapter.js';
+import { doNewChat, setActiveCharacter, setActiveGroup, setCharacterId } from './runtime/session-adapter.js';
+import { saveSettings, saveSettingsDebounced } from './runtime/settings-adapter.js';
+import { ANIMATION_DURATION_DEFAULT, reloadMarkdownProcessor, scrollChatToBottom, setAnimationDuration } from './runtime/ui-adapter.js';
 import { isMobile, initMovingUI, favsToHotswap } from './RossAscends-mods.js';
 import {
     groups,

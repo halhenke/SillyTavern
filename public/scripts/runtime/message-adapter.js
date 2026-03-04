@@ -1,8 +1,10 @@
 import {
     cleanUpMessage,
     closeMessageEditor,
+    getFirstDisplayedMessageId,
     messageFormatting,
     saveChatDebounced,
+    setEditedMessageId,
     syncMesToSwipe,
     updateMessageBlock,
 } from '../../script.js';
@@ -10,8 +12,10 @@ import {
 export {
     cleanUpMessage,
     closeMessageEditor,
+    getFirstDisplayedMessageId,
     messageFormatting,
     saveChatDebounced,
+    setEditedMessageId,
     syncMesToSwipe,
     updateMessageBlock,
 };

@@ -1,6 +1,7 @@
 import {
     amount_gen,
     Generate,
+    generateRaw,
     generateQuietPrompt,
     getGeneratingApi,
     getGenerateUrl,
@@ -8,13 +9,18 @@ import {
     isStreamingEnabled,
     max_context,
     online_status,
+    sendGenerationRequest,
+    sendStreamingRequest,
     setGenerationProgress,
     setGenerationParamsFromPreset,
+    stopGeneration,
+    streamingProcessor,
 } from '../../script.js';
 
 export {
     amount_gen,
     Generate,
+    generateRaw,
     generateQuietPrompt,
     getGeneratingApi,
     getGenerateUrl,
@@ -22,6 +28,10 @@ export {
     isStreamingEnabled,
     max_context,
     online_status,
+    sendGenerationRequest,
+    sendStreamingRequest,
     setGenerationProgress,
     setGenerationParamsFromPreset,
+    stopGeneration,
+    streamingProcessor,
 };

@@ -9,16 +9,21 @@ const runtimeRoot = path.join(scriptsRoot, 'runtime');
 const staticImportRegex = /\bfrom\s+['"](\.{1,2}\/)+script\.js['"]/;
 const dynamicImportRegex = /\bimport\s*\(\s*['"](\.{1,2}\/)+script\.js['"]\s*\)/;
 
-async function collectTopLevelJavaScriptFiles(directory) {
+async function collectJavaScriptFiles(directory) {
     const entries = await fs.readdir(directory, { withFileTypes: true });
     const files = [];
 
     for (const entry of entries) {
-        if (!entry.isFile() || !entry.name.endsWith('.js')) {
+        const fullPath = path.join(directory, entry.name);
+
+        if (entry.isDirectory()) {
+            files.push(...await collectJavaScriptFiles(fullPath));
             continue;
         }
 
-        files.push(path.join(directory, entry.name));
+        if (entry.isFile() && entry.name.endsWith('.js')) {
+            files.push(fullPath);
+        }
     }
 
     return files;
@@ -47,7 +52,7 @@ function findViolations(content, fullPath) {
 }
 
 async function main() {
-    const files = await collectTopLevelJavaScriptFiles(scriptsRoot);
+    const files = await collectJavaScriptFiles(scriptsRoot);
     const checkFiles = files.filter(file => !file.startsWith(`${runtimeRoot}${path.sep}`));
     const violations = [];
 

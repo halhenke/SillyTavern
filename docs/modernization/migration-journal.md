@@ -395,3 +395,16 @@
 1. Extend CI guardrails to enforce `script.js` boundary beyond top-level modules.
 2. Replace first adapter concern with standalone implementation (event bus, then settings).
 3. Start React slice migration against adapter-backed services (instead of direct legacy bindings).
+
+## 2026-03-05 - Boundary Guardrail Expansion
+
+### Completed
+- Updated `check:import-boundaries` scanner scope from top-level `public/scripts/*.js` to recursive `public/scripts/**/*.js` (excluding `public/scripts/runtime/*`).
+- Kept comment-line exclusion so JSDoc type references do not produce false positives.
+
+### Measurable Impact
+- Recursive boundary check passes with **0** direct static/dynamic `script.js` imports outside runtime adapters.
+
+### Next
+1. Add `check:import-boundaries` to CI so boundary regressions fail pull requests.
+2. Start standalone implementation extraction behind adapters (event bus first).

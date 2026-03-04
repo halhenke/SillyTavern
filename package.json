@@ -129,6 +129,7 @@
         "ui:typecheck": "npm --prefix frontend run typecheck",
         "ui:test": "npm --prefix frontend run test",
         "ui:e2e": "npm --prefix frontend run e2e",
+        "check:import-boundaries": "node scripts/check-import-boundaries.mjs",
         "plugins:update": "node plugins update",
         "plugins:install": "node plugins install"
     },

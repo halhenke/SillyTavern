@@ -341,3 +341,24 @@
 1. Add lint/boundary checks that reject new direct `../script.js` imports in `public/scripts`.
 2. Start replacing adapter internals with standalone service modules (event bus, then settings persistence).
 3. Begin the next React-facing migration slice using adapter-backed services as the integration seam.
+
+## 2026-03-05 - Boundary Guardrail (Phase 8 hardening step)
+
+### Completed
+- Added import-boundary enforcement script:
+  - `scripts/check-import-boundaries.mjs`
+- Added root npm script:
+  - `check:import-boundaries`
+- Guardrail behavior:
+  - scans top-level `public/scripts/*.js`,
+  - allows direct `script.js` imports only inside `public/scripts/runtime/`,
+  - fails on any direct `script.js` import elsewhere.
+
+### Measurable Impact
+- The boundary check currently passes with **0** violations.
+- Prevents regression after reaching **0** direct `../script.js` imports outside runtime adapters.
+- Extension subtree imports remain a separate migration track and are intentionally out of this guardrail's initial scope.
+
+### Next
+1. Wire `check:import-boundaries` into CI validation flow.
+2. Start swapping one adapter concern from re-export to standalone implementation.

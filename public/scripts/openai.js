@@ -5,31 +5,22 @@
 */
 import { Fuse, DOMPurify } from '../lib.js';
 
+import { main_api } from './runtime/api-adapter.js';
+import { abortStatusCheck, resultCheckStatus, setOnlineStatus, startStatusLoading } from './runtime/backend-status-adapter.js';
+import { characters, name1, name2, this_chid } from './runtime/chat-adapter.js';
+import { event_types, eventSource } from './runtime/events-adapter.js';
 import {
-    abortStatusCheck,
-    characters,
-    event_types,
-    eventSource,
     extension_prompt_roles,
     extension_prompt_types,
-    Generate,
     getExtensionPrompt,
     getExtensionPromptMaxDepth,
-    getRequestHeaders,
-    getStoppingStrings,
-    is_send_press,
-    main_api,
-    name1,
-    name2,
-    resultCheckStatus,
-    saveSettingsDebounced,
-    setOnlineStatus,
-    startStatusLoading,
-    substituteParams,
-    substituteParamsExtended,
-    system_message_types,
-    this_chid,
-} from '../script.js';
+} from './runtime/extensions-adapter.js';
+import { Generate, getStoppingStrings } from './runtime/generation-adapter.js';
+import { getRequestHeaders } from './runtime/network-adapter.js';
+import { substituteParams, substituteParamsExtended } from './runtime/parser-adapter.js';
+import { system_message_types } from './runtime/session-adapter.js';
+import { saveSettingsDebounced } from './runtime/settings-adapter.js';
+import { is_send_press } from './runtime/ui-adapter.js';
 import { getGroupNames, selected_group } from './group-chats.js';
 
 import {

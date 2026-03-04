@@ -4,6 +4,7 @@ import {
     extractJsonFromData,
     extractMessageFromData,
     getBiasStrings,
+    removeMacros,
     substituteParams,
     substituteParamsExtended,
 } from '../../script.js';
@@ -14,6 +15,7 @@ export {
     extractJsonFromData,
     extractMessageFromData,
     getBiasStrings,
+    removeMacros,
     substituteParams,
     substituteParamsExtended,
 };

@@ -4,11 +4,13 @@ import {
     characterToEntity,
     characters,
     deleteCharacter,
+    duplicateCharacter,
     getCharacters,
     getRequestHeaders,
     groupToEntity,
     printCharacters,
     printCharactersDebounced,
+    renameCharacter,
 } from '../../script.js';
 
 export {
@@ -17,9 +19,11 @@ export {
     characterToEntity,
     characters,
     deleteCharacter,
+    duplicateCharacter,
     getCharacters,
     getRequestHeaders,
     groupToEntity,
     printCharacters,
     printCharactersDebounced,
+    renameCharacter,
 };

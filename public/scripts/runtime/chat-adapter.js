@@ -1,6 +1,7 @@
 import {
     characters,
     chat_metadata,
+    comment_avatar,
     default_avatar,
     default_user_avatar,
     getCurrentChatId,
@@ -14,6 +15,7 @@ import {
 export {
     characters,
     chat_metadata,
+    comment_avatar,
     default_avatar,
     default_user_avatar,
     getCurrentChatId,

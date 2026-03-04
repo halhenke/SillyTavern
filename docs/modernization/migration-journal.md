@@ -315,3 +315,29 @@
 1. Migrate `slash-commands.js` and `openai.js` to runtime adapters in one coordinated pass.
 2. Add lint guardrails to block new direct `../script.js` imports under `public/scripts`.
 3. Start replacing one adapter concern with standalone implementation (event bus or settings persistence).
+
+## 2026-03-05 - Adapter Migration Wave 11
+
+### Completed
+- Expanded focused adapter coverage for command/orchestration dependencies:
+  - `runtime/character-adapter.js` (`duplicateCharacter`, `renameCharacter`)
+  - `runtime/chat-adapter.js` (`comment_avatar`)
+  - `runtime/chat-operations-adapter.js` (`deleteSwipe`, `extractMessageBias`, `getCurrentChatDetails`)
+  - `runtime/extensions-adapter.js` (`getExtensionPrompt`, `getExtensionPromptMaxDepth`)
+  - `runtime/parser-adapter.js` (`removeMacros`)
+- Migrated final root hubs off direct `../script.js` imports:
+  - `slash-commands.js`
+  - `openai.js`
+
+### Measurable Impact
+- Direct `../script.js` imports across `public/scripts` reduced from **2** to **0**.
+- Legacy runtime coupling now flows through `public/scripts/runtime/*-adapter.js` only.
+
+### Insights
+- Completing `slash-commands` and `openai` together avoided temporary adapter churn caused by their shared prompt/generation contracts.
+- The next maintainability win is enforcing this boundary in CI so regressions cannot reintroduce direct script coupling.
+
+### Next
+1. Add lint/boundary checks that reject new direct `../script.js` imports in `public/scripts`.
+2. Start replacing adapter internals with standalone service modules (event bus, then settings persistence).
+3. Begin the next React-facing migration slice using adapter-backed services as the integration seam.

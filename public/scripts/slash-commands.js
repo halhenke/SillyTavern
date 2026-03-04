@@ -1,59 +1,43 @@
 import { Fuse, DOMPurify } from '../lib.js';
 import { copyText, flashHighlight } from './utils.js';
 
+import { main_api } from './runtime/api-adapter.js';
+import { duplicateCharacter, characters, renameCharacter } from './runtime/character-adapter.js';
+import { chat_metadata, comment_avatar, default_avatar, getCurrentChatId, name1, name2, this_chid } from './runtime/chat-adapter.js';
 import {
-    Generate,
     activateSendButtons,
     addOneMessage,
-    characters,
     chat,
-    chat_metadata,
-    comment_avatar,
     deactivateSendButtons,
-    default_avatar,
     deleteSwipe,
     displayPastChats,
-    duplicateCharacter,
-    eventSource,
-    event_types,
-    extension_prompt_roles,
-    extension_prompt_types,
     extractMessageBias,
-    generateQuietPrompt,
-    generateRaw,
     getCurrentChatDetails,
-    getCurrentChatId,
-    getFirstDisplayedMessageId,
-    getThumbnailUrl,
-    is_send_press,
-    main_api,
-    name1,
-    name2,
-    neutralCharacterName,
-    newAssistantChat,
-    online_status,
     reloadCurrentChat,
-    removeMacros,
-    renameCharacter,
     renameChat,
     saveChatConditional,
-    saveSettings,
-    saveSettingsDebounced,
     sendMessageAsUser,
+    showMoreMessages,
+    system_avatar,
+} from './runtime/chat-operations-adapter.js';
+import { eventSource, event_types } from './runtime/events-adapter.js';
+import { extension_prompt_roles, extension_prompt_types, setExtensionPrompt } from './runtime/extensions-adapter.js';
+import { Generate, generateQuietPrompt, generateRaw, online_status, stopGeneration } from './runtime/generation-adapter.js';
+import { getFirstDisplayedMessageId, syncMesToSwipe } from './runtime/message-adapter.js';
+import { getThumbnailUrl } from './runtime/network-adapter.js';
+import { removeMacros, substituteParams } from './runtime/parser-adapter.js';
+import {
+    neutralCharacterName,
+    newAssistantChat,
     sendSystemMessage,
     setActiveCharacter,
     setActiveGroup,
     setCharacterId,
     setCharacterName,
-    setExtensionPrompt,
-    showMoreMessages,
-    stopGeneration,
-    substituteParams,
-    syncMesToSwipe,
-    system_avatar,
     system_message_types,
-    this_chid,
-} from '../script.js';
+} from './runtime/session-adapter.js';
+import { saveSettings, saveSettingsDebounced } from './runtime/settings-adapter.js';
+import { is_send_press } from './runtime/ui-adapter.js';
 import { SlashCommandParser } from './slash-commands/SlashCommandParser.js';
 import { SlashCommandParserError } from './slash-commands/SlashCommandParserError.js';
 import { getMessageTimeStamp, isMobile } from './RossAscends-mods.js';

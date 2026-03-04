@@ -288,3 +288,30 @@
 1. Continue hub migration in dependency order: `group-chats` -> `slash-commands`/`openai`.
 2. Add lint guardrails to prevent new direct `../script.js` imports in `public/scripts`.
 3. Start replacing at least one adapter implementation with standalone service logic instead of pure re-export.
+
+## 2026-03-05 - Adapter Migration Wave 10
+
+### Completed
+- Expanded focused adapters to support group chat orchestration migration:
+  - `runtime/app-state-adapter.js` (`isChatSaving`, `setMenuType`)
+  - `runtime/chat-adapter.js` (`default_avatar`)
+  - `runtime/chat-operations-adapter.js` (`displayPastChats`, `sendMessageAsUser`, `loadItemizedPrompts`)
+  - `runtime/generation-adapter.js` (`talkativeness_default`, `depth_prompt_depth_default`, `depth_prompt_role_default`, `shouldAutoContinue`)
+  - `runtime/parser-adapter.js` (`baseChatReplace`, `getBiasStrings`)
+  - `runtime/session-adapter.js` (`select_rm_info`, `setCharacterName`, `resetChatState`, `selectRightMenuWithAnimation`, `select_selected_character`, `cancelTtsPlay`, `setScenarioOverride`, `setExternalAbortController`)
+- Migrated `group-chats.js` off direct `../script.js` imports to focused runtime adapters.
+
+### Measurable Impact
+- Direct `../script.js` imports across `public/scripts` reduced from **3** to **2**.
+- Remaining direct imports are now limited to:
+  - `openai.js`
+  - `slash-commands.js`
+
+### Insights
+- `group-chats.js` confirms the current adapter split can handle even high-coupling orchestration modules without a compatibility break.
+- Remaining direct-import modules (`openai`, `slash-commands`) are tightly interconnected and should be migrated together to avoid temporary adapter churn.
+
+### Next
+1. Migrate `slash-commands.js` and `openai.js` to runtime adapters in one coordinated pass.
+2. Add lint guardrails to block new direct `../script.js` imports under `public/scripts`.
+3. Start replacing one adapter concern with standalone implementation (event bus or settings persistence).

@@ -22,61 +22,54 @@ import { RA_CountCharTokens, humanizedDateTime, dragElement, favsToHotswap, getM
 import { power_user, loadMovingUIState, sortEntitiesList } from './power-user.js';
 import { debounce_timeout } from './constants.js';
 
+import { isChatSaving, menu_type, setMenuType } from './runtime/app-state-adapter.js';
+import { characters, getCharacters } from './runtime/character-adapter.js';
+import { chat_metadata, default_avatar, getCurrentChatId, name1 } from './runtime/chat-adapter.js';
 import {
-    chat,
-    sendSystemMessage,
-    printMessages,
-    substituteParams,
-    characters,
-    default_avatar,
+    activateSendButtons,
     addOneMessage,
+    chat,
     clearChat,
+    deactivateSendButtons,
+    deleteLastMessage,
+    displayPastChats,
+    hideSwipeButtons,
+    loadItemizedPrompts,
+    printMessages,
+    saveChatConditional,
+    sendMessageAsUser,
+    setSendButtonState,
+    showSwipeButtons,
+    system_avatar,
+    updateChatMetadata,
+} from './runtime/chat-operations-adapter.js';
+import { eventSource, event_types } from './runtime/events-adapter.js';
+import {
     Generate,
+    depth_prompt_depth_default,
+    depth_prompt_role_default,
+    online_status,
+    shouldAutoContinue,
+    talkativeness_default,
+} from './runtime/generation-adapter.js';
+import { setEditedMessageId } from './runtime/message-adapter.js';
+import { getRequestHeaders, getThumbnailUrl } from './runtime/network-adapter.js';
+import { baseChatReplace, getBiasStrings, substituteParams } from './runtime/parser-adapter.js';
+import {
+    cancelTtsPlay,
+    resetChatState,
+    selectRightMenuWithAnimation,
+    select_selected_character,
     select_rm_info,
+    sendSystemMessage,
     setCharacterId,
     setCharacterName,
-    setEditedMessageId,
-    is_send_press,
-    name1,
-    resetChatState,
-    setSendButtonState,
-    getCharacters,
-    system_message_types,
-    online_status,
-    talkativeness_default,
-    selectRightMenuWithAnimation,
-    deleteLastMessage,
-    showSwipeButtons,
-    hideSwipeButtons,
-    chat_metadata,
-    updateChatMetadata,
-    getThumbnailUrl,
-    getRequestHeaders,
-    setMenuType,
-    menu_type,
-    select_selected_character,
-    cancelTtsPlay,
-    displayPastChats,
-    sendMessageAsUser,
-    getBiasStrings,
-    saveChatConditional,
-    deactivateSendButtons,
-    activateSendButtons,
-    eventSource,
-    event_types,
-    getCurrentChatId,
-    setScenarioOverride,
-    system_avatar,
-    isChatSaving,
     setExternalAbortController,
-    baseChatReplace,
-    depth_prompt_depth_default,
-    loadItemizedPrompts,
-    animation_duration,
-    depth_prompt_role_default,
-    shouldAutoContinue,
+    setScenarioOverride,
+    system_message_types,
     unshallowCharacter,
-} from '../script.js';
+} from './runtime/session-adapter.js';
+import { animation_duration, is_send_press } from './runtime/ui-adapter.js';
 import { printTagList, createTagMapFromList, applyTagsOnCharacterSelect, tag_map, applyTagsOnGroupSelect } from './tags.js';
 import { FILTER_TYPES, FilterHelper } from './filters.js';
 import { isExternalMediaAllowed } from './chats.js';

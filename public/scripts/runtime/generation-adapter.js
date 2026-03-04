@@ -1,5 +1,7 @@
 import {
     amount_gen,
+    depth_prompt_depth_default,
+    depth_prompt_role_default,
     Generate,
     generateRaw,
     generateQuietPrompt,
@@ -9,16 +11,20 @@ import {
     isStreamingEnabled,
     max_context,
     online_status,
+    shouldAutoContinue,
     sendGenerationRequest,
     sendStreamingRequest,
     setGenerationProgress,
     setGenerationParamsFromPreset,
     stopGeneration,
     streamingProcessor,
+    talkativeness_default,
 } from '../../script.js';
 
 export {
     amount_gen,
+    depth_prompt_depth_default,
+    depth_prompt_role_default,
     Generate,
     generateRaw,
     generateQuietPrompt,
@@ -28,10 +34,12 @@ export {
     isStreamingEnabled,
     max_context,
     online_status,
+    shouldAutoContinue,
     sendGenerationRequest,
     sendStreamingRequest,
     setGenerationProgress,
     setGenerationParamsFromPreset,
     stopGeneration,
     streamingProcessor,
+    talkativeness_default,
 };

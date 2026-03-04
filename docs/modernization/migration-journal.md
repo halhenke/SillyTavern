@@ -408,3 +408,22 @@
 ### Next
 1. Add `check:import-boundaries` to CI so boundary regressions fail pull requests.
 2. Start standalone implementation extraction behind adapters (event bus first).
+
+## 2026-03-05 - Adapter Internal Extraction Wave 1 (Events)
+
+### Completed
+- Replaced `runtime/events-adapter.js` monolith binding source:
+  - before: re-export from `script.js`
+  - after: direct import from `public/scripts/events.js`
+- Preserved extension/runtime contract (`event_types`, `eventSource`) while removing one adapter-level dependency on the monolith entry.
+
+### Measurable Impact
+- Runtime adapter direct `script.js` re-export files reduced from **15** to **14**.
+
+### Insights
+- `events.js` is already a clean standalone boundary and is a strong pattern for extracting other concerns.
+- Next extractions should prioritize similarly self-contained sources to minimize runtime regression risk.
+
+### Next
+1. Continue adapter-internal extraction with another low-risk concern (settings or network).
+2. Add CI wiring for `check:import-boundaries`.

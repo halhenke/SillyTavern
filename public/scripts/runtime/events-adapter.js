@@ -1,7 +1,7 @@
 import {
     event_types,
     eventSource,
-} from '../../script.js';
+} from '../events.js';
 
 export {
     event_types,

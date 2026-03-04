@@ -1,5 +1,5 @@
 import { power_user } from './power-user.js';
-import { substituteParams } from './runtime-adapter.js';
+import { substituteParams } from './runtime/parser-adapter.js';
 
 /**
  * Showdown extension to make chat separators (dinkuses) ignore markdown formatting

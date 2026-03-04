@@ -6,7 +6,8 @@ import {
 } from '../lib.js';
 
 import { getContext } from './extensions.js';
-import { characters, getRequestHeaders, this_chid, user_avatar } from '../script.js';
+import { characters, this_chid, user_avatar } from './runtime/chat-adapter.js';
+import { getRequestHeaders } from './runtime/network-adapter.js';
 import { isMobile } from './RossAscends-mods.js';
 import { collapseNewlines, power_user } from './power-user.js';
 import { debounce_timeout } from './constants.js';

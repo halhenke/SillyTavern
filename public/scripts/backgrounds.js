@@ -1,5 +1,9 @@
 import { Fuse, localforage } from '../lib.js';
-import { chat_metadata, eventSource, event_types, generateQuietPrompt, getCurrentChatId, getRequestHeaders, getThumbnailUrl, saveSettingsDebounced } from './runtime-adapter.js';
+import { chat_metadata, getCurrentChatId } from './runtime/chat-adapter.js';
+import { eventSource, event_types } from './runtime/events-adapter.js';
+import { generateQuietPrompt } from './runtime/generation-adapter.js';
+import { getRequestHeaders, getThumbnailUrl } from './runtime/network-adapter.js';
+import { saveSettingsDebounced } from './runtime/settings-adapter.js';
 import { openThirdPartyExtensionMenu, saveMetadataDebounced } from './extensions.js';
 import { SlashCommand } from './slash-commands/SlashCommand.js';
 import { SlashCommandParser } from './slash-commands/SlashCommandParser.js';

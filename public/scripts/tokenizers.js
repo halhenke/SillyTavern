@@ -1,5 +1,7 @@
 import { localforage } from '../lib.js';
-import { characters, main_api, nai_settings, online_status, this_chid } from '../script.js';
+import { characters, this_chid } from './runtime/chat-adapter.js';
+import { main_api, nai_settings } from './runtime/api-adapter.js';
+import { online_status } from './runtime/generation-adapter.js';
 import { power_user, registerDebugFunction } from './power-user.js';
 import { chat_completion_sources, model_list, oai_settings } from './openai.js';
 import { groups, selected_group } from './group-chats.js';

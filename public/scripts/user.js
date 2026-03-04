@@ -1,4 +1,4 @@
-import { getRequestHeaders } from './runtime-adapter.js';
+import { getRequestHeaders } from './runtime/network-adapter.js';
 import { POPUP_RESULT, POPUP_TYPE, callGenericPopup } from './popup.js';
 import { renderTemplateAsync } from './templates.js';
 import { ensureImageFormatSupported, getBase64Async, humanFileSize } from './utils.js';

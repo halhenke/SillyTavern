@@ -65,3 +65,71 @@
 1. Split `runtime-adapter.js` into concern-specific adapters (`events`, `settings`, `network`, `generation`) to avoid becoming a second monolith.
 2. Continue migrating remaining `../script.js` imports to adapters.
 3. Start swapping selected adapter exports from `script.js` bindings to standalone service implementations.
+
+## 2026-03-05 - Concern-Specific Adapter Split
+
+### Completed
+- Introduced focused runtime adapters under `public/scripts/runtime/`:
+  - `events-adapter.js`
+  - `network-adapter.js`
+  - `settings-adapter.js`
+  - `chat-adapter.js`
+  - `generation-adapter.js`
+  - `parser-adapter.js`
+  - `extensions-adapter.js`
+  - `api-adapter.js`
+- Converted `runtime-adapter.js` into a compatibility re-export layer pointing to focused adapters.
+- Rewired migrated modules to consume focused adapters directly (instead of `runtime-adapter.js`):
+  - `backgrounds.js`
+  - `custom-request.js`
+  - `data-maid.js`
+  - `instruct-mode.js`
+  - `logit-bias.js`
+  - `scrapers.js`
+  - `secrets.js`
+  - `server-history.js`
+  - `showdown-exclusion.js`
+  - `stats.js`
+  - `sysprompt.js`
+  - `textgen-models.js`
+  - `user.js`
+  - `variables.js`
+- Migrated additional direct `../script.js` imports in:
+  - `tokenizers.js`
+  - `utils.js`
+
+### Measurable Impact
+- Direct `../script.js` imports across `public/scripts` reduced from **66** to **60**.
+
+### Insights
+- Adapter-by-concern is easier to migrate incrementally and reason about than a single broad facade.
+- We can now replace adapter internals with real standalone services one concern at a time.
+
+### Next
+1. Continue adapter migration for remaining direct imports (`tags`, `macros`, `tool-calling`, `system-messages`, etc.).
+2. Start extracting one concrete concern implementation (settings persistence service) behind adapters.
+3. Add lint guardrails to block new direct `../script.js` imports outside approved compatibility zones.
+
+## 2026-03-05 - Adapter Migration Wave 3
+
+### Completed
+- Added `runtime/chat-operations-adapter.js` for message/chat operations and runtime display/system metadata.
+- Rewired additional modules off direct `../script.js` imports:
+  - `system-messages.js`
+  - `tool-calling.js`
+  - `itemized-prompts.js`
+  - `macros.js`
+- Rewired `tokenizers.js` and `utils.js` to focused adapters (`chat`, `api`, `generation`, `network`).
+
+### Measurable Impact
+- Direct `../script.js` imports across `public/scripts` reduced from **60** to **52**.
+- Root-level direct imports reduced from **30** to **26**.
+
+### Insights
+- Moving consumer files to concern-specific adapters is now faster than expanding one large facade.
+- `chat-operations-adapter` is a useful stepping stone before fully isolating message/state services.
+
+### Next
+1. Continue with remaining high-coupling modules (`tags`, `world-info`, `slash-commands`, `openai`, `power-user`).
+2. Add lint rule(s) to prevent new direct `../script.js` imports where adapters exist.
+3. Begin replacing adapter internals for one concern with standalone module implementations.

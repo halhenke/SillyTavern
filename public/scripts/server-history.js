@@ -1,4 +1,4 @@
-import { saveSettingsDebounced } from './runtime-adapter.js';
+import { saveSettingsDebounced } from './runtime/settings-adapter.js';
 import { power_user } from './power-user.js';
 import { isValidUrl } from './utils.js';
 

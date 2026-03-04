@@ -1,6 +1,8 @@
 import { DOMPurify } from '../lib.js';
 
-import { addOneMessage, chat, event_types, eventSource, main_api, saveChatConditional, system_avatar, systemUserName } from '../script.js';
+import { addOneMessage, chat, saveChatConditional, system_avatar, systemUserName } from './runtime/chat-operations-adapter.js';
+import { event_types, eventSource } from './runtime/events-adapter.js';
+import { main_api } from './runtime/api-adapter.js';
 import { chat_completion_sources, custom_prompt_post_processing_types, model_list, oai_settings } from './openai.js';
 import { Popup } from './popup.js';
 import { SlashCommand } from './slash-commands/SlashCommand.js';

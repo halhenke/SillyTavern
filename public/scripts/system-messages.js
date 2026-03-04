@@ -1,4 +1,4 @@
-import { addOneMessage, chat, displayVersion, setSendButtonState, system_avatar, systemUserName } from '../script.js';
+import { addOneMessage, chat, displayVersion, setSendButtonState, system_avatar, systemUserName } from './runtime/chat-operations-adapter.js';
 import { t } from './i18n.js';
 import { getMessageTimeStamp } from './RossAscends-mods.js';
 import { getSlashCommandsHelp } from './slash-commands.js';

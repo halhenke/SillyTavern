@@ -1,5 +1,7 @@
 import { getPresetManager } from './preset-manager.js';
-import { extractJsonFromData, extractMessageFromData, getGenerateUrl, getRequestHeaders } from './runtime-adapter.js';
+import { extractJsonFromData, extractMessageFromData } from './runtime/parser-adapter.js';
+import { getGenerateUrl } from './runtime/generation-adapter.js';
+import { getRequestHeaders } from './runtime/network-adapter.js';
 import { getTextGenServer } from './textgen-settings.js';
 import { extractReasoningFromData } from './reasoning.js';
 import { formatInstructModeChat, formatInstructModePrompt, getInstructStoppingSequences, names_behavior_types } from './instruct-mode.js';

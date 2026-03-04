@@ -1,4 +1,4 @@
-import { saveSettingsDebounced } from './runtime-adapter.js';
+import { saveSettingsDebounced } from './runtime/settings-adapter.js';
 import { getTextTokens } from './tokenizers.js';
 import { getSortableDelay, uuidv4 } from './utils.js';
 

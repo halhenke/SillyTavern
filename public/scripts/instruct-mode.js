@@ -1,6 +1,10 @@
 'use strict';
 
-import { extension_prompt_types, name1, name2, online_status, saveSettingsDebounced, substituteParams } from './runtime-adapter.js';
+import { extension_prompt_types } from './runtime/extensions-adapter.js';
+import { name1, name2 } from './runtime/chat-adapter.js';
+import { online_status } from './runtime/generation-adapter.js';
+import { saveSettingsDebounced } from './runtime/settings-adapter.js';
+import { substituteParams } from './runtime/parser-adapter.js';
 import { selected_group } from './group-chats.js';
 import { parseExampleIntoIndividual } from './openai.js';
 import {

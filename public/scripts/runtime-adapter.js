@@ -1,51 +1,45 @@
-import {
-    amount_gen,
-    characters,
-    chat_metadata,
-    event_types,
-    eventSource,
-    extension_prompt_types,
-    extractJsonFromData,
-    extractMessageFromData,
-    generateQuietPrompt,
-    getCurrentChatId,
-    getGenerateUrl,
-    getRequestHeaders,
-    getThumbnailUrl,
-    max_context,
-    name1,
-    name2,
-    online_status,
-    saveSettingsDebounced,
-    setGenerationParamsFromPreset,
-    substituteParams,
-    this_chid,
-} from '../script.js';
-
 /**
- * Adapter module that re-exports legacy runtime APIs.
- * New modules should import from this file instead of ../script.js directly.
+ * Transitional legacy adapter.
+ * Prefer importing focused adapters from ./runtime/*-adapter.js.
  */
 export {
     amount_gen,
-    characters,
-    chat_metadata,
+    generateQuietPrompt,
+    getGenerateUrl,
+    max_context,
+    online_status,
+    setGenerationParamsFromPreset,
+} from './runtime/generation-adapter.js';
+
+export {
     event_types,
     eventSource,
-    extension_prompt_types,
-    extractJsonFromData,
-    extractMessageFromData,
-    generateQuietPrompt,
-    getCurrentChatId,
-    getGenerateUrl,
+} from './runtime/events-adapter.js';
+
+export {
     getRequestHeaders,
     getThumbnailUrl,
-    max_context,
+} from './runtime/network-adapter.js';
+
+export {
+    saveSettingsDebounced,
+} from './runtime/settings-adapter.js';
+
+export {
+    characters,
+    chat_metadata,
+    getCurrentChatId,
     name1,
     name2,
-    online_status,
-    saveSettingsDebounced,
-    setGenerationParamsFromPreset,
-    substituteParams,
     this_chid,
-};
+} from './runtime/chat-adapter.js';
+
+export {
+    extension_prompt_types,
+} from './runtime/extensions-adapter.js';
+
+export {
+    extractJsonFromData,
+    extractMessageFromData,
+    substituteParams,
+} from './runtime/parser-adapter.js';

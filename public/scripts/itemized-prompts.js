@@ -1,5 +1,7 @@
 import { DiffMatchPatch, DOMPurify, localforage } from '../lib.js';
-import { chat, event_types, eventSource, getCurrentChatId, reloadCurrentChat } from '../script.js';
+import { chat, reloadCurrentChat } from './runtime/chat-operations-adapter.js';
+import { getCurrentChatId } from './runtime/chat-adapter.js';
+import { event_types, eventSource } from './runtime/events-adapter.js';
 import { t } from './i18n.js';
 import { oai_settings } from './openai.js';
 import { Popup, POPUP_TYPE } from './popup.js';

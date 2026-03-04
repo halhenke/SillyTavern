@@ -1,4 +1,4 @@
-import { characterGroupOverlay } from '../script.js';
+import { characterGroupOverlay } from './runtime/character-adapter.js';
 import { BulkEditOverlay, BulkEditOverlayState, CharacterContextMenu } from './BulkEditOverlay.js';
 import { event_types, eventSource } from './events.js';
 

@@ -3,15 +3,14 @@
 import {
     characterGroupOverlay,
     characters,
-    event_types,
-    eventSource,
     getCharacters,
     getRequestHeaders,
     buildAvatarList,
     characterToEntity,
     printCharactersDebounced,
     deleteCharacter,
-} from '../script.js';
+} from './runtime/character-adapter.js';
+import { event_types, eventSource } from './runtime/events-adapter.js';
 
 import { favsToHotswap } from './RossAscends-mods.js';
 import { hideLoader, showLoader } from './loader.js';

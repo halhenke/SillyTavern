@@ -186,3 +186,23 @@
 1. Start a focused migration track for `tags.js` and `world-info.js`.
 2. Then address `openai.js`, `slash-commands.js`, and `power-user.js` as separate large-scope tracks.
 3. Add lint guardrails to prevent regression in import direction.
+
+## 2026-03-05 - Adapter Migration Wave 6
+
+### Completed
+- Added `runtime/character-adapter.js` to isolate bulk-edit character operations from direct `script.js` imports.
+- Migrated:
+  - `bulk-edit.js`
+  - `BulkEditOverlay.js`
+
+### Measurable Impact
+- Direct `../script.js` imports across `public/scripts` reduced from **34** to **30**.
+- Root-level direct imports reduced from **17** to **15**.
+
+### Insights
+- Small focused adapters for specific high-coupling UI clusters (like bulk edit) are fast wins.
+- The remaining direct imports are increasingly concentrated in top-level orchestration modules.
+
+### Next
+1. Create dedicated migration tracks for remaining hubs: `tags`, `world-info`, `openai`, `slash-commands`, `power-user`, `chats`, `group-chats`.
+2. Add lint constraints to block new direct `../script.js` usage where adapter equivalents exist.

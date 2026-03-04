@@ -1,5 +1,5 @@
 import { DOMPurify, moment } from '../lib.js';
-import { event_types, eventSource, getRequestHeaders } from '../script.js';
+import { event_types, eventSource, getRequestHeaders } from './runtime-adapter.js';
 import { t } from './i18n.js';
 import { chat_completion_sources } from './openai.js';
 import { callGenericPopup, Popup, POPUP_TYPE } from './popup.js';

@@ -36,3 +36,32 @@
 1. Install frontend dependencies and run `ui:typecheck`, `ui:test`, and smoke checks.
 2. Add parity E2E assertions for login states (discreet, normal, recovery).
 3. Begin replacing direct `../script.js` imports via typed adapter modules.
+
+## 2026-03-05 - Runtime Adapter Expansion
+
+### Completed
+- Expanded `public/scripts/runtime-adapter.js` to include broader legacy runtime bindings.
+- Migrated additional modules from direct `../script.js` imports to `./runtime-adapter.js`:
+  - `backgrounds.js`
+  - `custom-request.js`
+  - `data-maid.js`
+  - `instruct-mode.js`
+  - `scrapers.js`
+  - `secrets.js`
+  - `showdown-exclusion.js`
+  - `stats.js`
+  - `textgen-models.js`
+  - `user.js`
+  - `variables.js`
+
+### Measurable Impact
+- Direct `../script.js` imports across `public/scripts` reduced from **92** to **66**.
+
+### Insights
+- A central facade lets us cut monolith coupling quickly without breaking runtime behavior.
+- This adapter pass creates a clear seam for later extraction of real service modules.
+
+### Next
+1. Split `runtime-adapter.js` into concern-specific adapters (`events`, `settings`, `network`, `generation`) to avoid becoming a second monolith.
+2. Continue migrating remaining `../script.js` imports to adapters.
+3. Start swapping selected adapter exports from `script.js` bindings to standalone service implementations.

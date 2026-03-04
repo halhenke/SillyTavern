@@ -1,5 +1,25 @@
 import {
+    amount_gen,
+    characters,
+    chat_metadata,
+    event_types,
+    eventSource,
+    extension_prompt_types,
+    extractJsonFromData,
+    extractMessageFromData,
+    generateQuietPrompt,
+    getCurrentChatId,
+    getGenerateUrl,
+    getRequestHeaders,
+    getThumbnailUrl,
+    max_context,
+    name1,
+    name2,
+    online_status,
     saveSettingsDebounced,
+    setGenerationParamsFromPreset,
+    substituteParams,
+    this_chid,
 } from '../script.js';
 
 /**
@@ -7,5 +27,25 @@ import {
  * New modules should import from this file instead of ../script.js directly.
  */
 export {
+    amount_gen,
+    characters,
+    chat_metadata,
+    event_types,
+    eventSource,
+    extension_prompt_types,
+    extractJsonFromData,
+    extractMessageFromData,
+    generateQuietPrompt,
+    getCurrentChatId,
+    getGenerateUrl,
+    getRequestHeaders,
+    getThumbnailUrl,
+    max_context,
+    name1,
+    name2,
+    online_status,
     saveSettingsDebounced,
+    setGenerationParamsFromPreset,
+    substituteParams,
+    this_chid,
 };

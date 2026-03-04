@@ -1,4 +1,5 @@
 import {
+    addCopyToCodeBlocks,
     ANIMATION_DURATION_DEFAULT,
     animation_duration,
     callPopup,
@@ -10,6 +11,7 @@ import {
 } from '../../script.js';
 
 export {
+    addCopyToCodeBlocks,
     ANIMATION_DURATION_DEFAULT,
     animation_duration,
     callPopup,

@@ -1,33 +1,24 @@
 // Move chat functions here from script.js (eventually)
 
 import { Popper, css, DOMPurify } from '../lib.js';
+import { characters, chat_metadata, getCurrentChatId, name1, name2, this_chid } from './runtime/chat-adapter.js';
 import {
-    addCopyToCodeBlocks,
     appendMediaToMessage,
-    characters,
     chat,
-    eventSource,
-    event_types,
-    getCurrentChatId,
-    getRequestHeaders,
-    hideSwipeButtons,
-    name1,
-    name2,
-    reloadCurrentChat,
-    saveSettingsDebounced,
-    showSwipeButtons,
-    this_chid,
-    saveChatConditional,
-    chat_metadata,
-    neutralCharacterName,
-    updateChatMetadata,
-    system_message_types,
-    converter,
-    substituteParams,
-    getSystemMessageByType,
-    printMessages,
     clearChat,
-} from '../script.js';
+    hideSwipeButtons,
+    printMessages,
+    reloadCurrentChat,
+    saveChatConditional,
+    showSwipeButtons,
+    updateChatMetadata,
+} from './runtime/chat-operations-adapter.js';
+import { eventSource, event_types } from './runtime/events-adapter.js';
+import { getRequestHeaders } from './runtime/network-adapter.js';
+import { converter, substituteParams } from './runtime/parser-adapter.js';
+import { neutralCharacterName, getSystemMessageByType, system_message_types } from './runtime/session-adapter.js';
+import { saveSettingsDebounced } from './runtime/settings-adapter.js';
+import { addCopyToCodeBlocks } from './runtime/ui-adapter.js';
 import { selected_group } from './group-chats.js';
 import { power_user } from './power-user.js';
 import {

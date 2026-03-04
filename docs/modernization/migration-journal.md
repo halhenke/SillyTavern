@@ -270,11 +270,11 @@
   - `RossAscends-mods.js`
   - `power-user.js`
   - `st-context.js`
+  - `chats.js`
 
 ### Measurable Impact
-- Direct `../script.js` imports across `public/scripts` reduced from **10** to **4**.
+- Direct `../script.js` imports across `public/scripts` reduced from **10** to **3**.
 - Remaining direct imports are now limited to:
-  - `chats.js`
   - `group-chats.js`
   - `openai.js`
   - `slash-commands.js`
@@ -282,9 +282,9 @@
 ### Insights
 - A narrow `session-adapter` provides a cleaner seam for orchestration-heavy modules than overloading existing settings/chat adapters.
 - `st-context.js` now consumes typed runtime adapters only, which centralizes extension-facing surface composition behind explicit seams.
-- Remaining work is now concentrated in four large orchestration hubs rather than utility or feature leaf modules.
+- Remaining work is now concentrated in three large orchestration hubs rather than utility or feature leaf modules.
 
 ### Next
-1. Continue hub migration in dependency order: `chats`/`group-chats` -> `slash-commands`/`openai`.
+1. Continue hub migration in dependency order: `group-chats` -> `slash-commands`/`openai`.
 2. Add lint guardrails to prevent new direct `../script.js` imports in `public/scripts`.
 3. Start replacing at least one adapter implementation with standalone service logic instead of pure re-export.

@@ -1,4 +1,5 @@
 import {
+    converter,
     extractJsonFromData,
     extractMessageFromData,
     substituteParams,
@@ -6,6 +7,7 @@ import {
 } from '../../script.js';
 
 export {
+    converter,
     extractJsonFromData,
     extractMessageFromData,
     substituteParams,

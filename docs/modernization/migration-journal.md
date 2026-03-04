@@ -206,3 +206,48 @@
 ### Next
 1. Create dedicated migration tracks for remaining hubs: `tags`, `world-info`, `openai`, `slash-commands`, `power-user`, `chats`, `group-chats`.
 2. Add lint constraints to block new direct `../script.js` usage where adapter equivalents exist.
+
+## 2026-03-05 - Adapter Migration Wave 7
+
+### Completed
+- Added `runtime/app-state-adapter.js` for `menu_type`, `entitiesFilter`, and `DEFAULT_PRINT_TIMEOUT`.
+- Expanded adapter surfaces:
+  - `runtime/settings-adapter.js` (`saveSettings`, `saveCharacterDebounced`, `saveMetadata`)
+  - `runtime/extensions-adapter.js` (`getExtensionPromptByName`)
+  - `runtime/character-adapter.js` (`printCharacters`)
+- Migrated additional high-coupling files:
+  - `preset-manager.js`
+  - `tags.js`
+  - `world-info.js`
+
+### Measurable Impact
+- Direct `../script.js` imports across `public/scripts` reduced from **30** to **24**.
+- Root-level direct imports reduced from **15** to **12**.
+
+### Insights
+- `world-info` and `tags` were viable to migrate once adapter coverage reached settings/state/extension prompt bindings.
+- Splitting adapters by concern continues to keep migrations mechanical and low risk.
+
+## 2026-03-05 - Adapter Migration Wave 8
+
+### Completed
+- Added `runtime/message-adapter.js` for message lifecycle/editing helpers.
+- Expanded adapter surfaces:
+  - `runtime/generation-adapter.js` (`Generate`, `getGeneratingApi`, `isStreamingEnabled`)
+  - `runtime/parser-adapter.js` (`substituteParamsExtended`)
+- Migrated:
+  - `logprobs.js`
+  - `reasoning.js`
+
+### Measurable Impact
+- Direct `../script.js` imports across `public/scripts` reduced from **24** to **20**.
+- Root-level direct imports reduced from **12** to **10**.
+
+### Insights
+- Message and generation adapters unlock remaining mid-sized consumer migrations quickly.
+- Remaining direct imports are now highly concentrated in top-level orchestration hubs.
+
+### Next
+1. Tackle remaining hubs in priority order: `openai`, `slash-commands`, `power-user`, `chats`, `group-chats`, `st-context`, `welcome-screen`, `RossAscends-mods`, `extensions`.
+2. Add lint constraints for new direct `../script.js` imports.
+3. Begin replacing adapter internals with standalone service modules (starting with settings and event bus).

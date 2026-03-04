@@ -2,17 +2,12 @@ import { DOMPurify } from '../lib.js';
 
 import {
     characters,
-    saveSettingsDebounced,
     this_chid,
-    menu_type,
-    entitiesFilter,
-    printCharactersDebounced,
-    buildAvatarList,
-    eventSource,
-    event_types,
-    DEFAULT_PRINT_TIMEOUT,
-    printCharacters,
-} from '../script.js';
+} from './runtime/chat-adapter.js';
+import { saveSettingsDebounced } from './runtime/settings-adapter.js';
+import { menu_type, entitiesFilter, DEFAULT_PRINT_TIMEOUT } from './runtime/app-state-adapter.js';
+import { buildAvatarList, printCharactersDebounced, printCharacters } from './runtime/character-adapter.js';
+import { eventSource, event_types } from './runtime/events-adapter.js';
 import { FILTER_TYPES, FILTER_STATES, DEFAULT_FILTER_STATE, isFilterState, FilterHelper } from './filters.js';
 
 import { groupCandidatesFilter, groups, selected_group } from './group-chats.js';

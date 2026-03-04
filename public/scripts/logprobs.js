@@ -1,15 +1,12 @@
 import {
     animation_duration,
-    chat,
-    cleanUpMessage,
-    event_types,
-    eventSource,
-    Generate,
-    getGeneratingApi,
     is_send_press,
-    isStreamingEnabled,
-    substituteParamsExtended,
-} from '../script.js';
+} from './runtime/ui-adapter.js';
+import { chat } from './runtime/chat-operations-adapter.js';
+import { cleanUpMessage } from './runtime/message-adapter.js';
+import { event_types, eventSource } from './runtime/events-adapter.js';
+import { Generate, getGeneratingApi, isStreamingEnabled } from './runtime/generation-adapter.js';
+import { substituteParamsExtended } from './runtime/parser-adapter.js';
 import { debounce, delay, getStringHash } from './utils.js';
 import { decodeTextTokens, getTokenizerBestMatch } from './tokenizers.js';
 import { power_user } from './power-user.js';

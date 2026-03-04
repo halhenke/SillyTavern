@@ -2,26 +2,18 @@ import { Fuse, lodash } from '../lib.js';
 
 import {
     amount_gen,
-    characters,
-    eventSource,
-    event_types,
-    getRequestHeaders,
-    koboldai_setting_names,
-    koboldai_settings,
-    main_api,
     max_context,
-    nai_settings,
-    novelai_setting_names,
-    novelai_settings,
     online_status,
-    saveSettings,
-    saveSettingsDebounced,
-    this_chid,
-} from '../script.js';
+} from './runtime/generation-adapter.js';
+import { characters, this_chid } from './runtime/chat-adapter.js';
+import { eventSource, event_types } from './runtime/events-adapter.js';
+import { getRequestHeaders } from './runtime/network-adapter.js';
+import { main_api } from './runtime/api-adapter.js';
+import { saveSettings, saveSettingsDebounced } from './runtime/settings-adapter.js';
 import { groups, selected_group } from './group-chats.js';
 import { instruct_presets } from './instruct-mode.js';
-import { kai_settings } from './kai-settings.js';
-import { convertNovelPreset } from './nai-settings.js';
+import { kai_settings, koboldai_setting_names, koboldai_settings } from './kai-settings.js';
+import { convertNovelPreset, nai_settings, novelai_setting_names, novelai_settings } from './nai-settings.js';
 import { openai_settings, openai_setting_names, oai_settings } from './openai.js';
 import { Popup, POPUP_RESULT, POPUP_TYPE } from './popup.js';
 import { context_presets, getContextSettings, power_user } from './power-user.js';

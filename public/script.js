@@ -260,6 +260,7 @@ import { initSettingsSearch } from './scripts/setting-search.js';
 import { initBulkEdit } from './scripts/bulk-edit.js';
 import { getContext } from './scripts/st-context.js';
 import { extractReasoningFromData, initReasoning, parseReasoningInSwipes, PromptReasoning, ReasoningHandler, removeReasoningFromString, updateReasoningUI } from './scripts/reasoning.js';
+import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, setCsrfToken } from './scripts/network-core.js';
 import { accountStorage } from './scripts/util/AccountStorage.js';
 import { initWelcomeScreen, openPermanentAssistantChat, openPermanentAssistantCard, getPermanentAssistantAvatar } from './scripts/welcome-screen.js';
 import { initDataMaid } from './scripts/data-maid.js';
@@ -577,16 +578,7 @@ export let active_group = '';
 export const entitiesFilter = new FilterHelper(printCharactersDebounced);
 
 export function getRequestHeaders({ omitContentType = false } = {}) {
-    const headers = {
-        'Content-Type': 'application/json',
-        'X-CSRF-Token': token,
-    };
-
-    if (omitContentType) {
-        delete headers['Content-Type'];
-    }
-
-    return headers;
+    return getRequestHeadersCore({ omitContentType });
 }
 
 export function getSlideToggleOptions() {
@@ -628,6 +620,7 @@ async function firstLoadInit() {
         const tokenResponse = await fetch('/csrf-token');
         const tokenData = await tokenResponse.json();
         token = tokenData.token;
+        setCsrfToken(token);
     } catch {
         toastr.error(t`Couldn't get CSRF token. Please refresh the page.`, t`Error`, { timeOut: 0, extendedTimeOut: 0, preventDuplicates: true });
         throw new Error('Initialization failed');
@@ -6449,7 +6442,7 @@ async function read_avatar_load(input) {
  * @returns {string} The URL for the thumbnail
  */
 export function getThumbnailUrl(type, file, t = false) {
-    return `/thumbnail?type=${type}&file=${encodeURIComponent(file)}${t ? `&t=${Date.now()}` : ''}`;
+    return getThumbnailUrlCore(type, file, t);
 }
 
 export function buildAvatarList(block, entities, { templateId = 'inline_avatar_template', empty = true, interactable = false, highlightFavs = true } = {}) {

@@ -1,7 +1,7 @@
 import {
     getRequestHeaders,
     getThumbnailUrl,
-} from '../../script.js';
+} from '../network-core.js';
 
 export {
     getRequestHeaders,

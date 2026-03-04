@@ -427,3 +427,38 @@
 ### Next
 1. Continue adapter-internal extraction with another low-risk concern (settings or network).
 2. Add CI wiring for `check:import-boundaries`.
+
+## 2026-03-05 - Adapter Internal Extraction Wave 2 (Network Core)
+
+### Completed
+- Added standalone network module:
+  - `public/scripts/network-core.js`
+  - exports: `setCsrfToken`, `getRequestHeaders`, `getThumbnailUrl`
+- Updated `public/script.js` to use the standalone network module:
+  - `getRequestHeaders` and `getThumbnailUrl` now proxy to `network-core`
+  - CSRF token initialization now syncs through `setCsrfToken(...)`
+- Switched `runtime/network-adapter.js` from `script.js` re-export to `network-core.js`.
+
+### Measurable Impact
+- Runtime adapter direct `script.js` re-export files reduced from **14** to **13**.
+
+### Insights
+- CSRF and thumbnail URL logic is now independently reusable without importing the monolith entry.
+- This is a viable extraction pattern for other adapter concerns where logic can be moved to standalone helper modules first.
+
+### Next
+1. Continue adapter-internal extraction with the settings concern.
+2. Keep parity checks green while reducing `runtime/*-adapter.js` direct monolith dependencies.
+
+## 2026-03-05 - CI Guardrail Wiring
+
+### Completed
+- Added workflow:
+  - `.github/workflows/frontend-modernization-checks.yml`
+- CI now runs on relevant push/PR paths:
+  - `npm run check:import-boundaries`
+  - `npm run ui:typecheck`
+  - `npm run ui:test`
+
+### Outcome
+- Boundary and frontend quality gates are now enforceable at PR time, reducing risk of coupling regressions.

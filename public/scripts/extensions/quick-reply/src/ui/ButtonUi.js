@@ -1,4 +1,4 @@
-import { animation_duration } from '../../../../../script.js';
+import { animation_duration } from '../../../../runtime/ui-adapter.js';
 import { dragElement } from '../../../../RossAscends-mods.js';
 import { loadMovingUIState } from '../../../../power-user.js';
 import { QuickReplySettings } from '../QuickReplySettings.js';

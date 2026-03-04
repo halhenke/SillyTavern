@@ -1,4 +1,4 @@
-import { saveSettingsDebounced } from '../../script.js';
+import { saveSettingsDebounced } from '../runtime/settings-adapter.js';
 
 const MIGRATED_MARKER = '__migrated';
 const MIGRATABLE_KEYS = [

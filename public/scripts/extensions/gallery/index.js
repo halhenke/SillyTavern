@@ -1,12 +1,21 @@
 import {
-    eventSource,
-    this_chid,
     characters,
-    getRequestHeaders,
+} from '../../runtime/character-adapter.js';
+import {
+    getCurrentChatId,
+    this_chid,
+} from '../../runtime/chat-adapter.js';
+import {
+    eventSource,
     event_types,
+} from '../../runtime/events-adapter.js';
+import {
+    getRequestHeaders,
+} from '../../runtime/network-adapter.js';
+import {
     animation_duration,
     animation_easing,
-} from '../../../script.js';
+} from '../../runtime/ui-adapter.js';
 import { groups, selected_group } from '../../group-chats.js';
 import { loadFileToDocument, delay, getBase64Async, getSanitizedFilename, saveBase64AsFile, getFileExtension } from '../../utils.js';
 import { loadMovingUIState } from '../../power-user.js';

@@ -1,17 +1,31 @@
 import {
+    getCurrentChatId,
+} from '../../runtime/chat-adapter.js';
+import {
     eventSource,
     event_types,
+} from '../../runtime/events-adapter.js';
+import {
     extension_prompt_types,
     extension_prompt_roles,
-    getCurrentChatId,
-    getRequestHeaders,
-    is_send_press,
-    saveSettingsDebounced,
     setExtensionPrompt,
-    substituteParams,
+} from '../../runtime/extensions-adapter.js';
+import {
     generateRaw,
+} from '../../runtime/generation-adapter.js';
+import {
+    getRequestHeaders,
+} from '../../runtime/network-adapter.js';
+import {
+    substituteParams,
     substituteParamsExtended,
-} from '../../../script.js';
+} from '../../runtime/parser-adapter.js';
+import {
+    saveSettingsDebounced,
+} from '../../runtime/settings-adapter.js';
+import {
+    is_send_press,
+} from '../../runtime/ui-adapter.js';
 import {
     ModuleWorkerWrapper,
     extension_settings,

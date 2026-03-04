@@ -1,4 +1,4 @@
-import { getRequestHeaders } from '../../../script.js';
+import { getRequestHeaders } from '../../runtime/network-adapter.js';
 import { getApiUrl } from '../../extensions.js';
 import { doExtrasFetch, modules } from '../../extensions.js';
 import { getPreviewString } from './index.js';
@@ -267,4 +267,3 @@ class EdgeTtsProvider {
         }
     }
 }
-

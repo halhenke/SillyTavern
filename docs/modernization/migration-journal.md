@@ -362,3 +362,36 @@
 ### Next
 1. Wire `check:import-boundaries` into CI validation flow.
 2. Start swapping one adapter concern from re-export to standalone implementation.
+
+## 2026-03-05 - Adapter Migration Wave 12 (Extension + Utility Surface)
+
+### Completed
+- Migrated additional shared modules off direct `script.js` imports:
+  - `slash-commands/SlashCommandClosure.js`
+  - `slash-commands/SlashCommandCommonEnumsProvider.js`
+  - `slash-commands/SlashCommandReturnHelper.js`
+  - `util/AccountStorage.js`
+  - `extensions/shared.js`
+- Expanded adapter exports for extension-facing needs:
+  - `runtime/chat-adapter.js` (`getUserAvatar`)
+  - `runtime/chat-operations-adapter.js` (`processDroppedFiles`, `formatCharacterAvatar`, `getCharacterAvatar`)
+  - `runtime/ui-adapter.js` (`animation_easing`)
+- Migrated extension subtree modules to runtime adapters, including:
+  - `extensions/assets`, `attachments`, `caption`, `connection-manager`, `expressions`, `gallery`, `memory`
+  - `extensions/quick-reply` core and src modules
+  - `extensions/regex` engine and index
+  - `extensions/stable-diffusion`, `token-counter`, `translate`, `vectors`
+  - `extensions/tts` core plus provider modules (`azure`, `edge`, `google-native`, `google-translate`, `minimax`, `novel`, `openai`, `openai-compatible`, `pollinations`, `speecht5`)
+
+### Measurable Impact
+- Direct static `script.js` imports outside `public/scripts/runtime/*` are now **0** across all `public/scripts` JS modules.
+- Runtime coupling now consistently passes through focused adapters, including extension and slash-command helper surfaces.
+
+### Insights
+- The adapter set is now broad enough to support high-coupling extension modules without reintroducing direct monolith imports.
+- Remaining modernization leverage is less about import rewiring and more about replacing adapter internals with standalone services.
+
+### Next
+1. Extend CI guardrails to enforce `script.js` boundary beyond top-level modules.
+2. Replace first adapter concern with standalone implementation (event bus, then settings).
+3. Start React slice migration against adapter-backed services (instead of direct legacy bindings).

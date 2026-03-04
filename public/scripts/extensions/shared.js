@@ -1,4 +1,5 @@
-import { CONNECT_API_MAP, getRequestHeaders } from '../../script.js';
+import { CONNECT_API_MAP } from '../runtime/api-adapter.js';
+import { getRequestHeaders } from '../runtime/network-adapter.js';
 import { extension_settings, openThirdPartyExtensionMenu } from '../extensions.js';
 import { t } from '../i18n.js';
 import { oai_settings, proxies } from '../openai.js';

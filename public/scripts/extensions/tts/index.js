@@ -1,4 +1,9 @@
-import { cancelTtsPlay, eventSource, event_types, getCurrentChatId, isStreamingEnabled, name2, saveSettingsDebounced, substituteParams } from '../../../script.js';
+import { getCurrentChatId, name2 } from '../../runtime/chat-adapter.js';
+import { eventSource, event_types } from '../../runtime/events-adapter.js';
+import { isStreamingEnabled } from '../../runtime/generation-adapter.js';
+import { substituteParams } from '../../runtime/parser-adapter.js';
+import { cancelTtsPlay } from '../../runtime/session-adapter.js';
+import { saveSettingsDebounced } from '../../runtime/settings-adapter.js';
 import { ModuleWorkerWrapper, extension_settings, getContext, renderExtensionTemplateAsync } from '../../extensions.js';
 import { delay, escapeRegex, getBase64Async, getStringHash, onlyUnique } from '../../utils.js';
 import { EdgeTtsProvider } from './edge.js';

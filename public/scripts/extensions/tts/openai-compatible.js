@@ -1,4 +1,5 @@
-import { event_types, eventSource, getRequestHeaders } from '../../../script.js';
+import { eventSource, event_types } from '../../runtime/events-adapter.js';
+import { getRequestHeaders } from '../../runtime/network-adapter.js';
 import { SECRET_KEYS, secret_state } from '../../secrets.js';
 import { getPreviewString, saveTtsProviderSettings } from './index.js';
 

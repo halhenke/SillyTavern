@@ -1,4 +1,8 @@
-import { chat_metadata, characters, substituteParams, chat, extension_prompt_roles, extension_prompt_types, name2, neutralCharacterName } from '../../script.js';
+import { characters, chat_metadata, name2 } from '../runtime/chat-adapter.js';
+import { chat } from '../runtime/chat-operations-adapter.js';
+import { extension_prompt_roles, extension_prompt_types } from '../runtime/extensions-adapter.js';
+import { substituteParams } from '../runtime/parser-adapter.js';
+import { neutralCharacterName } from '../runtime/session-adapter.js';
 import { extension_settings } from '../extensions.js';
 import { getGroupMembers, groups } from '../group-chats.js';
 import { power_user } from '../power-user.js';

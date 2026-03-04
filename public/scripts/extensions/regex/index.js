@@ -1,4 +1,8 @@
-import { characters, eventSource, event_types, getCurrentChatId, reloadCurrentChat, saveSettingsDebounced, this_chid } from '../../../script.js';
+import { characters } from '../../runtime/character-adapter.js';
+import { getCurrentChatId, this_chid } from '../../runtime/chat-adapter.js';
+import { reloadCurrentChat } from '../../runtime/chat-operations-adapter.js';
+import { eventSource, event_types } from '../../runtime/events-adapter.js';
+import { saveSettingsDebounced } from '../../runtime/settings-adapter.js';
 import { extension_settings, renderExtensionTemplateAsync, writeExtensionField } from '../../extensions.js';
 import { selected_group } from '../../group-chats.js';
 import { callGenericPopup, POPUP_TYPE } from '../../popup.js';

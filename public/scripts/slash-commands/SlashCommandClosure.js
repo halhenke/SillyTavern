@@ -1,4 +1,4 @@
-import { substituteParams } from '../../script.js';
+import { substituteParams } from '../runtime/parser-adapter.js';
 import { delay, escapeRegex, uuidv4 } from '../utils.js';
 import { SlashCommand } from './SlashCommand.js';
 import { SlashCommandAbortController } from './SlashCommandAbortController.js';

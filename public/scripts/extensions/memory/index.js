@@ -1,23 +1,35 @@
 import { getStringHash, debounce, waitUntilCondition, extractAllWords, isTrueBoolean } from '../../utils.js';
 import { getContext, getApiUrl, extension_settings, doExtrasFetch, modules, renderExtensionTemplateAsync } from '../../extensions.js';
 import {
-    activateSendButtons,
-    deactivateSendButtons,
-    animation_duration,
-    eventSource,
-    event_types,
     extension_prompt_roles,
     extension_prompt_types,
-    generateQuietPrompt,
-    is_send_press,
-    saveSettingsDebounced,
-    substituteParamsExtended,
-    generateRaw,
-    getMaxContextSize,
     setExtensionPrompt,
+} from '../../runtime/extensions-adapter.js';
+import {
+    activateSendButtons,
+    deactivateSendButtons,
+    getMaxContextSize,
+} from '../../runtime/chat-operations-adapter.js';
+import {
+    eventSource,
+    event_types,
+} from '../../runtime/events-adapter.js';
+import {
+    generateQuietPrompt,
+    generateRaw,
     streamingProcessor,
+} from '../../runtime/generation-adapter.js';
+import {
+    substituteParamsExtended,
+} from '../../runtime/parser-adapter.js';
+import {
+    saveSettingsDebounced,
+} from '../../runtime/settings-adapter.js';
+import {
+    animation_duration,
     animation_easing,
-} from '../../../script.js';
+    is_send_press,
+} from '../../runtime/ui-adapter.js';
 import { is_group_generating, selected_group } from '../../group-chats.js';
 import { loadMovingUIState } from '../../power-user.js';
 import { dragElement } from '../../RossAscends-mods.js';

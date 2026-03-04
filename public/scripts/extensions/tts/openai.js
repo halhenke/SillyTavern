@@ -1,4 +1,5 @@
-import { getRequestHeaders, substituteParams } from '../../../script.js';
+import { getRequestHeaders } from '../../runtime/network-adapter.js';
+import { substituteParams } from '../../runtime/parser-adapter.js';
 import { saveTtsProviderSettings, sanitizeId } from './index.js';
 
 export { OpenAITtsProvider };

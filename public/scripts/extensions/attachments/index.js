@@ -1,4 +1,5 @@
-import { event_types, eventSource, saveSettingsDebounced } from '../../../script.js';
+import { eventSource, event_types } from '../../runtime/events-adapter.js';
+import { saveSettingsDebounced } from '../../runtime/settings-adapter.js';
 import { deleteAttachment, getDataBankAttachments, getDataBankAttachmentsForSource, getFileAttachment, uploadFileAttachmentToServer } from '../../chats.js';
 import { extension_settings, renderExtensionTemplateAsync } from '../../extensions.js';
 import { SlashCommand } from '../../slash-commands/SlashCommand.js';

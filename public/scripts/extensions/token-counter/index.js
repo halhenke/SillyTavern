@@ -1,4 +1,4 @@
-import { main_api } from '../../../script.js';
+import { main_api } from '../../runtime/api-adapter.js';
 import { getContext } from '../../extensions.js';
 import { SlashCommand } from '../../slash-commands/SlashCommand.js';
 import { SlashCommandParser } from '../../slash-commands/SlashCommandParser.js';

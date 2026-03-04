@@ -1,14 +1,24 @@
 export { translate };
 
 import {
+    reloadCurrentChat,
+} from '../../runtime/chat-operations-adapter.js';
+import {
     eventSource,
     event_types,
-    getRequestHeaders,
-    reloadCurrentChat,
-    saveSettingsDebounced,
-    substituteParams,
+} from '../../runtime/events-adapter.js';
+import {
     updateMessageBlock,
-} from '../../../script.js';
+} from '../../runtime/message-adapter.js';
+import {
+    getRequestHeaders,
+} from '../../runtime/network-adapter.js';
+import {
+    substituteParams,
+} from '../../runtime/parser-adapter.js';
+import {
+    saveSettingsDebounced,
+} from '../../runtime/settings-adapter.js';
 import { extension_settings, getContext, renderExtensionTemplateAsync } from '../../extensions.js';
 import { POPUP_TYPE, callGenericPopup } from '../../popup.js';
 import { updateReasoningUI } from '../../reasoning.js';

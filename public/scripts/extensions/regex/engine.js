@@ -1,4 +1,6 @@
-import { characters, substituteParams, substituteParamsExtended, this_chid } from '../../../script.js';
+import { characters } from '../../runtime/character-adapter.js';
+import { this_chid } from '../../runtime/chat-adapter.js';
+import { substituteParams, substituteParamsExtended } from '../../runtime/parser-adapter.js';
 import { extension_settings } from '../../extensions.js';
 import { regexFromString } from '../../utils.js';
 export {

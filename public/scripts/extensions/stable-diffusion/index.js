@@ -1,22 +1,37 @@
 import { Popper } from '../../../lib.js';
 import {
-    animation_duration,
     appendMediaToMessage,
-    event_types,
-    eventSource,
     formatCharacterAvatar,
-    generateQuietPrompt,
     getCharacterAvatar,
     getCurrentChatId,
-    getRequestHeaders,
-    getUserAvatar,
-    saveSettingsDebounced,
-    substituteParams,
-    substituteParamsExtended,
+    processDroppedFiles,
     systemUserName,
+} from '../../runtime/chat-operations-adapter.js';
+import {
     this_chid,
     user_avatar,
-} from '../../../script.js';
+    getUserAvatar,
+} from '../../runtime/chat-adapter.js';
+import {
+    event_types,
+    eventSource,
+} from '../../runtime/events-adapter.js';
+import {
+    generateQuietPrompt,
+} from '../../runtime/generation-adapter.js';
+import {
+    getRequestHeaders,
+} from '../../runtime/network-adapter.js';
+import {
+    substituteParams,
+    substituteParamsExtended,
+} from '../../runtime/parser-adapter.js';
+import {
+    saveSettingsDebounced,
+} from '../../runtime/settings-adapter.js';
+import {
+    animation_duration,
+} from '../../runtime/ui-adapter.js';
 import {
     doExtrasFetch,
     extension_settings,

@@ -133,3 +133,31 @@
 1. Continue with remaining high-coupling modules (`tags`, `world-info`, `slash-commands`, `openai`, `power-user`).
 2. Add lint rule(s) to prevent new direct `../script.js` imports where adapters exist.
 3. Begin replacing adapter internals for one concern with standalone module implementations.
+
+## 2026-03-05 - Adapter Migration Wave 4
+
+### Completed
+- Added shared runtime adapters for backend status and UI state:
+  - `runtime/backend-status-adapter.js`
+  - `runtime/ui-adapter.js`
+- Expanded `runtime/generation-adapter.js` with `getStoppingStrings` and `setGenerationProgress`.
+- Migrated additional direct `../script.js` consumers:
+  - `PromptManager.js`
+  - `samplerSelect.js`
+  - `kai-settings.js`
+  - `nai-settings.js`
+  - `horde.js`
+  - `textgen-settings.js`
+
+### Measurable Impact
+- Direct `../script.js` imports across `public/scripts` reduced from **52** to **40**.
+- Root-level direct imports reduced from **26** to **20**.
+
+### Insights
+- Shared backend/status adapters are effective because multiple model/backend modules have near-identical import sets.
+- Remaining direct imports are concentrated in the largest coupling hubs (`openai`, `slash-commands`, `world-info`, `power-user`, `group-chats`, `chats`).
+
+### Next
+1. Tackle one heavyweight hub next (`tags`/`world-info` first, then `openai` and `slash-commands`).
+2. Add CI/lint guardrails against new direct `../script.js` imports.
+3. Start replacing one adapter with a real service implementation to move beyond re-export compatibility.

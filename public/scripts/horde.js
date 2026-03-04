@@ -1,13 +1,21 @@
 import {
     amount_gen,
-    getRequestHeaders,
-    main_api,
     max_context,
-    resultCheckStatus,
-    saveSettingsDebounced,
     setGenerationProgress,
+} from './runtime/generation-adapter.js';
+import {
+    getRequestHeaders,
+} from './runtime/network-adapter.js';
+import {
+    main_api,
+} from './runtime/api-adapter.js';
+import {
+    resultCheckStatus,
     setOnlineStatus,
-} from '../script.js';
+} from './runtime/backend-status-adapter.js';
+import {
+    saveSettingsDebounced,
+} from './runtime/settings-adapter.js';
 import { SECRET_KEYS, writeSecret } from './secrets.js';
 import { delay } from './utils.js';
 import { isMobile } from './RossAscends-mods.js';
@@ -476,4 +484,3 @@ export function initHorde() {
         });
     }
 }
-

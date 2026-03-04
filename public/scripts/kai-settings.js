@@ -1,18 +1,30 @@
 import {
     getRequestHeaders,
-    saveSettingsDebounced,
+} from './runtime/network-adapter.js';
+import {
     getStoppingStrings,
+    setGenerationParamsFromPreset,
+    online_status,
+} from './runtime/generation-adapter.js';
+import {
     substituteParams,
+} from './runtime/parser-adapter.js';
+import {
     setOnlineStatus,
     resultCheckStatus,
-    main_api,
-    online_status,
     abortStatusCheck,
     startStatusLoading,
-    setGenerationParamsFromPreset,
+} from './runtime/backend-status-adapter.js';
+import {
+    main_api,
+} from './runtime/api-adapter.js';
+import {
     eventSource,
     event_types,
-} from '../script.js';
+} from './runtime/events-adapter.js';
+import {
+    saveSettingsDebounced,
+} from './runtime/settings-adapter.js';
 import { t } from './i18n.js';
 import { autoSelectInstructPreset } from './instruct-mode.js';
 

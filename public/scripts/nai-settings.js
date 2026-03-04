@@ -1,15 +1,13 @@
 import {
     abortStatusCheck,
-    event_types,
-    eventSource,
-    getRequestHeaders,
-    getStoppingStrings,
-    resultCheckStatus,
-    saveSettingsDebounced,
-    setGenerationParamsFromPreset,
     setOnlineStatus,
     startStatusLoading,
-} from '../script.js';
+    resultCheckStatus,
+} from './runtime/backend-status-adapter.js';
+import { event_types, eventSource } from './runtime/events-adapter.js';
+import { getRequestHeaders } from './runtime/network-adapter.js';
+import { getStoppingStrings, setGenerationParamsFromPreset } from './runtime/generation-adapter.js';
+import { saveSettingsDebounced } from './runtime/settings-adapter.js';
 import { MAX_CONTEXT_DEFAULT, MAX_RESPONSE_DEFAULT, power_user } from './power-user.js';
 import { getTextTokens, tokenizers } from './tokenizers.js';
 import { getEventSourceStream } from './sse-stream.js';

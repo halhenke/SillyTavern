@@ -1,7 +1,9 @@
 import {
     main_api,
+} from './runtime/api-adapter.js';
+import {
     saveSettingsDebounced,
-} from '../script.js';
+} from './runtime/settings-adapter.js';
 import { power_user } from './power-user.js';
 //import { BIAS_CACHE, displayLogitBias, getLogitBiasListResult } from './logit-bias.js';
 //import { getEventSourceStream } from './sse-stream.js';

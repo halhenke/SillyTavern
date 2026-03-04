@@ -36,6 +36,14 @@ browserLaunch:
   # Avoids using 'localhost' as the hostname in auto mode.
   # Use if you don't have 'localhost' in your hosts file
   avoidLocalhost: false
+# -- FRONTEND MODERNIZATION FLAGS --
+frontend:
+  # Enables serving the React login flow at /login when the frontend build exists.
+  reactLoginEnabled: false
+  # Enables serving the React app shell at / when the frontend build exists.
+  reactShellEnabled: false
+  # Path to the built React frontend relative to the project root (or absolute).
+  distDirectory: frontend/dist
 # Server port
 port: 8000
 # -- SSL options --

@@ -1,4 +1,6 @@
 node_modules/
+/frontend/node_modules/
+/frontend/dist/
 public/chats/
 public/characters/
 public/User Avatars/
@@ -54,4 +56,3 @@ public/scripts/extensions/third-party
 .aider*
 .env
 /StartDev.bat
-

@@ -20,6 +20,7 @@ import { getConfigValue, color, delay, generateTimestamp } from './util.js';
 import { readSecret, writeSecret } from './endpoints/secrets.js';
 import { getContentOfType } from './endpoints/content-manager.js';
 import { serverDirectory } from './server-directory.js';
+import { getFrontendBuildInfo, getFrontendFlags } from './frontend-runtime.js';
 
 export const KEY_PREFIX = 'user:';
 const AVATAR_PREFIX = 'avatar:';
@@ -35,6 +36,7 @@ const ANON_CSRF_SECRET = crypto.randomBytes(64).toString('base64');
 const DIRECTORIES_CACHE = new Map();
 const PUBLIC_USER_AVATAR = '/img/default-user.png';
 const COOKIE_SECRET_PATH = 'cookie-secret.txt';
+let warnedMissingFrontendBuild = false;
 
 const STORAGE_KEYS = {
     csrfSecret: 'csrfSecret',
@@ -908,6 +910,27 @@ export async function loginPageMiddleware(request, response) {
         console.error('Error during auto-login:', error);
     }
 
+    const { reactLoginEnabled } = getFrontendFlags();
+    const frontendBuild = getFrontendBuildInfo();
+
+    if (reactLoginEnabled && frontendBuild.isReady) {
+        return response.sendFile('index.html', { root: frontendBuild.distDirectory });
+    }
+
+    if (reactLoginEnabled && !frontendBuild.isReady && !warnedMissingFrontendBuild) {
+        warnedMissingFrontendBuild = true;
+        console.warn(color.yellow(`React login is enabled, but the frontend build was not found at ${frontendBuild.indexPath}. Falling back to legacy login.`));
+    }
+
+    return legacyLoginPageMiddleware(request, response);
+}
+
+/**
+ * Hosts the legacy login page regardless of frontend flags.
+ * @param {import('express').Request} _request Request object
+ * @param {import('express').Response} response Response object
+ */
+export function legacyLoginPageMiddleware(_request, response) {
     return response.sendFile('login.html', { root: path.join(serverDirectory, 'public') });
 }
 

@@ -36,7 +36,9 @@ import {
     getSessionCookieAge,
     verifySecuritySettings,
     loginPageMiddleware,
+    legacyLoginPageMiddleware,
 } from './users.js';
+import { getFrontendBuildInfo, getFrontendDistDirectory, getFrontendFlags } from './frontend-runtime.js';
 
 import getWebpackServeMiddleware from './middleware/webpack-serve.js';
 import basicAuthMiddleware from './middleware/basicAuth.js';
@@ -90,6 +92,7 @@ if (!cliArgs.enableIPv6 && !cliArgs.enableIPv4) {
 }
 
 const app = express();
+let warnedMissingShellBuild = false;
 app.use(helmet({
     contentSecurityPolicy: false,
 }));
@@ -192,6 +195,28 @@ app.get('/', cacheBuster.middleware, (request, response) => {
         return response.redirect(redirectUrl);
     }
 
+    const { reactShellEnabled } = getFrontendFlags();
+    const frontendBuild = getFrontendBuildInfo();
+    if (reactShellEnabled && frontendBuild.isReady) {
+        return response.sendFile('index.html', { root: frontendBuild.distDirectory });
+    }
+
+    if (reactShellEnabled && !frontendBuild.isReady && !warnedMissingShellBuild) {
+        warnedMissingShellBuild = true;
+        console.warn(color.yellow(`React shell is enabled, but the frontend build was not found at ${frontendBuild.indexPath}. Falling back to legacy index.`));
+    }
+
+    return response.sendFile('index.html', { root: path.join(serverDirectory, 'public') });
+});
+
+// Explicit legacy app route for React shell embedding and rollback checks.
+app.get('/legacy', cacheBuster.middleware, (request, response) => {
+    if (shouldRedirectToLogin(request)) {
+        const query = request.url.split('?')[1];
+        const redirectUrl = query ? `/legacy-login?${query}` : '/legacy-login';
+        return response.redirect(redirectUrl);
+    }
+
     return response.sendFile('index.html', { root: path.join(serverDirectory, 'public') });
 });
 
@@ -208,10 +233,23 @@ app.get('/callback/:source?', (request, response) => {
 
 // Host login page
 app.get('/login', loginPageMiddleware);
+app.get('/legacy-login', legacyLoginPageMiddleware);
+
+// Frontend runtime flags used by the React application.
+app.get('/api/frontend/flags', (_, response) => {
+    const flags = getFrontendFlags();
+    const frontendBuild = getFrontendBuildInfo();
+
+    response.json({
+        ...flags,
+        frontendBuildReady: frontendBuild.isReady,
+    });
+});
 
 // Host frontend assets
 const webpackMiddleware = getWebpackServeMiddleware();
 app.use(webpackMiddleware);
+app.use('/frontend', express.static(getFrontendDistDirectory(), { index: false }));
 app.use(express.static(path.join(serverDirectory, 'public'), {}));
 
 // Public API

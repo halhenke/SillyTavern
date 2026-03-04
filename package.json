@@ -124,6 +124,11 @@
         "postinstall": "node post-install.js",
         "lint": "eslint \"src/**/*.js\" \"public/**/*.js\" ./*.js",
         "lint:fix": "eslint \"src/**/*.js\" \"public/**/*.js\" ./*.js --fix",
+        "ui:dev": "npm --prefix frontend run dev",
+        "ui:build": "npm --prefix frontend run build",
+        "ui:typecheck": "npm --prefix frontend run typecheck",
+        "ui:test": "npm --prefix frontend run test",
+        "ui:e2e": "npm --prefix frontend run e2e",
         "plugins:update": "node plugins update",
         "plugins:install": "node plugins install"
     },

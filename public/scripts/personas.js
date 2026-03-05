@@ -17,6 +17,7 @@ import { openWorldInfoEditor, world_names } from './world-info.js';
 import { renderTemplateAsync } from './templates.js';
 import { saveMetadataDebounced } from './extensions.js';
 import { accountStorage } from './util/AccountStorage.js';
+import { syncUserAvatar } from './chat-core.js';
 import { SlashCommand } from './slash-commands/SlashCommand.js';
 import { SlashCommandNamedArgument, ARGUMENT_TYPE, SlashCommandArgument } from './slash-commands/SlashCommandArgument.js';
 import { commonEnumProviders } from './slash-commands/SlashCommandCommonEnumsProvider.js';
@@ -81,6 +82,7 @@ export function getUserAvatar(avatarImg) {
 
 export function initUserAvatar(avatar) {
     user_avatar = avatar;
+    syncUserAvatar(user_avatar);
     reloadUserAvatar();
     updatePersonaUIStates();
 }
@@ -94,6 +96,7 @@ export function initUserAvatar(avatar) {
  */
 export function setUserAvatar(imgfile, { toastPersonaNameChange = true, navigateToCurrent = false } = {}) {
     user_avatar = imgfile && typeof imgfile === 'string' ? imgfile : $(this).attr('data-avatar-id');
+    syncUserAvatar(user_avatar);
     reloadUserAvatar();
     updatePersonaUIStates({ navigateToCurrent: navigateToCurrent });
     selectCurrentPersona({ toastPersonaNameChange: toastPersonaNameChange });

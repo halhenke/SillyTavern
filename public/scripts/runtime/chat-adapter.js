@@ -11,7 +11,7 @@ import {
     setUserName,
     this_chid,
     user_avatar,
-} from '../../script.js';
+} from '../chat-core.js';
 
 export {
     characters,

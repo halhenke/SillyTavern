@@ -712,3 +712,31 @@
 ### Next
 1. Continue adapter-internal extraction for remaining adapters (`chat`, `chat-operations`).
 2. Keep parity/boundary checks green while driving runtime adapter monolith dependencies to zero.
+
+## 2026-03-05 - Adapter Internal Extraction Wave 14 (Chat + Chat Operations Core)
+
+### Completed
+- Added standalone chat modules:
+  - `public/scripts/chat-core.js`
+  - `public/scripts/chat-operations-core.js`
+- Updated `public/script.js` to:
+  - bind chat/chat-operations wrappers via `bindChatCore(...)` and `bindChatOperationsCore(...)`,
+  - synchronize chat-facing state/constants (`name1`, `name2`, `this_chid`, `chat_metadata`, avatar constants, `chat`, `create_save`, `displayVersion`, `systemUserName`, `system_avatar`),
+  - add explicit sync coverage at known chat metadata/name/character-id write sites.
+- Updated persona write paths to keep chat-core `user_avatar` mirror in sync:
+  - `public/scripts/personas.js` now calls `syncUserAvatar(...)` in avatar mutation paths.
+- Switched remaining runtime adapters from `script.js` re-export to standalone cores:
+  - `runtime/chat-adapter.js` -> `chat-core.js`
+  - `runtime/chat-operations-adapter.js` -> `chat-operations-core.js`
+
+### Measurable Impact
+- Runtime adapter direct `script.js` re-export files reduced from **2** to **0**.
+- Runtime adapter layer is now fully detached from direct monolith imports.
+
+### Insights
+- Final chat-surface extraction required explicit sync discipline for reassigned metadata/state fields (`chat_metadata`, `name*`, `this_chid`) while allowing reference-stable structures (`chat`, `create_save`) to sync once.
+- Keeping persona avatar updates synchronized into chat-core preserves adapter contract expectations for extension consumers.
+
+### Next
+1. Start replacing bind/sync adapter-core internals with true standalone domain services (chat lifecycle first).
+2. Advance React surface migration against adapter cores with parity checks.

@@ -37,7 +37,7 @@ import {
     showMoreMessages,
     systemUserName,
     system_avatar,
-} from '../../script.js';
+} from '../chat-operations-core.js';
 
 export {
     activateSendButtons,

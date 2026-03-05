@@ -264,6 +264,8 @@ import { bindAppStateCore, syncDefaultPrintTimeout, syncEntitiesFilter, syncIsCh
 import { syncClientVersion, syncConnectApiMap, syncMainApi, syncNaiSettings } from './scripts/api-core.js';
 import { bindBackendStatusCore, setAbortStatusCheck } from './scripts/backend-status-core.js';
 import { bindCharacterCore, syncCharacterGroupOverlay, syncCharacters, syncPrintCharactersDebounced } from './scripts/character-core.js';
+import { bindChatCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
+import { bindChatOperationsCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
 import { bindGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault } from './scripts/generation-core.js';
 import { bindMessageCore } from './scripts/message-core.js';
@@ -288,6 +290,7 @@ globalThis.SillyTavern = {
 syncConnectApiMap(CONNECT_API_MAP);
 syncNaiSettings(nai_settings);
 syncSystemMessageTypes(system_message_types);
+syncUserAvatar(user_avatar);
 
 export {
     user_avatar,
@@ -368,12 +371,16 @@ syncConverter(converter);
 // array for prompt token calculations
 
 export const systemUserName = 'SillyTavern System';
+syncSystemUserName(systemUserName);
 export const neutralCharacterName = 'Assistant';
 syncNeutralCharacterName(neutralCharacterName);
 let default_user_name = 'User';
 export let name1 = default_user_name;
+syncName1(name1);
 export let name2 = systemUserName;
+syncName2(name2);
 export let chat = [];
+syncChat(chat);
 let chatSaveTimeout;
 let importFlashTimeout;
 export let isChatSaving = false;
@@ -383,6 +390,7 @@ let firstRun = false;
 let settingsReady = false;
 let currentVersion = '0.0.0';
 export let displayVersion = 'SillyTavern';
+syncDisplayVersion(displayVersion);
 
 let generation_started = new Date();
 /** @type {import('./scripts/char-data.js').v1CharData[]} */
@@ -393,11 +401,16 @@ syncCharacters(characters);
  * @type {string|undefined} Yes, we hate it as much as you do.
  */
 export let this_chid;
+syncThisChid(this_chid);
 let saveCharactersPage = 0;
 export const default_avatar = 'img/ai4.png';
+syncDefaultAvatar(default_avatar);
 export const system_avatar = 'img/five.png';
+syncSystemAvatar(system_avatar);
 export const comment_avatar = 'img/quill.png';
+syncCommentAvatar(comment_avatar);
 export const default_user_avatar = 'img/user-default.png';
+syncDefaultUserAvatar(default_user_avatar);
 export let CLIENT_VERSION = 'SillyTavern:UNKNOWN:Cohee#1207'; // For Horde header
 syncClientVersion(CLIENT_VERSION);
 let optionsPopper = Popper.createPopper(document.getElementById('options_button'), document.getElementById('options'), {
@@ -415,6 +428,7 @@ const chatElement = $('#chat');
 let dialogueResolve = null;
 let dialogueCloseStop = false;
 export let chat_metadata = {};
+syncChatMetadata(chat_metadata);
 /** @type {StreamingProcessor} */
 export let streamingProcessor = null;
 syncStreamingProcessor(streamingProcessor);
@@ -467,6 +481,11 @@ bindCharacterCore({
     printCharacters,
     renameCharacter,
 });
+bindChatCore({
+    getCurrentChatId,
+    getUserAvatar,
+    setUserName,
+});
 bindSessionCore({
     cancelTtsPlay,
     deleteCharacterChatByName,
@@ -506,6 +525,41 @@ bindGenerationCore({
     setGenerationProgress,
     shouldAutoContinue,
     stopGeneration,
+});
+bindChatOperationsCore({
+    activateSendButtons,
+    addOneMessage,
+    appendMediaToMessage,
+    clearChat,
+    deactivateSendButtons,
+    deleteLastMessage,
+    deleteSwipe,
+    displayPastChats,
+    extractMessageBias,
+    formatCharacterAvatar,
+    getCharacterAvatar,
+    getCharacterCardFields,
+    getCharacters,
+    getCurrentChatDetails,
+    getMaxContextSize,
+    hideSwipeButtons,
+    loadItemizedPrompts,
+    openCharacterChat,
+    printMessages,
+    processDroppedFiles,
+    reloadCurrentChat,
+    renameChat,
+    saveChat,
+    saveChatConditional,
+    saveItemizedPrompts,
+    saveReply,
+    sendMessageAsUser,
+    setSendButtonState,
+    showMoreMessages,
+    showSwipeButtons,
+    swipe_left,
+    swipe_right,
+    updateChatMetadata,
 });
 bindUiCore({
     addCopyToCodeBlocks,
@@ -571,10 +625,12 @@ async function getClientVersion() {
         CLIENT_VERSION = data.agent;
         syncClientVersion(CLIENT_VERSION);
         displayVersion = `SillyTavern ${data.pkgVersion}`;
+        syncDisplayVersion(displayVersion);
         currentVersion = data.pkgVersion;
 
         if (data.gitRevision && data.gitBranch) {
             displayVersion += ` '${data.gitBranch}' (${data.gitRevision})`;
+            syncDisplayVersion(displayVersion);
         }
 
         $('#version_display').text(displayVersion);
@@ -662,6 +718,7 @@ export let create_save = {
     extensions: {},
     extra_books: [],
 };
+syncCreateSave(create_save);
 
 //animation right menu
 export const ANIMATION_DURATION_DEFAULT = 125;
@@ -941,6 +998,7 @@ export async function selectCharacterById(id, { switchMenu = true } = {}) {
             setCharacterId(id);
             chat.length = 0;
             chat_metadata = {};
+            syncChatMetadata(chat_metadata);
             await getChat();
         }
     } else {
@@ -1396,6 +1454,7 @@ async function delChat(chatfile) {
         const name = chatfile.replace('.jsonl', '');
         if (name === characters[this_chid].chat) {
             chat_metadata = {};
+            syncChatMetadata(chat_metadata);
             await replaceCurrentChat();
         }
         await eventSource.emit(event_types.CHAT_DELETED, name);
@@ -6138,12 +6197,14 @@ export function deactivateSendButtons() {
 export function resetChatState() {
     // replaces deleted charcter name with system user since it will be displayed next.
     name2 = (this_chid === undefined && neutralCharacterName) ? neutralCharacterName : systemUserName;
+    syncName2(name2);
     //unsets expected chid before reloading (related to getCharacters/printCharacters from using old arrays)
     setCharacterId(undefined);
     // sets up system user to tell user about having deleted a character
     chat.splice(0, chat.length, ...SAFETY_CHAT);
     // resets chat metadata
     chat_metadata = {};
+    syncChatMetadata(chat_metadata);
     // resets the characters array, forcing getcharacters to reset
     characters.length = 0;
 }
@@ -6172,15 +6233,19 @@ export function setCharacterId(value) {
         case 'bigint':
         case 'number':
             this_chid = String(value);
+            syncThisChid(this_chid);
             break;
         case 'string':
             this_chid = !isNaN(parseInt(value)) ? value : undefined;
+            syncThisChid(this_chid);
             break;
         case 'object':
             this_chid = characters.indexOf(value) !== -1 ? String(characters.indexOf(value)) : undefined;
+            syncThisChid(this_chid);
             break;
         case 'undefined':
             this_chid = undefined;
+            syncThisChid(this_chid);
             break;
         default:
             console.error('Invalid character ID type:', value);
@@ -6190,6 +6255,7 @@ export function setCharacterId(value) {
 
 export function setCharacterName(value) {
     name2 = value;
+    syncName2(name2);
 }
 
 /**
@@ -6708,6 +6774,7 @@ export async function getChat() {
             chat.splice(0, chat.length, ...response);
             chat_create_date = chat[0]['create_date'];
             chat_metadata = chat[0]['chat_metadata'] ?? {};
+            syncChatMetadata(chat_metadata);
 
             chat.shift();
         } else {
@@ -6734,6 +6801,7 @@ export async function getChat() {
 
 async function getChatResult() {
     name2 = characters[this_chid].name;
+    syncName2(name2);
     let freshChat = false;
     if (chat.length === 0) {
         const message = getFirstMessage();
@@ -6793,6 +6861,7 @@ export async function openCharacterChat(file_name) {
     characters[this_chid]['chat'] = file_name;
     chat.length = 0;
     chat_metadata = {};
+    syncChatMetadata(chat_metadata);
     await getChat();
     $('#selected_chat_pole').val(file_name);
     await createOrEditCharacter(new CustomEvent('newChat'));
@@ -6922,6 +6991,7 @@ export function setUserName(value, { toastPersonaNameChange = true } = {}) {
     name1 = value;
     if (name1 === undefined || name1 == '')
         name1 = default_user_name;
+    syncName1(name1);
     console.log(`User name changed to ${name1}`);
     $('#your_name').text(name1);
     if (toastPersonaNameChange && power_user.persona_show_notifications && !isPersonaPanelOpen()) {
@@ -6977,6 +7047,7 @@ export async function getSettings() {
         settings = JSON.parse(data.settings);
         if (settings.username !== undefined && settings.username !== '') {
             name1 = settings.username;
+            syncName1(name1);
             $('#your_name').text(name1);
         }
 
@@ -7843,6 +7914,7 @@ export function removeDepthPrompts() {
  */
 export function updateChatMetadata(newValues, reset) {
     chat_metadata = reset ? { ...newValues } : { ...chat_metadata, ...newValues };
+    syncChatMetadata(chat_metadata);
 }
 
 
@@ -9129,6 +9201,7 @@ export async function doNewChat({ deleteCurrentChat = false } = {}) {
     else {
         //RossAscends: added character name to new chat filenames and replaced Date.now() with humanizedDateTime;
         chat_metadata = {};
+        syncChatMetadata(chat_metadata);
         characters[this_chid].chat = `${name2} - ${humanizedDateTime()}`;
         $('#selected_chat_pole').val(characters[this_chid].chat);
         await getChat();
@@ -9365,6 +9438,7 @@ export async function newAssistantChat({ temporary = false } = {}) {
     }
     chat.splice(0, chat.length);
     chat_metadata = {};
+    syncChatMetadata(chat_metadata);
     setCharacterName(neutralCharacterName);
     sendSystemMessage(system_message_types.ASSISTANT_NOTE);
 }
@@ -10103,6 +10177,7 @@ jQuery(async function () {
                 setActiveGroup(null);
                 this_edit_mes_id = undefined;
                 chat_metadata = {};
+                syncChatMetadata(chat_metadata);
                 selected_button = 'characters';
                 $('#rm_button_selected_ch').children('h2').text('');
                 select_rm_characters();

@@ -527,3 +527,26 @@
 ### Next
 1. Continue adapter-internal extraction with next concern candidates (`parser`, `message`, or `ui`).
 2. Drive runtime adapter `script.js` import count into single digits.
+
+## 2026-03-05 - Adapter Internal Extraction Wave 6 (Parser Core)
+
+### Completed
+- Added standalone parser module:
+  - `public/scripts/parser-core.js`
+  - exports: `converter`, `syncConverter`, `bindParserCore`, and wrappers for parser helpers (`substituteParams`, `substituteParamsExtended`, `extractMessageFromData`, `extractJsonFromData`, `removeMacros`, `baseChatReplace`, `getBiasStrings`).
+- Updated `public/script.js` to:
+  - bind parser wrappers via `bindParserCore(...)`
+  - synchronize markdown converter updates via `syncConverter(...)`.
+- Switched `runtime/parser-adapter.js` from `script.js` re-export to `parser-core.js`.
+
+### Measurable Impact
+- Runtime adapter direct `script.js` re-export files reduced from **10** to **9**.
+- Remaining runtime monolith-bound adapters are now in single digits.
+
+### Insights
+- Converter synchronization plus function binding works for parser concern without behavior changes.
+- The extraction approach remains stable across both stateful and helper-heavy concerns.
+
+### Next
+1. Continue with next concern candidates (`message` or `ui`).
+2. Reduce remaining runtime `script.js` adapter imports further while maintaining parity checks.

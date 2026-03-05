@@ -263,6 +263,7 @@ import { extractReasoningFromData, initReasoning, parseReasoningInSwipes, Prompt
 import { bindAppStateCore, syncDefaultPrintTimeout, syncEntitiesFilter, syncIsChatSaving, syncMenuType } from './scripts/app-state-core.js';
 import { bindBackendStatusCore, setAbortStatusCheck } from './scripts/backend-status-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, setCsrfToken } from './scripts/network-core.js';
+import { bindParserCore, syncConverter } from './scripts/parser-core.js';
 import { bindSettingsCore } from './scripts/settings-core.js';
 import { accountStorage } from './scripts/util/AccountStorage.js';
 import { initWelcomeScreen, openPermanentAssistantChat, openPermanentAssistantCard, getPermanentAssistantAvatar } from './scripts/welcome-screen.js';
@@ -350,6 +351,7 @@ export const characterGroupOverlay = new BulkEditOverlay();
 export let mesForShowdownParse; //intended to be used as a context to compare showdown strings against
 /** @type {import('showdown').Converter} */
 export let converter;
+syncConverter(converter);
 
 // array for prompt token calculations
 
@@ -413,6 +415,15 @@ bindBackendStatusCore({
 });
 bindAppStateCore({
     setMenuType,
+});
+bindParserCore({
+    baseChatReplace,
+    extractJsonFromData,
+    extractMessageFromData,
+    getBiasStrings,
+    removeMacros,
+    substituteParams,
+    substituteParamsExtended,
 });
 export let charDragDropHandler = null;
 
@@ -495,6 +506,7 @@ export function reloadMarkdownProcessor() {
     // Inject the dinkus extension after creating the converter
     // Maybe move this into power_user init?
     converter.addExtension(markdownExclusionExt(), 'exclusion');
+    syncConverter(converter);
 
     return converter;
 }

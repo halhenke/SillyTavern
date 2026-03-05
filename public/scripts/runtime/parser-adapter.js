@@ -7,7 +7,7 @@ import {
     removeMacros,
     substituteParams,
     substituteParamsExtended,
-} from '../../script.js';
+} from '../parser-core.js';
 
 export {
     baseChatReplace,

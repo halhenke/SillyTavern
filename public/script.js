@@ -261,6 +261,7 @@ import { initBulkEdit } from './scripts/bulk-edit.js';
 import { getContext } from './scripts/st-context.js';
 import { extractReasoningFromData, initReasoning, parseReasoningInSwipes, PromptReasoning, ReasoningHandler, removeReasoningFromString, updateReasoningUI } from './scripts/reasoning.js';
 import { bindAppStateCore, syncDefaultPrintTimeout, syncEntitiesFilter, syncIsChatSaving, syncMenuType } from './scripts/app-state-core.js';
+import { syncClientVersion, syncConnectApiMap, syncMainApi, syncNaiSettings } from './scripts/api-core.js';
 import { bindBackendStatusCore, setAbortStatusCheck } from './scripts/backend-status-core.js';
 import { bindMessageCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, setCsrfToken } from './scripts/network-core.js';
@@ -278,6 +279,9 @@ globalThis.SillyTavern = {
     libs,
     getContext,
 };
+
+syncConnectApiMap(CONNECT_API_MAP);
+syncNaiSettings(nai_settings);
 
 export {
     user_avatar,
@@ -386,6 +390,7 @@ export const system_avatar = 'img/five.png';
 export const comment_avatar = 'img/quill.png';
 export const default_user_avatar = 'img/user-default.png';
 export let CLIENT_VERSION = 'SillyTavern:UNKNOWN:Cohee#1207'; // For Horde header
+syncClientVersion(CLIENT_VERSION);
 let optionsPopper = Popper.createPopper(document.getElementById('options_button'), document.getElementById('options'), {
     placement: 'top-start',
 });
@@ -487,6 +492,7 @@ async function getClientVersion() {
         const response = await fetch('/version');
         const data = await response.json();
         CLIENT_VERSION = data.agent;
+        syncClientVersion(CLIENT_VERSION);
         displayVersion = `SillyTavern ${data.pkgVersion}`;
         currentVersion = data.pkgVersion;
 
@@ -602,6 +608,7 @@ var swipes = true;
 export let extension_prompts = {};
 
 export let main_api;// = "kobold";
+syncMainApi(main_api);
 /** @type {AbortController} */
 let abortController;
 
@@ -6792,6 +6799,7 @@ export function changeMainAPI() {
     }
 
     main_api = selectedVal;
+    syncMainApi(main_api);
     setOnlineStatus('no_connection');
 
     if (main_api == 'koboldhorde') {
@@ -6931,6 +6939,7 @@ export async function getSettings() {
         }
 
         main_api = settings.main_api;
+        syncMainApi(main_api);
         $('#main_api').val(main_api);
         $(`#main_api option[value=${main_api}]`).attr('selected', 'true');
         changeMainAPI();

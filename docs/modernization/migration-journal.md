@@ -570,3 +570,26 @@
 ### Next
 1. Continue adapter-internal extraction with `ui` and/or `chat` concern candidates.
 2. Keep runtime adapter `script.js` import count trending toward zero with parity-first validation.
+
+## 2026-03-05 - Adapter Internal Extraction Wave 8 (API Core)
+
+### Completed
+- Added standalone API state module:
+  - `public/scripts/api-core.js`
+  - exports: `CLIENT_VERSION`, `CONNECT_API_MAP`, `main_api`, `nai_settings`, and sync helpers.
+- Updated `public/script.js` to synchronize API-facing state into `api-core`:
+  - one-time sync for `CONNECT_API_MAP` and `nai_settings`,
+  - initial + update sync for `CLIENT_VERSION`,
+  - initial + reassignment sync for `main_api` in both assignment paths.
+- Switched `runtime/api-adapter.js` from `script.js` re-export to `api-core.js`.
+
+### Measurable Impact
+- Runtime adapter direct `script.js` re-export files reduced from **8** to **7**.
+
+### Insights
+- Sync-based extraction works cleanly for mixed state shapes (object references plus reassigned primitives) when mutation points are explicit.
+- API concern is now isolated enough for React-facing consumers to avoid monolith imports for version/api-selection state.
+
+### Next
+1. Continue adapter-internal extraction on remaining orchestration adapters (`chat`, `chat-operations`, `session`, `ui`, `extensions`, `generation`, `character`).
+2. Maintain parity checks while reducing runtime `script.js` adapter imports toward zero.

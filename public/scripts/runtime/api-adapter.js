@@ -3,7 +3,7 @@ import {
     CONNECT_API_MAP,
     main_api,
     nai_settings,
-} from '../../script.js';
+} from '../api-core.js';
 
 export {
     CLIENT_VERSION,

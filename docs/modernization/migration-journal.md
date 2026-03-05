@@ -482,3 +482,25 @@
 ### Next
 1. Continue adapter-internal extraction with app-state/ui concerns.
 2. Keep replacing adapter `script.js` imports with standalone core modules while preserving parity.
+
+## 2026-03-05 - Adapter Internal Extraction Wave 4 (Backend Status Core)
+
+### Completed
+- Added standalone backend status module:
+  - `public/scripts/backend-status-core.js`
+  - exports: `abortStatusCheck`, `setAbortStatusCheck`, `bindBackendStatusCore`, `setOnlineStatus`, `startStatusLoading`, `resultCheckStatus`
+- Updated `public/script.js` to:
+  - bind backend status wrappers via `bindBackendStatusCore(...)`
+  - synchronize abort-controller replacements via `setAbortStatusCheck(...)`
+- Switched `runtime/backend-status-adapter.js` from `script.js` re-export to `backend-status-core.js`.
+
+### Measurable Impact
+- Runtime adapter direct `script.js` re-export files reduced from **12** to **11**.
+
+### Insights
+- Controller-synchronization plus bound function wrappers is a safe extraction pattern for mutable runtime state.
+- This unlocks further extraction of stateful concerns without requiring immediate deep rewrites.
+
+### Next
+1. Continue adapter-internal extraction with app-state/ui concerns.
+2. Track and reduce remaining runtime `script.js` adapter imports to single digits.

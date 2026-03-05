@@ -3,7 +3,7 @@ import {
     resultCheckStatus,
     setOnlineStatus,
     startStatusLoading,
-} from '../../script.js';
+} from '../backend-status-core.js';
 
 export {
     abortStatusCheck,

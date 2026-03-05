@@ -260,6 +260,7 @@ import { initSettingsSearch } from './scripts/setting-search.js';
 import { initBulkEdit } from './scripts/bulk-edit.js';
 import { getContext } from './scripts/st-context.js';
 import { extractReasoningFromData, initReasoning, parseReasoningInSwipes, PromptReasoning, ReasoningHandler, removeReasoningFromString, updateReasoningUI } from './scripts/reasoning.js';
+import { bindBackendStatusCore, setAbortStatusCheck } from './scripts/backend-status-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, setCsrfToken } from './scripts/network-core.js';
 import { bindSettingsCore } from './scripts/settings-core.js';
 import { accountStorage } from './scripts/util/AccountStorage.js';
@@ -402,6 +403,12 @@ let is_delete_mode = false;
 let fav_ch_checked = false;
 let scrollLock = false;
 export let abortStatusCheck = new AbortController();
+setAbortStatusCheck(abortStatusCheck);
+bindBackendStatusCore({
+    resultCheckStatus,
+    setOnlineStatus,
+    startStatusLoading,
+});
 export let charDragDropHandler = null;
 
 /** @type {debounce_timeout} The debounce timeout used for chat/settings save. debounce_timeout.long: 1.000 ms */
@@ -710,6 +717,7 @@ function initStandaloneMode() {
 function cancelStatusCheck(reason = 'Manually cancelled status check') {
     abortStatusCheck?.abort(new AbortReason(reason));
     abortStatusCheck = new AbortController();
+    setAbortStatusCheck(abortStatusCheck);
     setOnlineStatus('no_connection');
 }
 

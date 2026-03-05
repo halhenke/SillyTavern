@@ -616,3 +616,25 @@
 ### Next
 1. Continue adapter-internal extraction for remaining adapters (`chat`, `chat-operations`, `session`, `ui`, `generation`, `character`).
 2. Keep parity checks green while reducing runtime adapter monolith dependencies.
+
+## 2026-03-05 - Adapter Internal Extraction Wave 10 (Character Core)
+
+### Completed
+- Added standalone character module:
+  - `public/scripts/character-core.js`
+  - exports: mirrored character state (`characters`, `characterGroupOverlay`, `printCharactersDebounced`), sync helpers, and bound wrappers for character operations.
+- Updated `public/script.js` to:
+  - bind character operation wrappers via `bindCharacterCore(...)`,
+  - synchronize character state/objects (`characters`, `characterGroupOverlay`, `printCharactersDebounced`) into `character-core`.
+- Switched `runtime/character-adapter.js` from `script.js` re-export to `character-core.js`.
+
+### Measurable Impact
+- Runtime adapter direct `script.js` re-export files reduced from **6** to **5**.
+
+### Insights
+- Character concern extraction is straightforward when state is mostly mutable-by-reference (array/object sync once, function binding for behavior).
+- `character-core` now gives React-facing code a stable seam for character list and entity transforms without monolith coupling.
+
+### Next
+1. Continue adapter-internal extraction for remaining adapters (`chat`, `chat-operations`, `session`, `ui`, `generation`).
+2. Keep boundary and frontend quality gates green while reducing remaining runtime monolith dependencies.

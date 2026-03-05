@@ -263,6 +263,7 @@ import { extractReasoningFromData, initReasoning, parseReasoningInSwipes, Prompt
 import { bindAppStateCore, syncDefaultPrintTimeout, syncEntitiesFilter, syncIsChatSaving, syncMenuType } from './scripts/app-state-core.js';
 import { syncClientVersion, syncConnectApiMap, syncMainApi, syncNaiSettings } from './scripts/api-core.js';
 import { bindBackendStatusCore, setAbortStatusCheck } from './scripts/backend-status-core.js';
+import { bindCharacterCore, syncCharacterGroupOverlay, syncCharacters, syncPrintCharactersDebounced } from './scripts/character-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
 import { bindMessageCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, setCsrfToken } from './scripts/network-core.js';
@@ -352,6 +353,7 @@ toastr.options = {
 };
 
 export const characterGroupOverlay = new BulkEditOverlay();
+syncCharacterGroupOverlay(characterGroupOverlay);
 
 // Markdown converter
 export let mesForShowdownParse; //intended to be used as a context to compare showdown strings against
@@ -380,6 +382,7 @@ export let displayVersion = 'SillyTavern';
 let generation_started = new Date();
 /** @type {import('./scripts/char-data.js').v1CharData[]} */
 export let characters = [];
+syncCharacters(characters);
 /**
  * Stringified index of a currently chosen entity in the characters array.
  * @type {string|undefined} Yes, we hate it as much as you do.
@@ -448,6 +451,16 @@ bindExtensionsCore({
     getExtensionPromptMaxDepth,
     setExtensionPrompt,
 });
+bindCharacterCore({
+    buildAvatarList,
+    characterToEntity,
+    deleteCharacter,
+    duplicateCharacter,
+    getCharacters,
+    groupToEntity,
+    printCharacters,
+    renameCharacter,
+});
 export let charDragDropHandler = null;
 
 /** @type {debounce_timeout} The debounce timeout used for chat/settings save. debounce_timeout.long: 1.000 ms */
@@ -472,6 +485,7 @@ bindSettingsCore({
  * The printing will also always reprint all filter options of the global list, to keep them up to date.
  */
 export const printCharactersDebounced = debounce(() => { printCharacters(false); }, DEFAULT_PRINT_TIMEOUT);
+syncPrintCharactersDebounced(printCharactersDebounced);
 
 /**
  * @enum {number} Extension prompt types

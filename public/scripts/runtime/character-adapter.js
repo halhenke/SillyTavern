@@ -11,7 +11,7 @@ import {
     printCharacters,
     printCharactersDebounced,
     renameCharacter,
-} from '../../script.js';
+} from '../character-core.js';
 
 export {
     buildAvatarList,

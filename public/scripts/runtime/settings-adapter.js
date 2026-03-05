@@ -3,7 +3,7 @@ import {
     saveMetadata,
     saveSettings,
     saveSettingsDebounced,
-} from '../../script.js';
+} from '../settings-core.js';
 
 export {
     saveCharacterDebounced,

@@ -462,3 +462,23 @@
 
 ### Outcome
 - Boundary and frontend quality gates are now enforceable at PR time, reducing risk of coupling regressions.
+
+## 2026-03-05 - Adapter Internal Extraction Wave 3 (Settings Core)
+
+### Completed
+- Added standalone settings module:
+  - `public/scripts/settings-core.js`
+  - exports: `bindSettingsCore`, `saveSettings`, `saveSettingsDebounced`, `saveMetadata`, `saveCharacterDebounced`
+- Updated `public/script.js` to bind legacy settings implementations into `settings-core` during runtime bootstrap.
+- Switched `runtime/settings-adapter.js` from `script.js` re-export to `settings-core.js`.
+
+### Measurable Impact
+- Runtime adapter direct `script.js` re-export files reduced from **13** to **12**.
+
+### Insights
+- Binding-based extraction allows decoupling adapter imports without rewriting core settings behavior immediately.
+- This pattern can be reused for other high-coupling concerns where full logic extraction would otherwise be risky.
+
+### Next
+1. Continue adapter-internal extraction with app-state/ui concerns.
+2. Keep replacing adapter `script.js` imports with standalone core modules while preserving parity.

@@ -7,7 +7,7 @@ import {
     setEditedMessageId,
     syncMesToSwipe,
     updateMessageBlock,
-} from '../../script.js';
+} from '../message-core.js';
 
 export {
     cleanUpMessage,

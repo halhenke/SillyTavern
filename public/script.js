@@ -262,6 +262,7 @@ import { getContext } from './scripts/st-context.js';
 import { extractReasoningFromData, initReasoning, parseReasoningInSwipes, PromptReasoning, ReasoningHandler, removeReasoningFromString, updateReasoningUI } from './scripts/reasoning.js';
 import { bindAppStateCore, syncDefaultPrintTimeout, syncEntitiesFilter, syncIsChatSaving, syncMenuType } from './scripts/app-state-core.js';
 import { bindBackendStatusCore, setAbortStatusCheck } from './scripts/backend-status-core.js';
+import { bindMessageCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
 import { bindSettingsCore } from './scripts/settings-core.js';
@@ -424,6 +425,16 @@ bindParserCore({
     removeMacros,
     substituteParams,
     substituteParamsExtended,
+});
+bindMessageCore({
+    cleanUpMessage,
+    closeMessageEditor,
+    getFirstDisplayedMessageId,
+    messageFormatting,
+    saveChatDebounced,
+    setEditedMessageId,
+    syncMesToSwipe,
+    updateMessageBlock,
 });
 export let charDragDropHandler = null;
 

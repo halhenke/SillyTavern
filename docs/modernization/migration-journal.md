@@ -550,3 +550,23 @@
 ### Next
 1. Continue with next concern candidates (`message` or `ui`).
 2. Reduce remaining runtime `script.js` adapter imports further while maintaining parity checks.
+
+## 2026-03-05 - Adapter Internal Extraction Wave 7 (Message Core)
+
+### Completed
+- Added standalone message module:
+  - `public/scripts/message-core.js`
+  - exports: `bindMessageCore` and wrappers for message concern helpers (`messageFormatting`, `updateMessageBlock`, `cleanUpMessage`, `syncMesToSwipe`, `closeMessageEditor`, `setEditedMessageId`, `getFirstDisplayedMessageId`, `saveChatDebounced`).
+- Updated `public/script.js` to bind message wrappers via `bindMessageCore(...)`.
+- Switched `runtime/message-adapter.js` from `script.js` re-export to `message-core.js`.
+
+### Measurable Impact
+- Runtime adapter direct `script.js` re-export files reduced from **9** to **8**.
+
+### Insights
+- Message concern extraction required no state sync hooks beyond existing function bindings, making it a clean low-risk win.
+- Remaining runtime concerns are now concentrated in broader state/orchestration adapters.
+
+### Next
+1. Continue adapter-internal extraction with `ui` and/or `chat` concern candidates.
+2. Keep runtime adapter `script.js` import count trending toward zero with parity-first validation.

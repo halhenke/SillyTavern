@@ -270,6 +270,7 @@ import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumb
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
 import { bindSessionCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes } from './scripts/session-core.js';
 import { bindSettingsCore } from './scripts/settings-core.js';
+import { bindUiCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
 import { accountStorage } from './scripts/util/AccountStorage.js';
 import { initWelcomeScreen, openPermanentAssistantChat, openPermanentAssistantCard, getPermanentAssistantAvatar } from './scripts/welcome-screen.js';
 import { initDataMaid } from './scripts/data-maid.js';
@@ -489,6 +490,13 @@ bindSessionCore({
     unshallowCharacter,
     updateRemoteChatName,
 });
+bindUiCore({
+    addCopyToCodeBlocks,
+    callPopup,
+    reloadMarkdownProcessor,
+    scrollChatToBottom,
+    setAnimationDuration,
+});
 export let charDragDropHandler = null;
 
 /** @type {debounce_timeout} The debounce timeout used for chat/settings save. debounce_timeout.long: 1.000 ms */
@@ -537,6 +545,7 @@ export const extension_prompt_roles = {
 syncExtensionPromptRoles(extension_prompt_roles);
 
 export const MAX_INJECTION_DEPTH = 10000;
+syncMaxInjectionDepth(MAX_INJECTION_DEPTH);
 
 async function getClientVersion() {
     try {
@@ -636,13 +645,17 @@ export let create_save = {
 
 //animation right menu
 export const ANIMATION_DURATION_DEFAULT = 125;
+syncAnimationDurationDefault(ANIMATION_DURATION_DEFAULT);
 export let animation_duration = ANIMATION_DURATION_DEFAULT;
+syncAnimationDuration(animation_duration);
 export let animation_easing = 'ease-in-out';
+syncAnimationEasing(animation_easing);
 let popup_type = '';
 let chat_file_for_del = '';
 export let online_status = 'no_connection';
 
 export let is_send_press = false; //Send generation
+syncIsSendPress(is_send_press);
 
 let this_del_mes = -1;
 
@@ -828,6 +841,7 @@ export function displayOnlineStatus() {
  */
 export function setAnimationDuration(ms = null) {
     animation_duration = ms ?? ANIMATION_DURATION_DEFAULT;
+    syncAnimationDuration(animation_duration);
     // Set CSS variable to document
     document.documentElement.style.setProperty('--animation-duration', `${animation_duration}ms`);
 }
@@ -3596,13 +3610,13 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
     // We can't do anything because we're not in a chat right now. (Unless it's a dry run, in which case we need to
     // assemble the prompt so we can count its tokens regardless of whether a chat is active.)
     if (!dryRun && !hasBackendConnection) {
-        is_send_press = false;
+        setSendButtonState(false);
         return Promise.resolve();
     }
 
     let textareaText;
     if (type !== 'regenerate' && type !== 'swipe' && type !== 'quiet' && !isImpersonate && !dryRun) {
-        is_send_press = true;
+        setSendButtonState(true);
         textareaText = String($('#send_textarea').val());
         $('#send_textarea').val('')[0].dispatchEvent(new Event('input', { bubbles: true }));
     } else {
@@ -4162,7 +4176,7 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
     const originalType = type;
 
     if (!dryRun) {
-        is_send_press = true;
+        setSendButtonState(true);
     }
 
     let generatedPromptCache = cyclePrompt || '';
@@ -4743,7 +4757,7 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
 
         const isAborted = abortController && abortController.signal.aborted;
         if (!isAborted && power_user.auto_swipe && generatedTextFiltered(getMessage)) {
-            is_send_press = false;
+            setSendButtonState(false);
             return swipe_right();
         }
 
@@ -4871,7 +4885,7 @@ function unblockGeneration(type) {
         return;
     }
 
-    is_send_press = false;
+    setSendButtonState(false);
     activateSendButtons();
     showSwipeButtons();
     setGenerationProgress(0);
@@ -6077,7 +6091,7 @@ function getGeneratingModel(mes) {
  * A function mainly used to switch 'generating' state - setting it to false and activating the buttons again
  */
 export function activateSendButtons() {
-    is_send_press = false;
+    setSendButtonState(false);
     hideStopButton();
     delete document.body.dataset.generating;
 }
@@ -6166,6 +6180,7 @@ export function setEditedMessageId(value) {
 
 export function setSendButtonState(value) {
     is_send_press = value;
+    syncIsSendPress(is_send_press);
 }
 
 /**
@@ -8862,7 +8877,7 @@ export function swipe_right(_event = null, { source, repeated } = {}) {
                                 await eventSource.emit(event_types.MESSAGE_SWIPED, (chat.length - 1));
                                 if (run_generate && !is_send_press && parseInt(chat[chat.length - 1]['swipe_id']) === chat[chat.length - 1]['swipes'].length) {
                                     console.debug('caught here 2');
-                                    is_send_press = true;
+                                    setSendButtonState(true);
                                     await Generate('swipe');
                                 } else {
                                     if (parseInt(chat[chat.length - 1]['swipe_id']) !== chat[chat.length - 1]['swipes'].length) {
@@ -10014,7 +10029,7 @@ jQuery(async function () {
                     regenerateGroup();
                 }
                 else {
-                    is_send_press = true;
+                    setSendButtonState(true);
                     Generate('regenerate', buildOrFillAdditionalArgs());
                 }
             }
@@ -10022,7 +10037,7 @@ jQuery(async function () {
 
         else if (id == 'option_impersonate') {
             if (is_send_press == false || fromSlashCommand) {
-                is_send_press = true;
+                setSendButtonState(true);
                 Generate('impersonate', buildOrFillAdditionalArgs());
             }
         }
@@ -10031,7 +10046,7 @@ jQuery(async function () {
             if (this_edit_mes_id) return; // don't proceed if editing a message
 
             if (is_send_press == false || fromSlashCommand) {
-                is_send_press = true;
+                setSendButtonState(true);
                 Generate('continue', buildOrFillAdditionalArgs());
             }
         }

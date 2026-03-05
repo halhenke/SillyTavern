@@ -9,7 +9,7 @@ import {
     reloadMarkdownProcessor,
     scrollChatToBottom,
     setAnimationDuration,
-} from '../../script.js';
+} from '../ui-core.js';
 
 export {
     addCopyToCodeBlocks,

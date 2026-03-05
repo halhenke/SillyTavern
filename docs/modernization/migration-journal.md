@@ -661,3 +661,26 @@
 ### Next
 1. Continue adapter-internal extraction for remaining adapters (`chat`, `chat-operations`, `ui`, `generation`).
 2. Keep parity and boundary checks green while reducing runtime adapter monolith dependencies toward zero.
+
+## 2026-03-05 - Adapter Internal Extraction Wave 12 (UI Core)
+
+### Completed
+- Added standalone UI module:
+  - `public/scripts/ui-core.js`
+  - exports: mirrored UI state/constants (`ANIMATION_DURATION_DEFAULT`, `animation_duration`, `animation_easing`, `is_send_press`, `MAX_INJECTION_DEPTH`), sync helpers, and bound wrappers for core UI functions.
+- Updated `public/script.js` to:
+  - bind UI wrappers via `bindUiCore(...)`,
+  - synchronize animation/send state and constants into `ui-core`,
+  - centralize send-state writes via `setSendButtonState(...)` so `is_send_press` sync is maintained through one path.
+- Switched `runtime/ui-adapter.js` from `script.js` re-export to `ui-core.js`.
+
+### Measurable Impact
+- Runtime adapter direct `script.js` re-export files reduced from **4** to **3**.
+
+### Insights
+- Centralizing `is_send_press` writes eliminated fragile scattered sync points and makes future UI state extraction safer.
+- UI concern extraction is now adapter-safe without altering extension-facing contracts or generation flow behavior.
+
+### Next
+1. Continue adapter-internal extraction for remaining adapters (`chat`, `chat-operations`, `generation`).
+2. Keep parity/boundary checks green while reducing runtime adapter monolith dependencies to zero.

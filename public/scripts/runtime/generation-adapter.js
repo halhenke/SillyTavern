@@ -19,7 +19,7 @@ import {
     stopGeneration,
     streamingProcessor,
     talkativeness_default,
-} from '../../script.js';
+} from '../generation-core.js';
 
 export {
     amount_gen,

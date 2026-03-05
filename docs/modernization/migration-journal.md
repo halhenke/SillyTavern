@@ -684,3 +684,31 @@
 ### Next
 1. Continue adapter-internal extraction for remaining adapters (`chat`, `chat-operations`, `generation`).
 2. Keep parity/boundary checks green while reducing runtime adapter monolith dependencies to zero.
+
+## 2026-03-05 - Adapter Internal Extraction Wave 13 (Generation Core)
+
+### Completed
+- Added standalone generation module:
+  - `public/scripts/generation-core.js`
+  - exports: mirrored generation state/defaults (`amount_gen`, `max_context`, `online_status`, `streamingProcessor`, `talkativeness_default`, depth defaults), sync helpers, and bound wrappers for generation APIs.
+- Updated `public/script.js` to:
+  - bind generation wrappers via `bindGenerationCore(...)`,
+  - synchronize generation state/default values into `generation-core`,
+  - synchronize all known write paths for mutable generation state:
+    - response-length temporary overrides,
+    - settings load and preset application,
+    - slider updates,
+    - online-status updates,
+    - streaming processor lifecycle transitions.
+- Switched `runtime/generation-adapter.js` from `script.js` re-export to `generation-core.js`.
+
+### Measurable Impact
+- Runtime adapter direct `script.js` re-export files reduced from **3** to **2**.
+
+### Insights
+- Generation concern extraction is viable with explicit write-site synchronization even when state is touched across several orchestration paths.
+- Remaining runtime monolith coupling is now concentrated in chat-focused adapters (`chat`, `chat-operations`), making next extraction scope clearer.
+
+### Next
+1. Continue adapter-internal extraction for remaining adapters (`chat`, `chat-operations`).
+2. Keep parity/boundary checks green while driving runtime adapter monolith dependencies to zero.

@@ -265,6 +265,7 @@ import { syncClientVersion, syncConnectApiMap, syncMainApi, syncNaiSettings } fr
 import { bindBackendStatusCore, setAbortStatusCheck } from './scripts/backend-status-core.js';
 import { bindCharacterCore, syncCharacterGroupOverlay, syncCharacters, syncPrintCharactersDebounced } from './scripts/character-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
+import { bindGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault } from './scripts/generation-core.js';
 import { bindMessageCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
@@ -416,6 +417,7 @@ let dialogueCloseStop = false;
 export let chat_metadata = {};
 /** @type {StreamingProcessor} */
 export let streamingProcessor = null;
+syncStreamingProcessor(streamingProcessor);
 let crop_data = undefined;
 let is_delete_mode = false;
 let fav_ch_checked = false;
@@ -489,6 +491,21 @@ bindSessionCore({
     setScenarioOverride,
     unshallowCharacter,
     updateRemoteChatName,
+});
+bindGenerationCore({
+    Generate,
+    generateRaw,
+    generateQuietPrompt,
+    getGenerateUrl,
+    getGeneratingApi,
+    getStoppingStrings,
+    isStreamingEnabled,
+    sendGenerationRequest,
+    sendStreamingRequest,
+    setGenerationParamsFromPreset,
+    setGenerationProgress,
+    shouldAutoContinue,
+    stopGeneration,
 });
 bindUiCore({
     addCopyToCodeBlocks,
@@ -598,8 +615,11 @@ export function getCurrentChatId() {
 }
 
 export const talkativeness_default = 0.5;
+syncTalkativenessDefault(talkativeness_default);
 export const depth_prompt_depth_default = 4;
+syncDepthPromptDepthDefault(depth_prompt_depth_default);
 export const depth_prompt_role_default = 'system';
+syncDepthPromptRoleDefault(depth_prompt_role_default);
 const per_page_default = 50;
 
 var is_advanced_char_open = false;
@@ -653,6 +673,7 @@ syncAnimationEasing(animation_easing);
 let popup_type = '';
 let chat_file_for_del = '';
 export let online_status = 'no_connection';
+syncOnlineStatus(online_status);
 
 export let is_send_press = false; //Send generation
 syncIsSendPress(is_send_press);
@@ -666,7 +687,9 @@ var this_edit_mes_id;
 //settings
 export let settings;
 export let amount_gen = 80; //default max length of AI generated responses
+syncAmountGen(amount_gen);
 export let max_context = 2048;
+syncMaxContext(max_context);
 
 var swipes = true;
 export let extension_prompts = {};
@@ -3392,6 +3415,7 @@ class TempResponseLength {
         } else {
             this.#originalResponseLength = amount_gen;
             amount_gen = responseLength;
+            syncAmountGen(amount_gen);
         }
 
         this.#lastApi = api;
@@ -3414,6 +3438,7 @@ class TempResponseLength {
             oai_settings.openai_max_tokens = this.#originalResponseLength;
         } else {
             amount_gen = this.#originalResponseLength;
+            syncAmountGen(amount_gen);
         }
 
         console.log('[TempResponseLength] Restored original response length:', this.#originalResponseLength);
@@ -4580,6 +4605,7 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
         if (isStreamingEnabled() && type !== 'quiet') {
             continue_mag = promptReasoning.removePrefix(continue_mag);
             streamingProcessor = new StreamingProcessor(type, force_name2, generation_started, continue_mag, promptReasoning);
+            syncStreamingProcessor(streamingProcessor);
             if (isContinue) {
                 // Save reply does add cycle text to the prompt, so it's not needed here
                 streamingProcessor.firstMessageText = '';
@@ -4616,10 +4642,12 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
                         }
                         unblockGeneration(type);
                         streamingProcessor = null;
+                        syncStreamingProcessor(streamingProcessor);
                         return;
                     }
 
                     streamingProcessor = null;
+                    syncStreamingProcessor(streamingProcessor);
                     depth = depth + 1;
                     await ToolManager.saveFunctionToolInvocations(invocationResult.invocations);
                     return Generate('normal', { automatic_trigger, force_name2, quiet_prompt, quietToLoud, skipWIAN, force_chid, signal, quietImage, quietName, depth }, dryRun);
@@ -4629,6 +4657,7 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
             if (isStreamFinished) {
                 await streamingProcessor.onFinishStreaming(streamingProcessor.messageId, getMessage);
                 streamingProcessor = null;
+                syncStreamingProcessor(streamingProcessor);
                 triggerAutoContinue(messageChunk, isImpersonate);
                 return Object.defineProperties(new String(getMessage), {
                     'messageChunk': { value: messageChunk },
@@ -4765,6 +4794,7 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
         await saveChatConditional();
         unblockGeneration(type);
         streamingProcessor = null;
+        syncStreamingProcessor(streamingProcessor);
 
         if (type !== 'quiet') {
             triggerAutoContinue(messageChunk, isImpersonate);
@@ -4788,6 +4818,7 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
         unblockGeneration(type);
         console.log(exception);
         streamingProcessor = null;
+        syncStreamingProcessor(streamingProcessor);
         throw exception;
     }
 }
@@ -6168,6 +6199,7 @@ export function setCharacterName(value) {
 export function setOnlineStatus(value) {
     const previousStatus = online_status;
     online_status = value;
+    syncOnlineStatus(online_status);
     displayOnlineStatus();
     if (previousStatus !== online_status) {
         eventSource.emitAndWait(event_types.ONLINE_STATUS_CHANGED, online_status);
@@ -6956,8 +6988,10 @@ export async function getSettings() {
 
         //Load AI model config settings
         amount_gen = settings.amount_gen;
+        syncAmountGen(amount_gen);
         if (settings.max_context !== undefined)
             max_context = parseInt(settings.max_context);
+        syncMaxContext(max_context);
 
         swipes = settings.swipes !== undefined ? !!settings.swipes : true;  // enable swipes by default
         $('#swipes-checkbox').prop('checked', swipes); /// swipecode
@@ -7129,12 +7163,14 @@ export function setGenerationParamsFromPreset(preset) {
 
     if (preset.genamt !== undefined) {
         amount_gen = preset.genamt;
+        syncAmountGen(amount_gen);
         $('#amount_gen').val(amount_gen);
         $('#amount_gen_counter').val(amount_gen);
     }
 
     if (preset.max_length !== undefined) {
         max_context = preset.max_length;
+        syncMaxContext(max_context);
         $('#max_context').val(max_context);
         $('#max_context_counter').val(max_context);
     }
@@ -10192,13 +10228,19 @@ jQuery(async function () {
             sliderId: '#amount_gen',
             counterId: '#amount_gen_counter',
             format: (val) => `${val}`,
-            setValue: (val) => { amount_gen = Number(val); },
+            setValue: (val) => {
+                amount_gen = Number(val);
+                syncAmountGen(amount_gen);
+            },
         },
         {
             sliderId: '#max_context',
             counterId: '#max_context_counter',
             format: (val) => `${val}`,
-            setValue: (val) => { max_context = Number(val); },
+            setValue: (val) => {
+                max_context = Number(val);
+                syncMaxContext(max_context);
+            },
         },
     ];
 

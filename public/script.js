@@ -260,6 +260,7 @@ import { initSettingsSearch } from './scripts/setting-search.js';
 import { initBulkEdit } from './scripts/bulk-edit.js';
 import { getContext } from './scripts/st-context.js';
 import { extractReasoningFromData, initReasoning, parseReasoningInSwipes, PromptReasoning, ReasoningHandler, removeReasoningFromString, updateReasoningUI } from './scripts/reasoning.js';
+import { bindAppStateCore, syncDefaultPrintTimeout, syncEntitiesFilter, syncIsChatSaving, syncMenuType } from './scripts/app-state-core.js';
 import { bindBackendStatusCore, setAbortStatusCheck } from './scripts/backend-status-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, setCsrfToken } from './scripts/network-core.js';
 import { bindSettingsCore } from './scripts/settings-core.js';
@@ -361,6 +362,7 @@ export let chat = [];
 let chatSaveTimeout;
 let importFlashTimeout;
 export let isChatSaving = false;
+syncIsChatSaving(isChatSaving);
 let chat_create_date = '';
 let firstRun = false;
 let settingsReady = false;
@@ -409,12 +411,16 @@ bindBackendStatusCore({
     setOnlineStatus,
     startStatusLoading,
 });
+bindAppStateCore({
+    setMenuType,
+});
 export let charDragDropHandler = null;
 
 /** @type {debounce_timeout} The debounce timeout used for chat/settings save. debounce_timeout.long: 1.000 ms */
 export const DEFAULT_SAVE_EDIT_TIMEOUT = debounce_timeout.relaxed;
 /** @type {debounce_timeout} The debounce timeout used for printing. debounce_timeout.quick: 100 ms */
 export const DEFAULT_PRINT_TIMEOUT = debounce_timeout.quick;
+syncDefaultPrintTimeout(DEFAULT_PRINT_TIMEOUT);
 
 export const saveSettingsDebounced = debounce((loopCounter = 0) => saveSettings(loopCounter), DEFAULT_SAVE_EDIT_TIMEOUT);
 export const saveCharacterDebounced = debounce(() => $('#create_button').trigger('click'), DEFAULT_SAVE_EDIT_TIMEOUT);
@@ -590,6 +596,7 @@ export let active_character = '';
 export let active_group = '';
 
 export const entitiesFilter = new FilterHelper(printCharactersDebounced);
+syncEntitiesFilter(entitiesFilter);
 
 export function getRequestHeaders({ omitContentType = false } = {}) {
     return getRequestHeadersCore({ omitContentType });
@@ -6013,6 +6020,7 @@ export function resetChatState() {
  */
 export function setMenuType(value) {
     menu_type = value;
+    syncMenuType(menu_type);
     // Allow custom CSS to see which menu type is active
     document.getElementById('right-nav-panel').dataset.menuType = menu_type;
 }
@@ -7933,6 +7941,7 @@ export async function saveChatConditional() {
         cancelDebouncedChatSave();
 
         isChatSaving = true;
+        syncIsChatSaving(isChatSaving);
 
         if (selected_group) {
             await saveGroupChat(selected_group, true);
@@ -7948,6 +7957,7 @@ export async function saveChatConditional() {
         console.error('Error saving chat', error);
     } finally {
         isChatSaving = false;
+        syncIsChatSaving(isChatSaving);
     }
 }
 

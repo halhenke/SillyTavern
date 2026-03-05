@@ -4,7 +4,7 @@ import {
     isChatSaving,
     menu_type,
     setMenuType,
-} from '../../script.js';
+} from '../app-state-core.js';
 
 export {
     DEFAULT_PRINT_TIMEOUT,

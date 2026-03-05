@@ -504,3 +504,26 @@
 ### Next
 1. Continue adapter-internal extraction with app-state/ui concerns.
 2. Track and reduce remaining runtime `script.js` adapter imports to single digits.
+
+## 2026-03-05 - Adapter Internal Extraction Wave 5 (App State Core)
+
+### Completed
+- Added standalone app state module:
+  - `public/scripts/app-state-core.js`
+  - exports: `DEFAULT_PRINT_TIMEOUT`, `entitiesFilter`, `isChatSaving`, `menu_type`, `setMenuType`, and sync/bind helpers.
+- Updated `public/script.js` to:
+  - bind app-state wrapper (`bindAppStateCore`)
+  - synchronize app-state values (`syncDefaultPrintTimeout`, `syncEntitiesFilter`, `syncIsChatSaving`, `syncMenuType`)
+  - keep legacy behavior intact while mirroring state into standalone core.
+- Switched `runtime/app-state-adapter.js` from `script.js` re-export to `app-state-core.js`.
+
+### Measurable Impact
+- Runtime adapter direct `script.js` re-export files reduced from **11** to **10**.
+
+### Insights
+- State sync is now stable for app-state concern because write points are centralized (`setMenuType`, save-chat lifecycle).
+- The same synchronization approach is viable for remaining stateful concerns as long as mutation points are controlled.
+
+### Next
+1. Continue adapter-internal extraction with next concern candidates (`parser`, `message`, or `ui`).
+2. Drive runtime adapter `script.js` import count into single digits.

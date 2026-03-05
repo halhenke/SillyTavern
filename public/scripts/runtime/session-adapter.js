@@ -26,7 +26,7 @@ import {
     system_message_types,
     unshallowCharacter,
     updateRemoteChatName,
-} from '../../script.js';
+} from '../session-core.js';
 
 export {
     active_character,

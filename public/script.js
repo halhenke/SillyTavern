@@ -268,6 +268,7 @@ import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes,
 import { bindMessageCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
+import { bindSessionCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes } from './scripts/session-core.js';
 import { bindSettingsCore } from './scripts/settings-core.js';
 import { accountStorage } from './scripts/util/AccountStorage.js';
 import { initWelcomeScreen, openPermanentAssistantChat, openPermanentAssistantCard, getPermanentAssistantAvatar } from './scripts/welcome-screen.js';
@@ -284,6 +285,7 @@ globalThis.SillyTavern = {
 
 syncConnectApiMap(CONNECT_API_MAP);
 syncNaiSettings(nai_settings);
+syncSystemMessageTypes(system_message_types);
 
 export {
     user_avatar,
@@ -365,6 +367,7 @@ syncConverter(converter);
 
 export const systemUserName = 'SillyTavern System';
 export const neutralCharacterName = 'Assistant';
+syncNeutralCharacterName(neutralCharacterName);
 let default_user_name = 'User';
 export let name1 = default_user_name;
 export let name2 = systemUserName;
@@ -460,6 +463,31 @@ bindCharacterCore({
     groupToEntity,
     printCharacters,
     renameCharacter,
+});
+bindSessionCore({
+    cancelTtsPlay,
+    deleteCharacterChatByName,
+    doNavbarIconClick,
+    doNewChat,
+    getEntitiesList,
+    getSystemMessageByType,
+    newAssistantChat,
+    renameGroupOrCharacterChat,
+    resetChatState,
+    selectCharacterById,
+    selectRightMenuWithAnimation,
+    select_rm_info,
+    select_selected_character,
+    sendSystemMessage,
+    sendTextareaMessage,
+    setActiveCharacter,
+    setActiveGroup,
+    setCharacterId,
+    setCharacterName,
+    setExternalAbortController,
+    setScenarioOverride,
+    unshallowCharacter,
+    updateRemoteChatName,
 });
 export let charDragDropHandler = null;
 
@@ -646,8 +674,10 @@ export let token;
 
 /** The tag of the active character. (NOT the id) */
 export let active_character = '';
+syncActiveCharacter(active_character);
 /** The tag of the active group. (Coincidentally also the id) */
 export let active_group = '';
+syncActiveGroup(active_group);
 
 export const entitiesFilter = new FilterHelper(printCharactersDebounced);
 syncEntitiesFilter(entitiesFilter);
@@ -809,6 +839,8 @@ export function setAnimationDuration(ms = null) {
 export function setActiveCharacter(entityOrKey) {
     active_character = entityOrKey ? getTagKeyForEntity(entityOrKey) : null;
     if (active_character) active_group = null;
+    syncActiveCharacter(active_character);
+    syncActiveGroup(active_group);
 }
 
 /**
@@ -818,6 +850,8 @@ export function setActiveCharacter(entityOrKey) {
 export function setActiveGroup(entityOrKey) {
     active_group = entityOrKey ? getTagKeyForEntity(entityOrKey) : null;
     if (active_group) active_character = null;
+    syncActiveCharacter(active_character);
+    syncActiveGroup(active_group);
 }
 
 export function startStatusLoading() {
@@ -6209,6 +6243,7 @@ export async function renameCharacter(name = null, { silent = false, renameChats
             // Update active character, if the current one was the currently active one
             if (active_character === oldAvatar) {
                 active_character = newAvatar;
+                syncActiveCharacter(active_character);
                 saveSettingsDebounced();
             }
 
@@ -6976,6 +7011,8 @@ export async function getSettings() {
         //Load the active character and group
         active_character = settings.active_character;
         active_group = settings.active_group;
+        syncActiveCharacter(active_character);
+        syncActiveGroup(active_group);
 
         setWorldInfoSettings(settings.world_info_settings ?? settings, data);
 

@@ -638,3 +638,26 @@
 ### Next
 1. Continue adapter-internal extraction for remaining adapters (`chat`, `chat-operations`, `session`, `ui`, `generation`).
 2. Keep boundary and frontend quality gates green while reducing remaining runtime monolith dependencies.
+
+## 2026-03-05 - Adapter Internal Extraction Wave 11 (Session Core)
+
+### Completed
+- Added standalone session/orchestration module:
+  - `public/scripts/session-core.js`
+  - exports: mirrored session state (`active_character`, `active_group`, `neutralCharacterName`, `system_message_types`), sync helpers, and bound wrappers for session actions/navigation/system-message integration.
+- Updated `public/script.js` to:
+  - bind session wrappers via `bindSessionCore(...)`,
+  - synchronize session constants and active entity state into `session-core`,
+  - update sync points at active entity mutation sites (`setActiveCharacter`, `setActiveGroup`, settings load, and character-rename path).
+- Switched `runtime/session-adapter.js` from `script.js` re-export to `session-core.js`.
+
+### Measurable Impact
+- Runtime adapter direct `script.js` re-export files reduced from **5** to **4**.
+
+### Insights
+- Session extraction required explicit sync coverage for direct write sites outside setter helpers; documenting these mutation points avoids drift.
+- This creates a cleaner React seam for navigation/entity-selection behavior without touching backend contracts.
+
+### Next
+1. Continue adapter-internal extraction for remaining adapters (`chat`, `chat-operations`, `ui`, `generation`).
+2. Keep parity and boundary checks green while reducing runtime adapter monolith dependencies toward zero.

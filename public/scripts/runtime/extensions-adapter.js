@@ -6,7 +6,7 @@ import {
     getExtensionPromptMaxDepth,
     getExtensionPromptByName,
     setExtensionPrompt,
-} from '../../script.js';
+} from '../extensions-core.js';
 
 export {
     extension_prompts,

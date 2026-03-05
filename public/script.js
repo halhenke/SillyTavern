@@ -263,6 +263,7 @@ import { extractReasoningFromData, initReasoning, parseReasoningInSwipes, Prompt
 import { bindAppStateCore, syncDefaultPrintTimeout, syncEntitiesFilter, syncIsChatSaving, syncMenuType } from './scripts/app-state-core.js';
 import { syncClientVersion, syncConnectApiMap, syncMainApi, syncNaiSettings } from './scripts/api-core.js';
 import { bindBackendStatusCore, setAbortStatusCheck } from './scripts/backend-status-core.js';
+import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
 import { bindMessageCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
@@ -441,6 +442,12 @@ bindMessageCore({
     syncMesToSwipe,
     updateMessageBlock,
 });
+bindExtensionsCore({
+    getExtensionPrompt,
+    getExtensionPromptByName,
+    getExtensionPromptMaxDepth,
+    setExtensionPrompt,
+});
 export let charDragDropHandler = null;
 
 /** @type {debounce_timeout} The debounce timeout used for chat/settings save. debounce_timeout.long: 1.000 ms */
@@ -475,6 +482,7 @@ export const extension_prompt_types = {
     IN_CHAT: 1,
     BEFORE_PROMPT: 2,
 };
+syncExtensionPromptTypes(extension_prompt_types);
 
 /**
  * @enum {number} Extension prompt roles
@@ -484,6 +492,7 @@ export const extension_prompt_roles = {
     USER: 1,
     ASSISTANT: 2,
 };
+syncExtensionPromptRoles(extension_prompt_roles);
 
 export const MAX_INJECTION_DEPTH = 10000;
 
@@ -606,6 +615,7 @@ export let max_context = 2048;
 
 var swipes = true;
 export let extension_prompts = {};
+syncExtensionPrompts(extension_prompts);
 
 export let main_api;// = "kobold";
 syncMainApi(main_api);
@@ -1480,6 +1490,7 @@ export async function clearChat() {
     cancelDebouncedMetadataSave();
     closeMessageEditor();
     extension_prompts = {};
+    syncExtensionPrompts(extension_prompts);
     if (is_delete_mode) {
         $('#dialogue_del_mes_cancel').trigger('click');
     }

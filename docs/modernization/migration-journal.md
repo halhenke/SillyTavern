@@ -593,3 +593,26 @@
 ### Next
 1. Continue adapter-internal extraction on remaining orchestration adapters (`chat`, `chat-operations`, `session`, `ui`, `extensions`, `generation`, `character`).
 2. Maintain parity checks while reducing runtime `script.js` adapter imports toward zero.
+
+## 2026-03-05 - Adapter Internal Extraction Wave 9 (Extensions Core)
+
+### Completed
+- Added standalone extension prompt module:
+  - `public/scripts/extensions-core.js`
+  - exports: extension prompt state mirrors (`extension_prompts`, `extension_prompt_roles`, `extension_prompt_types`), sync helpers, and bound wrappers for extension prompt APIs.
+- Updated `public/script.js` to:
+  - bind extension prompt wrappers via `bindExtensionsCore(...)`,
+  - synchronize extension prompt constants/state into `extensions-core`,
+  - keep state in sync when `extension_prompts` is reset in `clearChat()`.
+- Switched `runtime/extensions-adapter.js` from `script.js` re-export to `extensions-core.js`.
+
+### Measurable Impact
+- Runtime adapter direct `script.js` re-export files reduced from **7** to **6**.
+
+### Insights
+- Extension prompt concern is a good fit for bind+sync extraction because constants and mutable prompt maps can be mirrored with explicit write points.
+- Adapter consumers can now read extension prompt state/contracts without monolith imports, which improves React integration seams for prompt-related UI.
+
+### Next
+1. Continue adapter-internal extraction for remaining adapters (`chat`, `chat-operations`, `session`, `ui`, `generation`, `character`).
+2. Keep parity checks green while reducing runtime adapter monolith dependencies.

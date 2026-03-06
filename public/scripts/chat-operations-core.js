@@ -23,13 +23,17 @@ let getCharacterAvatarImpl = null;
 let getCharacterCardFieldsImpl = null;
 let getCharactersImpl = null;
 let getCurrentChatDetailsImpl = null;
+let getSelectedGroupImpl = null;
 let getMaxContextSizeImpl = null;
 let hideSwipeButtonsImpl = null;
+let getGroupChatImpl = null;
 let processDroppedFilesImpl = null;
 let printMessagesImpl = null;
-let reloadCurrentChatImpl = null;
+let preserveNeutralChatImpl = null;
 let renameChatImpl = null;
+let resetChatStateImpl = null;
 let loadItemizedPromptsImpl = null;
+let restoreNeutralChatImpl = null;
 let saveChatImpl = null;
 let saveChatConditionalImpl = null;
 let saveItemizedPromptsImpl = null;
@@ -70,13 +74,17 @@ function throwUnbound(name) {
  *   getCharacterCardFields: (...args: any[]) => any,
  *   getCharacters: (...args: any[]) => Promise<any>,
  *   getCurrentChatDetails: (...args: any[]) => any,
+ *   getSelectedGroup: () => string|null|undefined,
+ *   getGroupChat: (...args: any[]) => Promise<any>,
  *   getMaxContextSize: (...args: any[]) => number,
- *   hideSwipeButtons: (...args: any[]) => any,
- *   processDroppedFiles: (...args: any[]) => Promise<any>,
- *   printMessages: (...args: any[]) => Promise<any>,
- *   reloadCurrentChat: (...args: any[]) => Promise<any>,
+  *   hideSwipeButtons: (...args: any[]) => any,
+ *   preserveNeutralChat: (...args: any[]) => any,
+  *   processDroppedFiles: (...args: any[]) => Promise<any>,
+  *   printMessages: (...args: any[]) => Promise<any>,
   *   renameChat: (...args: any[]) => Promise<any>,
- *   loadItemizedPrompts: (...args: any[]) => Promise<any>,
+ *   resetChatState: (...args: any[]) => any,
+ *   restoreNeutralChat: (...args: any[]) => any,
+  *   loadItemizedPrompts: (...args: any[]) => Promise<any>,
  *   saveChat: (...args: any[]) => Promise<any>,
  *   saveChatConditional: (...args: any[]) => Promise<any>,
  *   saveItemizedPrompts: (...args: any[]) => Promise<any>,
@@ -106,13 +114,17 @@ export function bindChatOperationsCore(impl) {
     getCharacterCardFieldsImpl = impl?.getCharacterCardFields ?? null;
     getCharactersImpl = impl?.getCharacters ?? null;
     getCurrentChatDetailsImpl = impl?.getCurrentChatDetails ?? null;
+    getSelectedGroupImpl = impl?.getSelectedGroup ?? null;
+    getGroupChatImpl = impl?.getGroupChat ?? null;
     getMaxContextSizeImpl = impl?.getMaxContextSize ?? null;
     hideSwipeButtonsImpl = impl?.hideSwipeButtons ?? null;
+    preserveNeutralChatImpl = impl?.preserveNeutralChat ?? null;
     processDroppedFilesImpl = impl?.processDroppedFiles ?? null;
     printMessagesImpl = impl?.printMessages ?? null;
-    reloadCurrentChatImpl = impl?.reloadCurrentChat ?? null;
     renameChatImpl = impl?.renameChat ?? null;
+    resetChatStateImpl = impl?.resetChatState ?? null;
     loadItemizedPromptsImpl = impl?.loadItemizedPrompts ?? null;
+    restoreNeutralChatImpl = impl?.restoreNeutralChat ?? null;
     saveChatImpl = impl?.saveChat ?? null;
     saveChatConditionalImpl = impl?.saveChatConditional ?? null;
     saveItemizedPromptsImpl = impl?.saveItemizedPrompts ?? null;
@@ -239,11 +251,6 @@ export function printMessages(...args) {
 export function processDroppedFiles(...args) {
     if (!processDroppedFilesImpl) throwUnbound('processDroppedFiles');
     return processDroppedFilesImpl(...args);
-}
-
-export function reloadCurrentChat(...args) {
-    if (!reloadCurrentChatImpl) throwUnbound('reloadCurrentChat');
-    return reloadCurrentChatImpl(...args);
 }
 
 export function renameChat(...args) {
@@ -411,6 +418,38 @@ export async function openCharacterChat(file_name) {
     $('#selected_chat_pole').val(file_name);
     await createOrEditCharacterImpl(new CustomEvent('newChat'));
 
+    return result;
+}
+
+export async function reloadCurrentChat() {
+    if (!preserveNeutralChatImpl) throwUnbound('preserveNeutralChat');
+    if (!getSelectedGroupImpl) throwUnbound('getSelectedGroup');
+    if (!getGroupChatImpl) throwUnbound('getGroupChat');
+    if (!resetChatStateImpl) throwUnbound('resetChatState');
+    if (!restoreNeutralChatImpl) throwUnbound('restoreNeutralChat');
+
+    preserveNeutralChatImpl();
+    await clearChat();
+    chat.length = 0;
+
+    const selectedGroup = getSelectedGroupImpl();
+    let result = null;
+    if (selectedGroup) {
+        await getGroupChatImpl(selectedGroup, true);
+    }
+    else if (this_chid !== undefined) {
+        result = await getChat();
+    }
+    else {
+        result = resetChatStateImpl();
+        restoreNeutralChatImpl();
+        await getCharacters();
+        await printMessages();
+        await eventSource.emit(event_types.CHAT_CHANGED, getCurrentChatId());
+    }
+
+    hideSwipeButtons();
+    showSwipeButtons();
     return result;
 }
 

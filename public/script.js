@@ -262,7 +262,7 @@ import { getClientVersion as getClientVersionCore, syncClientVersion, syncConnec
 import { bindBackendStatusCore, cancelStatusCheck as cancelStatusCheckCore, displayOnlineStatus as displayOnlineStatusCore, resultCheckStatus as resultCheckStatusCore, setAbortStatusCheck, setOnlineStatus as setOnlineStatusCore, startStatusLoading as startStatusLoadingCore, stopStatusLoading as stopStatusLoadingCore } from './scripts/backend-status-core.js';
 import { bindCharacterCore, syncCharacterGroupOverlay, syncCharacters, syncPrintCharactersDebounced } from './scripts/character-core.js';
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
-import { bindChatOperationsCore, getChat as getChatCore, getChatResult as getChatResultCore, openCharacterChat as openCharacterChatCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
+import { bindChatOperationsCore, getChat as getChatCore, getChatResult as getChatResultCore, openCharacterChat as openCharacterChatCore, reloadCurrentChat as reloadCurrentChatCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
 import { bindGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault } from './scripts/generation-core.js';
 import { bindMessageCore, setEditedMessageId as setEditedMessageIdCore } from './scripts/message-core.js';
@@ -529,13 +529,17 @@ bindChatOperationsCore({
     getCharacterCardFields,
     getCharacters,
     getCurrentChatDetails,
+    getGroupChat,
     getMaxContextSize,
+    getSelectedGroup: () => selected_group,
     hideSwipeButtons,
     loadItemizedPrompts,
+    preserveNeutralChat,
     printMessages,
     processDroppedFiles,
-    reloadCurrentChat,
     renameChat,
+    resetChatState,
+    restoreNeutralChat,
     saveChat,
     saveChatConditional,
     saveItemizedPrompts,
@@ -1578,26 +1582,18 @@ export async function deleteLastMessage() {
 }
 
 export async function reloadCurrentChat() {
-    preserveNeutralChat();
-    await clearChat();
-    chat.length = 0;
-
-    if (selected_group) {
-        await getGroupChat(selected_group, true);
+    const result = await reloadCurrentChatCore();
+    if (result?.characterName !== undefined) {
+        name2 = result.characterName;
+        syncName2(name2);
     }
-    else if (this_chid !== undefined) {
-        await getChat();
+    if (result?.chatCreateDate !== undefined) {
+        chat_create_date = result.chatCreateDate;
     }
-    else {
-        resetChatState();
-        restoreNeutralChat();
-        await getCharacters();
-        await printMessages();
-        await eventSource.emit(event_types.CHAT_CHANGED, getCurrentChatId());
+    if (result?.chatMetadata !== undefined) {
+        chat_metadata = result.chatMetadata;
+        syncChatMetadata(chat_metadata);
     }
-
-    hideSwipeButtons();
-    showSwipeButtons();
 }
 
 /**

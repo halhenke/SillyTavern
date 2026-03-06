@@ -951,3 +951,27 @@
 ### Next
 1. Continue on the same path with `reloadCurrentChat()` so the full clear/reload branch leaves the monolith.
 2. After that, reassess whether the next best slice is still chat lifecycle or whether message rendering becomes the higher-value target.
+
+## 2026-03-07 - Monolith Reduction Wave 11 (Chat Reload Flow)
+
+### Completed
+- Moved `reloadCurrentChat()` out of `public/script.js` into `public/scripts/chat-operations-core.js`.
+- Added the minimal internal callbacks needed for that ownership move:
+  - `getSelectedGroup`
+  - `getGroupChat`
+  - `preserveNeutralChat`
+  - `resetChatState`
+  - `restoreNeutralChat`
+- Updated `public/script.js` to keep a thin compatibility wrapper that only mirrors local `name2`, `chat_create_date`, and `chat_metadata` state if the reload path returns updated values.
+
+### Measurable Impact
+- `public/script.js` no longer owns the central clear/reload branch for active chat state.
+- With `getChatResult()`, `getChat()`, `openCharacterChat()`, and `reloadCurrentChat()` now outside the monolith, most of the character chat lifecycle has been extracted into `chat-operations-core`.
+
+### Insights
+- Binding read-only selectors such as `getSelectedGroup` is a better migration pattern than importing more legacy modules into a core and creating new cycles.
+- The chat lifecycle is now far enough along that the next gains will probably come from either send/generation entrypoints or message rendering, not more small chat-loading helpers.
+
+### Next
+1. Reassess the next highest-yield slice between `sendTextareaMessage()` and message render/update flows.
+2. Continue preferring full async workflow moves over isolated utility extraction.

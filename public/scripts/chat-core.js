@@ -1,6 +1,6 @@
 import { characters } from './character-core.js';
+import { groups, selected_group } from './group-chats.js';
 
-let getCurrentChatIdImpl = null;
 let getUserAvatarImpl = null;
 let setUserNameImpl = null;
 
@@ -20,13 +20,11 @@ function throwUnbound(name) {
 /**
  * Binds legacy chat implementations to standalone wrappers.
  * @param {{
- *   getCurrentChatId: (...args: any[]) => string|undefined,
  *   getUserAvatar: (...args: any[]) => string,
  *   setUserName: (...args: any[]) => any,
  * }} impl Implementations to bind
  */
 export function bindChatCore(impl) {
-    getCurrentChatIdImpl = impl?.getCurrentChatId ?? null;
     getUserAvatarImpl = impl?.getUserAvatar ?? null;
     setUserNameImpl = impl?.setUserName ?? null;
 }
@@ -63,12 +61,13 @@ export function syncUserAvatar(value) {
     user_avatar = value;
 }
 
-export function getCurrentChatId(...args) {
-    if (!getCurrentChatIdImpl) {
-        throwUnbound('getCurrentChatId');
+export function getCurrentChatId() {
+    if (selected_group) {
+        return groups.find(x => x.id == selected_group)?.chat_id;
     }
-
-    return getCurrentChatIdImpl(...args);
+    else if (this_chid !== undefined) {
+        return characters[this_chid]?.chat;
+    }
 }
 
 export function setUserName(...args) {

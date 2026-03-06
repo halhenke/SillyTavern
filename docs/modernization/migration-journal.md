@@ -868,3 +868,24 @@
 ### Next
 1. Continue taking medium-size concern batches out of `public/script.js` instead of isolated helpers.
 2. Target one larger chat lifecycle or UI orchestration path next, where state ownership is now cleaner after the status extraction.
+
+## 2026-03-07 - Monolith Reduction Wave 7 (Bootstrap Helper Batch)
+
+### Completed
+- Moved `getCurrentChatId()` out of `public/script.js` into `public/scripts/chat-core.js`.
+- Moved `reloadMarkdownProcessor()` out of `public/script.js` into `public/scripts/ui-core.js`.
+- Moved `pingServer()` out of `public/script.js` into `public/scripts/network-core.js`.
+- Moved `getClientVersion()` out of `public/script.js` into `public/scripts/api-core.js`.
+- Updated `public/script.js` to keep thin compatibility wrappers and removed the corresponding bound implementation entries from `bindChatCore(...)` and `bindUiCore(...)`.
+
+### Measurable Impact
+- `public/script.js` no longer owns a set of bootstrap/runtime helpers spanning chat identity, markdown initialization, server reachability, and client version loading.
+- This further reduces monolith ownership in the early app initialization path instead of limiting extraction to late-stage chat helpers only.
+
+### Insights
+- Some remaining `script.js` code can be removed faster by taking one helper from several already-established cores in the same wave, rather than waiting for a perfectly pure single-concern batch.
+- Wrapper-only exports are now concentrated enough that the next worthwhile step should be a larger orchestration path, not just more tiny initialization helpers.
+
+### Next
+1. Target a larger UI orchestration or chat lifecycle slice that still lives mostly in `public/script.js`.
+2. Continue preferring real ownership moves in existing cores over creating more wrapper-only surfaces.

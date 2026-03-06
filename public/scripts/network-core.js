@@ -27,6 +27,28 @@ export function getRequestHeaders({ omitContentType = false } = {}) {
 }
 
 /**
+ * Pings the STserver to check if it is reachable.
+ * @returns {Promise<boolean>} True if the server is reachable, false otherwise.
+ */
+export async function pingServer() {
+    try {
+        const result = await fetch('api/ping', {
+            method: 'POST',
+            headers: getRequestHeaders(),
+        });
+
+        if (!result.ok) {
+            return false;
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Error pinging server', error);
+        return false;
+    }
+}
+
+/**
  * Gets the URL for a thumbnail of a specific type and file.
  * @param {import('../../src/endpoints/thumbnails.js').ThumbnailType} type The type of thumbnail to get
  * @param {string} file The file name/path

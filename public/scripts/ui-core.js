@@ -1,9 +1,13 @@
 import { chat } from './chat-operations-core.js';
 import { event_types, eventSource } from './events.js';
+import { syncConverter } from './parser-core.js';
+import { markdownExclusionExt } from './showdown-exclusion.js';
+import { markdownUnderscoreExt } from './showdown-underscore.js';
+
+import { showdown } from '../lib.js';
 
 let addCopyToCodeBlocksImpl = null;
 let callPopupImpl = null;
-let reloadMarkdownProcessorImpl = null;
 let scrollChatToBottomImpl = null;
 
 export let ANIMATION_DURATION_DEFAULT = 0;
@@ -21,14 +25,12 @@ function throwUnbound(name) {
  * @param {{
  *   addCopyToCodeBlocks: (...args: any[]) => any,
  *   callPopup: (...args: any[]) => any,
- *   reloadMarkdownProcessor: (...args: any[]) => any,
  *   scrollChatToBottom: (...args: any[]) => any,
  * }} impl Implementations to bind
  */
 export function bindUiCore(impl) {
     addCopyToCodeBlocksImpl = impl?.addCopyToCodeBlocks ?? null;
     callPopupImpl = impl?.callPopup ?? null;
-    reloadMarkdownProcessorImpl = impl?.reloadMarkdownProcessor ?? null;
     scrollChatToBottomImpl = impl?.scrollChatToBottom ?? null;
 }
 
@@ -69,11 +71,24 @@ export function callPopup(...args) {
 }
 
 export function reloadMarkdownProcessor(...args) {
-    if (!reloadMarkdownProcessorImpl) {
-        throwUnbound('reloadMarkdownProcessor');
-    }
+    const converter = new showdown.Converter({
+        emoji: true,
+        literalMidWordUnderscores: true,
+        parseImgDimensions: true,
+        tables: true,
+        underline: true,
+        simpleLineBreaks: true,
+        strikethrough: true,
+        disableForced4SpacesIndentedSublists: true,
+        extensions: [markdownUnderscoreExt()],
+    });
 
-    return reloadMarkdownProcessorImpl(...args);
+    // Inject the dinkus extension after creating the converter
+    // Maybe move this into power_user init?
+    converter.addExtension(markdownExclusionExt(), 'exclusion');
+    syncConverter(converter);
+
+    return converter;
 }
 
 export function scrollChatToBottom(...args) {

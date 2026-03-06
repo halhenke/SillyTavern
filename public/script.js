@@ -204,8 +204,6 @@ import {
     applyCharacterTagsToMessageDivs,
 } from './scripts/tags.js';
 import { initSecrets, readSecretState } from './scripts/secrets.js';
-import { markdownExclusionExt } from './scripts/showdown-exclusion.js';
-import { markdownUnderscoreExt } from './scripts/showdown-underscore.js';
 import { NOTE_MODULE_NAME, initAuthorsNote, metadata_keys, setFloatingPrompt, shouldWIAddPrompt } from './scripts/authors-note.js';
 import { registerPromptManagerMigration } from './scripts/PromptManager.js';
 import { getRegexedString, regex_placement } from './scripts/extensions/regex/engine.js';
@@ -260,19 +258,19 @@ import { initBulkEdit } from './scripts/bulk-edit.js';
 import { getContext } from './scripts/st-context.js';
 import { extractReasoningFromData, initReasoning, parseReasoningInSwipes, PromptReasoning, ReasoningHandler, removeReasoningFromString, updateReasoningUI } from './scripts/reasoning.js';
 import { bindAppStateCore, setMenuType as setMenuTypeCore, syncDefaultPrintTimeout, syncEntitiesFilter, syncIsChatSaving, syncMenuType } from './scripts/app-state-core.js';
-import { syncClientVersion, syncConnectApiMap, syncMainApi, syncNaiSettings } from './scripts/api-core.js';
+import { getClientVersion as getClientVersionCore, syncClientVersion, syncConnectApiMap, syncMainApi, syncNaiSettings } from './scripts/api-core.js';
 import { bindBackendStatusCore, cancelStatusCheck as cancelStatusCheckCore, displayOnlineStatus as displayOnlineStatusCore, resultCheckStatus as resultCheckStatusCore, setAbortStatusCheck, setOnlineStatus as setOnlineStatusCore, startStatusLoading as startStatusLoadingCore, stopStatusLoading as stopStatusLoadingCore } from './scripts/backend-status-core.js';
 import { bindCharacterCore, syncCharacterGroupOverlay, syncCharacters, syncPrintCharactersDebounced } from './scripts/character-core.js';
-import { bindChatCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
+import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
 import { bindChatOperationsCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
 import { bindGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault } from './scripts/generation-core.js';
 import { bindMessageCore } from './scripts/message-core.js';
-import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, setCsrfToken } from './scripts/network-core.js';
+import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
 import { bindSessionCore, resetChatState as resetChatStateCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes } from './scripts/session-core.js';
 import { bindSettingsCore } from './scripts/settings-core.js';
-import { activateSendButtons as activateSendButtonsCore, bindUiCore, deactivateSendButtons as deactivateSendButtonsCore, getSlideToggleOptions as getSlideToggleOptionsCore, hideStopButton as hideStopButtonCore, setAnimationDuration as setAnimationDurationCore, showStopButton as showStopButtonCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
+import { activateSendButtons as activateSendButtonsCore, bindUiCore, deactivateSendButtons as deactivateSendButtonsCore, getSlideToggleOptions as getSlideToggleOptionsCore, hideStopButton as hideStopButtonCore, reloadMarkdownProcessor as reloadMarkdownProcessorCore, setAnimationDuration as setAnimationDurationCore, showStopButton as showStopButtonCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
 import { accountStorage } from './scripts/util/AccountStorage.js';
 import { initWelcomeScreen, openPermanentAssistantChat, openPermanentAssistantCard, getPermanentAssistantAvatar } from './scripts/welcome-screen.js';
 import { initDataMaid } from './scripts/data-maid.js';
@@ -437,8 +435,6 @@ let fav_ch_checked = false;
 let scrollLock = false;
 export let abortStatusCheck = new AbortController();
 setAbortStatusCheck(abortStatusCheck);
-bindBackendStatusCore({
-});
 bindBackendStatusCore();
 bindAppStateCore();
 bindParserCore({
@@ -477,7 +473,6 @@ bindCharacterCore({
     renameCharacter,
 });
 bindChatCore({
-    getCurrentChatId,
     getUserAvatar,
     setUserName,
 });
@@ -557,7 +552,6 @@ bindChatOperationsCore({
 bindUiCore({
     addCopyToCodeBlocks,
     callPopup,
-    reloadMarkdownProcessor,
     scrollChatToBottom,
 });
 export let charDragDropHandler = null;
@@ -611,55 +605,21 @@ export const MAX_INJECTION_DEPTH = 10000;
 syncMaxInjectionDepth(MAX_INJECTION_DEPTH);
 
 async function getClientVersion() {
-    try {
-        const response = await fetch('/version');
-        const data = await response.json();
-        CLIENT_VERSION = data.agent;
-        syncClientVersion(CLIENT_VERSION);
-        displayVersion = `SillyTavern ${data.pkgVersion}`;
-        syncDisplayVersion(displayVersion);
-        currentVersion = data.pkgVersion;
-
-        if (data.gitRevision && data.gitBranch) {
-            displayVersion += ` '${data.gitBranch}' (${data.gitRevision})`;
-            syncDisplayVersion(displayVersion);
-        }
-
-        $('#version_display').text(displayVersion);
-        $('#version_display_welcome').text(displayVersion);
-    } catch (err) {
-        console.error('Couldn\'t get client version', err);
+    const versionInfo = await getClientVersionCore();
+    if (versionInfo) {
+        CLIENT_VERSION = versionInfo.clientVersion;
+        displayVersion = versionInfo.displayVersion;
+        currentVersion = versionInfo.currentVersion;
     }
 }
 
 export function reloadMarkdownProcessor() {
-    converter = new showdown.Converter({
-        emoji: true,
-        literalMidWordUnderscores: true,
-        parseImgDimensions: true,
-        tables: true,
-        underline: true,
-        simpleLineBreaks: true,
-        strikethrough: true,
-        disableForced4SpacesIndentedSublists: true,
-        extensions: [markdownUnderscoreExt()],
-    });
-
-    // Inject the dinkus extension after creating the converter
-    // Maybe move this into power_user init?
-    converter.addExtension(markdownExclusionExt(), 'exclusion');
-    syncConverter(converter);
-
+    converter = reloadMarkdownProcessorCore();
     return converter;
 }
 
 export function getCurrentChatId() {
-    if (selected_group) {
-        return groups.find(x => x.id == selected_group)?.chat_id;
-    }
-    else if (this_chid !== undefined) {
-        return characters[this_chid]?.chat;
-    }
+    return getCurrentChatIdCore();
 }
 
 export const talkativeness_default = 0.5;
@@ -784,21 +744,7 @@ $.ajaxPrefilter((options, originalOptions, xhr) => {
  * @returns {Promise<boolean>} True if the server is reachable, false otherwise.
  */
 export async function pingServer() {
-    try {
-        const result = await fetch('api/ping', {
-            method: 'POST',
-            headers: getRequestHeaders(),
-        });
-
-        if (!result.ok) {
-            return false;
-        }
-
-        return true;
-    } catch (error) {
-        console.error('Error pinging server', error);
-        return false;
-    }
+    return pingServerCore();
 }
 
 //MARK: firstLoadInit

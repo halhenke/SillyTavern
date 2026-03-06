@@ -259,7 +259,7 @@ import { extractReasoningFromData, initReasoning, parseReasoningInSwipes, Prompt
 import { bindAppStateCore, setMenuType as setMenuTypeCore, syncDefaultPrintTimeout, syncEntitiesFilter, syncIsChatSaving, syncMenuType } from './scripts/app-state-core.js';
 import { getClientVersion as getClientVersionCore, syncClientVersion, syncConnectApiMap, syncMainApi, syncNaiSettings } from './scripts/api-core.js';
 import { bindBackendStatusCore, cancelStatusCheck as cancelStatusCheckCore, displayOnlineStatus as displayOnlineStatusCore, resultCheckStatus as resultCheckStatusCore, setAbortStatusCheck, setOnlineStatus as setOnlineStatusCore, startStatusLoading as startStatusLoadingCore, stopStatusLoading as stopStatusLoadingCore } from './scripts/backend-status-core.js';
-import { bindCharacterCore, syncCharacterGroupOverlay, syncCharacters, syncPrintCharactersDebounced } from './scripts/character-core.js';
+import { bindCharacterCore, createOrEditCharacter as createOrEditCharacterCore, getOneCharacter as getOneCharacterCore, syncCharacterGroupOverlay, syncCharacters, syncCreateSave as syncCharacterCreateSave, syncCropData, syncDepthPromptDepthDefault as syncCharacterDepthPromptDepthDefault, syncDepthPromptRoleDefault as syncCharacterDepthPromptRoleDefault, syncFavChChecked, syncPrintCharactersDebounced, syncTalkativenessDefault as syncCharacterTalkativenessDefault } from './scripts/character-core.js';
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
 import { addOneMessage as addOneMessageCore, bindChatOperationsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
@@ -428,8 +428,10 @@ syncChatMetadata(chat_metadata);
 export let streamingProcessor = null;
 syncStreamingProcessor(streamingProcessor);
 let crop_data = undefined;
+syncCropData(crop_data);
 let is_delete_mode = false;
 let fav_ch_checked = false;
+syncFavChChecked(fav_ch_checked);
 let scrollLock = false;
 export let abortStatusCheck = new AbortController();
 setAbortStatusCheck(abortStatusCheck);
@@ -463,12 +465,19 @@ bindExtensionsCore({
 bindCharacterCore({
     buildAvatarList,
     characterToEntity,
+    clearChat,
+    createTagMapFromList,
     deleteCharacter,
     duplicateCharacter,
+    getChat: () => chat,
+    getFirstMessage,
     getCharacters,
     groupToEntity,
+    printMessages,
     printCharacters,
     renameCharacter,
+    saveChatConditional,
+    select_rm_info,
 });
 bindChatCore({
     getUserAvatar,
@@ -661,10 +670,13 @@ export function getCurrentChatId() {
 
 export const talkativeness_default = 0.5;
 syncTalkativenessDefault(talkativeness_default);
+syncCharacterTalkativenessDefault(talkativeness_default);
 export const depth_prompt_depth_default = 4;
 syncDepthPromptDepthDefault(depth_prompt_depth_default);
+syncCharacterDepthPromptDepthDefault(depth_prompt_depth_default);
 export const depth_prompt_role_default = 'system';
 syncDepthPromptRoleDefault(depth_prompt_role_default);
+syncCharacterDepthPromptRoleDefault(depth_prompt_role_default);
 const per_page_default = 50;
 
 var is_advanced_char_open = false;
@@ -708,6 +720,7 @@ export let create_save = {
     extra_books: [],
 };
 syncCreateSave(create_save);
+syncCharacterCreateSave(create_save);
 
 //animation right menu
 export const ANIMATION_DURATION_DEFAULT = 125;
@@ -1287,27 +1300,7 @@ export function getEntitiesList({ doFilter = false, doSort = true } = {}) {
 }
 
 export async function getOneCharacter(avatarUrl) {
-    const response = await fetch('/api/characters/get', {
-        method: 'POST',
-        headers: getRequestHeaders(),
-        body: JSON.stringify({
-            avatar_url: avatarUrl,
-        }),
-    });
-
-    if (response.ok) {
-        const getData = await response.json();
-        getData['name'] = DOMPurify.sanitize(getData['name']);
-        getData['chat'] = String(getData['chat']);
-
-        const indexOf = characters.findIndex(x => x.avatar === avatarUrl);
-
-        if (indexOf !== -1) {
-            characters[indexOf] = getData;
-        } else {
-            toastr.error(t`Character ${avatarUrl} not found in the list`, t`Error`, { timeOut: 5000, preventDuplicates: true });
-        }
-    }
+    return getOneCharacterCore(avatarUrl);
 }
 
 function getCharacterSource(chId = this_chid) {
@@ -6071,6 +6064,7 @@ async function read_avatar_load(input) {
         }
 
         crop_data = undefined;
+        syncCropData(crop_data);
         const file = input.files[0];
         const fileData = await getBase64Async(file);
 
@@ -6083,6 +6077,7 @@ async function read_avatar_load(input) {
             }
 
             crop_data = dlg.cropData;
+            syncCropData(crop_data);
             $('#avatar_load_preview').attr('src', String(croppedImage));
         } else {
             $('#avatar_load_preview').attr('src', fileData);
@@ -7311,6 +7306,7 @@ function updateFavButtonState(state) {
     // Update global state of the flag
     // TODO: This is bad and needs to be refactored.
     fav_ch_checked = state;
+    syncFavChChecked(fav_ch_checked);
     $('#fav_checkbox').prop('checked', state);
     $('#favorite_button').toggleClass('fav_on', state);
     $('#favorite_button').toggleClass('fav_off', !state);
@@ -7868,180 +7864,7 @@ function addAlternateGreeting(template, greeting, index, getArray, popup) {
  * @param {Event} [e] Event that triggered the function call.
  */
 async function createOrEditCharacter(e) {
-    $('#rm_info_avatar').html('');
-    const formData = new FormData(/** @type {HTMLFormElement} */($('#form_create').get(0)));
-    formData.set('fav', String(fav_ch_checked));
-    const isNewChat = e instanceof CustomEvent && e.type === 'newChat';
-
-    const rawFile = formData.get('avatar');
-    if (rawFile instanceof File) {
-        const convertedFile = await ensureImageFormatSupported(rawFile);
-        formData.set('avatar', convertedFile);
-    }
-
-    const headers = getRequestHeaders({ omitContentType: true });
-
-    if ($('#form_create').attr('actiontype') == 'createcharacter') {
-        if (String($('#character_name_pole').val()).length === 0) {
-            toastr.error(t`Name is required`);
-            return;
-        }
-        if (is_group_generating || is_send_press) {
-            toastr.error(t`Cannot create characters while generating. Stop the request and try again.`, t`Creation aborted`);
-            return;
-        }
-        try {
-            //if the character name text area isn't empty (only posible when creating a new character)
-            let url = '/api/characters/create';
-
-            if (crop_data != undefined) {
-                url += `?crop=${encodeURIComponent(JSON.stringify(crop_data))}`;
-            }
-
-            formData.delete('alternate_greetings');
-            for (const value of create_save.alternate_greetings) {
-                formData.append('alternate_greetings', value);
-            }
-
-            formData.append('extensions', JSON.stringify(create_save.extensions));
-
-            const fetchResult = await fetch(url, {
-                method: 'POST',
-                headers: headers,
-                body: formData,
-                cache: 'no-cache',
-            });
-
-            if (!fetchResult.ok) {
-                throw new Error('Fetch result is not ok');
-            }
-
-            const avatarId = await fetchResult.text();
-
-            $('#character_cross').trigger('click'); //closes the advanced character editing popup
-            const fields = [
-                { id: '#character_name_pole', callback: value => create_save.name = value },
-                { id: '#description_textarea', callback: value => create_save.description = value },
-                { id: '#creator_notes_textarea', callback: value => create_save.creator_notes = value },
-                { id: '#character_version_textarea', callback: value => create_save.character_version = value },
-                { id: '#post_history_instructions_textarea', callback: value => create_save.post_history_instructions = value },
-                { id: '#system_prompt_textarea', callback: value => create_save.system_prompt = value },
-                { id: '#tags_textarea', callback: value => create_save.tags = value },
-                { id: '#creator_textarea', callback: value => create_save.creator = value },
-                { id: '#personality_textarea', callback: value => create_save.personality = value },
-                { id: '#firstmessage_textarea', callback: value => create_save.first_message = value },
-                { id: '#talkativeness_slider', callback: value => create_save.talkativeness = value, defaultValue: talkativeness_default },
-                { id: '#scenario_pole', callback: value => create_save.scenario = value },
-                { id: '#depth_prompt_prompt', callback: value => create_save.depth_prompt_prompt = value },
-                { id: '#depth_prompt_depth', callback: value => create_save.depth_prompt_depth = value, defaultValue: depth_prompt_depth_default },
-                { id: '#depth_prompt_role', callback: value => create_save.depth_prompt_role = value, defaultValue: depth_prompt_role_default },
-                { id: '#mes_example_textarea', callback: value => create_save.mes_example = value },
-                { id: '#character_json_data', callback: () => { } },
-                { id: '#alternate_greetings_template', callback: value => create_save.alternate_greetings = value, defaultValue: [] },
-                { id: '#character_world', callback: value => create_save.world = value },
-                { id: '#_character_extensions_fake', callback: value => create_save.extensions = {} },
-            ];
-
-            fields.forEach(field => {
-                const fieldValue = field.defaultValue !== undefined ? field.defaultValue : '';
-                $(field.id).val(fieldValue);
-                field.callback && field.callback(fieldValue);
-            });
-
-            if (Array.isArray(create_save.extra_books) && create_save.extra_books.length > 0) {
-                const fileName = getCharaFilename(null, { manualAvatarKey: avatarId });
-                const charLore = world_info.charLore ?? [];
-                charLore.push({ name: fileName, extraBooks: create_save.extra_books });
-                Object.assign(world_info, { charLore: charLore });
-                saveSettingsDebounced();
-            }
-            create_save.extra_books = [];
-
-            $('#character_popup-button-h3').text('Create character');
-
-            create_save.avatar = null;
-
-            $('#add_avatar_button').replaceWith(
-                $('#add_avatar_button').val('').clone(true),
-            );
-
-            let oldSelectedChar = null;
-            if (this_chid !== undefined) {
-                oldSelectedChar = characters[this_chid].avatar;
-            }
-
-            console.log(`new avatar id: ${avatarId}`);
-            createTagMapFromList('#tagList', avatarId);
-            await getCharacters();
-
-            select_rm_info('char_create', avatarId, oldSelectedChar);
-
-            crop_data = undefined;
-
-        } catch (error) {
-            console.error('Error creating character', error);
-            toastr.error(t`Failed to create character`);
-        }
-    } else {
-        try {
-            let url = '/api/characters/edit';
-
-            if (crop_data != undefined) {
-                url += `?crop=${encodeURIComponent(JSON.stringify(crop_data))}`;
-            }
-
-            formData.delete('alternate_greetings');
-            const chid = $('.open_alternate_greetings').data('chid');
-            if (characters[chid] && Array.isArray(characters[chid]?.data?.alternate_greetings)) {
-                for (const value of characters[chid].data.alternate_greetings) {
-                    formData.append('alternate_greetings', value);
-                }
-            }
-
-            const fetchResult = await fetch(url, {
-                method: 'POST',
-                headers: headers,
-                body: formData,
-                cache: 'no-cache',
-            });
-
-            if (!fetchResult.ok) {
-                throw new Error('Fetch result is not ok');
-            }
-
-            await getOneCharacter(formData.get('avatar_url'));
-            favsToHotswap(); // Update fav state
-
-            $('#add_avatar_button').replaceWith(
-                $('#add_avatar_button').val('').clone(true),
-            );
-            $('#create_button').attr('value', 'Save');
-            crop_data = undefined;
-            await eventSource.emit(event_types.CHARACTER_EDITED, { detail: { id: this_chid, character: characters[this_chid] } });
-
-            // Recreate the chat if it hasn't been used at least once (i.e. with continue).
-            const message = getFirstMessage();
-            const shouldRegenerateMessage =
-                !isNewChat &&
-                message.mes &&
-                !selected_group &&
-                !chat_metadata['tainted'] &&
-                (chat.length === 0 || (chat.length === 1 && !chat[0].is_user && !chat[0].is_system));
-
-            if (shouldRegenerateMessage) {
-                chat.splice(0, chat.length, message);
-                const messageId = (chat.length - 1);
-                await eventSource.emit(event_types.MESSAGE_RECEIVED, messageId, 'first_message');
-                await clearChat();
-                await printMessages();
-                await eventSource.emit(event_types.CHARACTER_MESSAGE_RENDERED, messageId, 'first_message');
-                await saveChatConditional();
-            }
-        } catch (error) {
-            console.log(error);
-            toastr.error(t`Something went wrong while saving the character, or the image file provided was in an invalid format. Double check that the image is not a webp.`);
-        }
-    }
+    return createOrEditCharacterCore(e);
 }
 
 /**

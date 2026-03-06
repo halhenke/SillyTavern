@@ -1108,3 +1108,33 @@
 ### Next
 1. Reassess whether the next highest-yield extraction is the character create/edit flow or the first focused helper batch around `Generate(...)`.
 2. Keep using callback bindings for flows that would otherwise create cycles through `welcome-screen.js`, group chat modules, or character editing.
+
+## 2026-03-07 - Monolith Reduction Wave 17 (Character Edit Flow Batch)
+
+### Completed
+- Moved `getOneCharacter()` out of `public/script.js` into `public/scripts/character-core.js`.
+- Moved `createOrEditCharacter()` out of `public/script.js` into `public/scripts/character-core.js`.
+- Added synced character-form state in `character-core` for:
+  - `create_save`
+  - `crop_data`
+  - `fav_ch_checked`
+  - character form defaults used by the editor flow
+- Updated `public/script.js` to keep thin compatibility wrappers and sync the shared character-form state into `character-core`.
+- Extended `bindCharacterCore(...)` with narrow callbacks for legacy-only dependencies:
+  - chat access
+  - chat clear/print/save
+  - first-message generation
+  - tag map creation
+  - selected-character UI handoff
+
+### Measurable Impact
+- `public/script.js` no longer owns the main character create/edit submission flow.
+- The remaining monolith-owned character area is now more about editor UI/popup orchestration than persistence logic.
+
+### Insights
+- The right shape for character migration is to keep form submission and persistence in `character-core`, while leaving popup-specific UI orchestration behind thin wrappers until the editor UI itself moves.
+- Shared mutable form state can be migrated safely by syncing the same object reference into the new core instead of rewriting every caller at once.
+
+### Next
+1. Reassess whether the next best batch is character-editor UI helpers around the same surface or a focused helper batch around `Generate(...)`.
+2. Keep preferring core-owned persistence/orchestration over moving large DOM-heavy editor widgets all at once.

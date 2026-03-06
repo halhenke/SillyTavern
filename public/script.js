@@ -520,10 +520,12 @@ bindChatOperationsCore({
     activateSendButtons,
     addOneMessage,
     appendMediaToMessage,
-    clearChat,
+    cancelDebouncedChatSave,
+    cancelDebouncedMetadataSave,
+    cancelDeleteMode: () => $('#dialogue_del_mes_cancel').trigger('click'),
+    closeMessageEditor,
     createOrEditCharacter,
     deactivateSendButtons,
-    deleteLastMessage,
     deleteSwipe,
     displayPastChats,
     extractMessageBias,
@@ -536,12 +538,22 @@ bindChatOperationsCore({
     getMaxContextSize,
     getSelectedGroup: () => selected_group,
     hideSwipeButtons,
+    isDeleteMode: () => is_delete_mode,
     loadItemizedPrompts,
     preserveNeutralChat,
     printMessages,
     processDroppedFiles,
     renameChat,
     resetChatState,
+    resetExtensionPrompts: () => {
+        extension_prompts = {};
+        syncExtensionPrompts(extension_prompts);
+        return extension_prompts;
+    },
+    resetItemizedPrompts: () => {
+        itemizedPrompts.length = 0;
+        return itemizedPrompts;
+    },
     restoreNeutralChat,
     saveChat,
     saveChatConditional,
@@ -1560,28 +1572,11 @@ export function cancelDebouncedChatSave() {
 }
 
 export async function clearChat() {
-    cancelDebouncedChatSave();
-    cancelDebouncedMetadataSave();
-    closeMessageEditor();
-    extension_prompts = {};
-    syncExtensionPrompts(extension_prompts);
-    if (is_delete_mode) {
-        $('#dialogue_del_mes_cancel').trigger('click');
-    }
-    $('#chat').children().remove();
-    if ($('.zoomed_avatar[forChar]').length) {
-        console.debug('saw avatars to remove');
-        $('.zoomed_avatar[forChar]').remove();
-    } else { console.debug('saw no avatars'); }
-
-    await saveItemizedPrompts(getCurrentChatId());
-    itemizedPrompts.length = 0;
+    return clearChatCore();
 }
 
 export async function deleteLastMessage() {
-    chat.length = chat.length - 1;
-    $('#chat').children('.mes').last().remove();
-    await eventSource.emit(event_types.MESSAGE_DELETED, chat.length);
+    return deleteLastMessageCore();
 }
 
 export async function reloadCurrentChat() {

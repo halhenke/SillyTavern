@@ -998,3 +998,29 @@
 ### Next
 1. Reassess whether the best next slice is `clearChat()`/message operations or the message render/update path.
 2. Keep prioritizing entrypoints and full async workflows over utility cleanup.
+
+## 2026-03-07 - Monolith Reduction Wave 13 (Clear/Delete Chat Operations)
+
+### Completed
+- Moved `clearChat()` out of `public/script.js` into `public/scripts/chat-operations-core.js`.
+- Moved `deleteLastMessage()` out of `public/script.js` into `public/scripts/chat-operations-core.js`.
+- Kept the remaining legacy-local state mutations behind narrow bound callbacks instead of creating new cross-module imports:
+  - debounce cancellation
+  - metadata-save cancellation
+  - message-editor close
+  - delete-mode state/query
+  - extension prompt reset
+  - itemized prompt reset
+- Updated `public/script.js` to keep thin compatibility wrappers that now delegate directly to the core.
+
+### Measurable Impact
+- `public/script.js` no longer owns the main chat-clear and last-message-delete operations.
+- This removes another part of the chat interaction lifecycle from the monolith without forcing premature centralization of all UI-only state.
+
+### Insights
+- A hybrid extraction is sometimes the right move: core-owned orchestration plus callback-based legacy state updates is materially better than either keeping everything in `script.js` or creating new dependency cycles.
+- The remaining obvious wins are shifting away from chat housekeeping and toward message render/update or other high-value interaction paths.
+
+### Next
+1. Target the message render/update path next (`printMessages()`, `addOneMessage()`, `updateMessageBlock()`), or another adjacent cluster with a similarly clear boundary.
+2. Avoid spending too many more waves on small chat-maintenance helpers unless they unlock a larger UI migration step.

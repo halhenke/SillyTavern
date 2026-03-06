@@ -11,11 +11,13 @@ import { humanizedDateTime } from './RossAscends-mods.js';
 let activateSendButtonsImpl = null;
 let addOneMessageImpl = null;
 let appendMediaToMessageImpl = null;
-let clearChatImpl = null;
+let cancelDebouncedChatSaveImpl = null;
+let cancelDebouncedMetadataSaveImpl = null;
+let cancelDeleteModeImpl = null;
+let closeMessageEditorImpl = null;
 let createOrEditCharacterImpl = null;
 let deactivateSendButtonsImpl = null;
 let deleteSwipeImpl = null;
-let deleteLastMessageImpl = null;
 let displayPastChatsImpl = null;
 let extractMessageBiasImpl = null;
 let formatCharacterAvatarImpl = null;
@@ -26,6 +28,7 @@ let getCurrentChatDetailsImpl = null;
 let getSelectedGroupImpl = null;
 let getMaxContextSizeImpl = null;
 let hideSwipeButtonsImpl = null;
+let isDeleteModeImpl = null;
 let getGroupChatImpl = null;
 let processDroppedFilesImpl = null;
 let printMessagesImpl = null;
@@ -34,6 +37,8 @@ let renameChatImpl = null;
 let resetChatStateImpl = null;
 let loadItemizedPromptsImpl = null;
 let restoreNeutralChatImpl = null;
+let resetExtensionPromptsImpl = null;
+let resetItemizedPromptsImpl = null;
 let saveChatImpl = null;
 let saveChatConditionalImpl = null;
 let saveItemizedPromptsImpl = null;
@@ -62,11 +67,13 @@ function throwUnbound(name) {
  *   activateSendButtons: (...args: any[]) => any,
  *   addOneMessage: (...args: any[]) => any,
  *   appendMediaToMessage: (...args: any[]) => any,
- *   clearChat: (...args: any[]) => Promise<any>,
+ *   cancelDebouncedChatSave: (...args: any[]) => any,
+ *   cancelDebouncedMetadataSave: (...args: any[]) => any,
+ *   cancelDeleteMode: (...args: any[]) => any,
+ *   closeMessageEditor: (...args: any[]) => any,
  *   createOrEditCharacter: (...args: any[]) => Promise<any>,
  *   deactivateSendButtons: (...args: any[]) => any,
  *   deleteSwipe: (...args: any[]) => Promise<any>,
- *   deleteLastMessage: (...args: any[]) => Promise<any>,
  *   displayPastChats: (...args: any[]) => Promise<any>,
  *   extractMessageBias: (...args: any[]) => any,
  *   formatCharacterAvatar: (...args: any[]) => any,
@@ -78,11 +85,14 @@ function throwUnbound(name) {
  *   getGroupChat: (...args: any[]) => Promise<any>,
  *   getMaxContextSize: (...args: any[]) => number,
   *   hideSwipeButtons: (...args: any[]) => any,
+ *   isDeleteMode: () => boolean,
  *   preserveNeutralChat: (...args: any[]) => any,
   *   processDroppedFiles: (...args: any[]) => Promise<any>,
   *   printMessages: (...args: any[]) => Promise<any>,
   *   renameChat: (...args: any[]) => Promise<any>,
  *   resetChatState: (...args: any[]) => any,
+ *   resetExtensionPrompts: () => any,
+ *   resetItemizedPrompts: () => any,
  *   restoreNeutralChat: (...args: any[]) => any,
   *   loadItemizedPrompts: (...args: any[]) => Promise<any>,
  *   saveChat: (...args: any[]) => Promise<any>,
@@ -102,11 +112,13 @@ export function bindChatOperationsCore(impl) {
     activateSendButtonsImpl = impl?.activateSendButtons ?? null;
     addOneMessageImpl = impl?.addOneMessage ?? null;
     appendMediaToMessageImpl = impl?.appendMediaToMessage ?? null;
-    clearChatImpl = impl?.clearChat ?? null;
+    cancelDebouncedChatSaveImpl = impl?.cancelDebouncedChatSave ?? null;
+    cancelDebouncedMetadataSaveImpl = impl?.cancelDebouncedMetadataSave ?? null;
+    cancelDeleteModeImpl = impl?.cancelDeleteMode ?? null;
+    closeMessageEditorImpl = impl?.closeMessageEditor ?? null;
     createOrEditCharacterImpl = impl?.createOrEditCharacter ?? null;
     deactivateSendButtonsImpl = impl?.deactivateSendButtons ?? null;
     deleteSwipeImpl = impl?.deleteSwipe ?? null;
-    deleteLastMessageImpl = impl?.deleteLastMessage ?? null;
     displayPastChatsImpl = impl?.displayPastChats ?? null;
     extractMessageBiasImpl = impl?.extractMessageBias ?? null;
     formatCharacterAvatarImpl = impl?.formatCharacterAvatar ?? null;
@@ -118,11 +130,14 @@ export function bindChatOperationsCore(impl) {
     getGroupChatImpl = impl?.getGroupChat ?? null;
     getMaxContextSizeImpl = impl?.getMaxContextSize ?? null;
     hideSwipeButtonsImpl = impl?.hideSwipeButtons ?? null;
+    isDeleteModeImpl = impl?.isDeleteMode ?? null;
     preserveNeutralChatImpl = impl?.preserveNeutralChat ?? null;
     processDroppedFilesImpl = impl?.processDroppedFiles ?? null;
     printMessagesImpl = impl?.printMessages ?? null;
     renameChatImpl = impl?.renameChat ?? null;
     resetChatStateImpl = impl?.resetChatState ?? null;
+    resetExtensionPromptsImpl = impl?.resetExtensionPrompts ?? null;
+    resetItemizedPromptsImpl = impl?.resetItemizedPrompts ?? null;
     loadItemizedPromptsImpl = impl?.loadItemizedPrompts ?? null;
     restoreNeutralChatImpl = impl?.restoreNeutralChat ?? null;
     saveChatImpl = impl?.saveChat ?? null;
@@ -173,9 +188,35 @@ export function appendMediaToMessage(...args) {
     return appendMediaToMessageImpl(...args);
 }
 
-export function clearChat(...args) {
-    if (!clearChatImpl) throwUnbound('clearChat');
-    return clearChatImpl(...args);
+export async function clearChat() {
+    if (!cancelDebouncedChatSaveImpl) throwUnbound('cancelDebouncedChatSave');
+    if (!cancelDebouncedMetadataSaveImpl) throwUnbound('cancelDebouncedMetadataSave');
+    if (!closeMessageEditorImpl) throwUnbound('closeMessageEditor');
+    if (!resetExtensionPromptsImpl) throwUnbound('resetExtensionPrompts');
+    if (!isDeleteModeImpl) throwUnbound('isDeleteMode');
+    if (!cancelDeleteModeImpl) throwUnbound('cancelDeleteMode');
+    if (!resetItemizedPromptsImpl) throwUnbound('resetItemizedPrompts');
+
+    cancelDebouncedChatSaveImpl();
+    cancelDebouncedMetadataSaveImpl();
+    closeMessageEditorImpl();
+    resetExtensionPromptsImpl();
+
+    if (isDeleteModeImpl()) {
+        cancelDeleteModeImpl();
+    }
+
+    document.getElementById('chat')?.replaceChildren();
+    const zoomedAvatars = document.querySelectorAll('.zoomed_avatar[forChar]');
+    if (zoomedAvatars.length) {
+        console.debug('saw avatars to remove');
+        zoomedAvatars.forEach(node => node.remove());
+    } else {
+        console.debug('saw no avatars');
+    }
+
+    await saveItemizedPrompts(getCurrentChatId());
+    resetItemizedPromptsImpl();
 }
 
 export function deactivateSendButtons(...args) {
@@ -188,9 +229,10 @@ export function deleteSwipe(...args) {
     return deleteSwipeImpl(...args);
 }
 
-export function deleteLastMessage(...args) {
-    if (!deleteLastMessageImpl) throwUnbound('deleteLastMessage');
-    return deleteLastMessageImpl(...args);
+export async function deleteLastMessage() {
+    chat.length = chat.length - 1;
+    document.querySelector('#chat .mes:last-child')?.remove();
+    await eventSource.emit(event_types.MESSAGE_DELETED, chat.length);
 }
 
 export function displayPastChats(...args) {

@@ -909,3 +909,23 @@
 ### Next
 1. Stop spending many more waves on isolated setters unless they unlock a larger path immediately after.
 2. Target one higher-value chat or UI orchestration slice next, now that the remaining state ownership in `public/script.js` is narrower.
+
+## 2026-03-07 - Monolith Reduction Wave 9 (Chat Post-Load Flow)
+
+### Completed
+- Moved `getChatResult()` out of `public/script.js` into `public/scripts/chat-operations-core.js`.
+- Moved the first-message bootstrap helper used by chat loading into `public/scripts/chat-operations-core.js`.
+- Updated `public/script.js` to keep a thin compatibility wrapper that only mirrors local `name2` state after the core completes the post-load flow.
+- Added the minimal binding needed for character selection (`select_selected_character`) to the chat operations core so the post-load path can fully own its render/event sequence.
+
+### Measurable Impact
+- `public/script.js` no longer owns the post-load chat bootstrap sequence that creates the initial greeting, renders the chat, selects the active character, and emits chat lifecycle events.
+- This is a more meaningful extraction than another helper-only move because it removes part of the real chat lifecycle from the monolith body.
+
+### Insights
+- The best next reductions are lifecycle subsequences with a clear event boundary, not just individual helper functions.
+- Returning just the small mirrored state (`characterName`) to `script.js` keeps the wrapper thin without forcing immediate global state rewrites.
+
+### Next
+1. Continue on the chat lifecycle path by targeting `getChat()` or `reloadCurrentChat()` next.
+2. Prefer moving whole post-fetch/post-clear orchestration blocks instead of peeling off disconnected utilities.

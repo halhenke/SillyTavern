@@ -1,4 +1,8 @@
-import { chat_metadata, syncChatMetadata } from './chat-core.js';
+import { getMessageTimeStamp } from './RossAscends-mods.js';
+import { characters } from './character-core.js';
+import { getCurrentChatId, chat_metadata, syncChatMetadata, this_chid } from './chat-core.js';
+import { event_types, eventSource } from './events.js';
+import { getRegexedString, regex_placement } from './extensions/regex/engine.js';
 
 let activateSendButtonsImpl = null;
 let addOneMessageImpl = null;
@@ -27,6 +31,7 @@ let saveChatConditionalImpl = null;
 let saveItemizedPromptsImpl = null;
 let saveReplyImpl = null;
 let sendMessageAsUserImpl = null;
+let selectSelectedCharacterImpl = null;
 let showSwipeButtonsImpl = null;
 let showMoreMessagesImpl = null;
 let swipeLeftImpl = null;
@@ -72,6 +77,7 @@ function throwUnbound(name) {
  *   saveItemizedPrompts: (...args: any[]) => Promise<any>,
  *   saveReply: (...args: any[]) => Promise<any>,
  *   sendMessageAsUser: (...args: any[]) => Promise<any>,
+ *   select_selected_character: (...args: any[]) => Promise<any>,
  *   showSwipeButtons: (...args: any[]) => any,
  *   showMoreMessages: (...args: any[]) => Promise<any>,
  *   swipe_left: (...args: any[]) => Promise<any>,
@@ -106,6 +112,7 @@ export function bindChatOperationsCore(impl) {
     saveItemizedPromptsImpl = impl?.saveItemizedPrompts ?? null;
     saveReplyImpl = impl?.saveReply ?? null;
     sendMessageAsUserImpl = impl?.sendMessageAsUser ?? null;
+    selectSelectedCharacterImpl = impl?.select_selected_character ?? null;
     showSwipeButtonsImpl = impl?.showSwipeButtons ?? null;
     showMoreMessagesImpl = impl?.showMoreMessages ?? null;
     swipeLeftImpl = impl?.swipe_left ?? null;
@@ -265,6 +272,68 @@ export function saveReply(...args) {
 export function sendMessageAsUser(...args) {
     if (!sendMessageAsUserImpl) throwUnbound('sendMessageAsUser');
     return sendMessageAsUserImpl(...args);
+}
+
+function getFirstMessage(characterName) {
+    const firstMes = characters[this_chid].first_mes || '';
+    const alternateGreetings = characters[this_chid]?.data?.alternate_greetings;
+
+    const message = {
+        name: characterName,
+        is_user: false,
+        is_system: false,
+        send_date: getMessageTimeStamp(),
+        mes: getRegexedString(firstMes, regex_placement.AI_OUTPUT),
+        extra: {},
+    };
+
+    if (Array.isArray(alternateGreetings) && alternateGreetings.length > 0) {
+        const swipes = [message.mes, ...(alternateGreetings.map(greeting => getRegexedString(greeting, regex_placement.AI_OUTPUT)))];
+
+        if (!message.mes) {
+            swipes.shift();
+            message.mes = swipes[0];
+        }
+
+        message.swipe_id = 0;
+        message.swipes = swipes;
+        message.swipe_info = [];
+    }
+
+    return message;
+}
+
+export async function getChatResult() {
+    if (!selectSelectedCharacterImpl) throwUnbound('select_selected_character');
+
+    const characterName = characters[this_chid].name;
+    let freshChat = false;
+
+    if (chat.length === 0) {
+        const message = getFirstMessage(characterName);
+        if (message.mes) {
+            chat.push(message);
+            freshChat = true;
+        }
+
+        // Make sure the chat appears on the server
+        await saveChatConditional();
+    }
+
+    await loadItemizedPrompts(getCurrentChatId());
+    await printMessages();
+    await selectSelectedCharacterImpl(this_chid);
+
+    await eventSource.emit(event_types.CHAT_CHANGED, getCurrentChatId());
+    if (freshChat) await eventSource.emit(event_types.CHAT_CREATED);
+
+    if (chat.length === 1) {
+        const chat_id = chat.length - 1;
+        await eventSource.emit(event_types.MESSAGE_RECEIVED, chat_id, 'first_message');
+        await eventSource.emit(event_types.CHARACTER_MESSAGE_RENDERED, chat_id, 'first_message');
+    }
+
+    return { characterName, freshChat };
 }
 
 export function showMoreMessages(...args) {

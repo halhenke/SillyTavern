@@ -262,7 +262,7 @@ import { getClientVersion as getClientVersionCore, syncClientVersion, syncConnec
 import { bindBackendStatusCore, cancelStatusCheck as cancelStatusCheckCore, displayOnlineStatus as displayOnlineStatusCore, resultCheckStatus as resultCheckStatusCore, setAbortStatusCheck, setOnlineStatus as setOnlineStatusCore, startStatusLoading as startStatusLoadingCore, stopStatusLoading as stopStatusLoadingCore } from './scripts/backend-status-core.js';
 import { bindCharacterCore, syncCharacterGroupOverlay, syncCharacters, syncPrintCharactersDebounced } from './scripts/character-core.js';
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
-import { bindChatOperationsCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
+import { bindChatOperationsCore, getChatResult as getChatResultCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
 import { bindGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault } from './scripts/generation-core.js';
 import { bindMessageCore, setEditedMessageId as setEditedMessageIdCore } from './scripts/message-core.js';
@@ -541,6 +541,7 @@ bindChatOperationsCore({
     saveItemizedPrompts,
     saveReply,
     sendMessageAsUser,
+    select_selected_character,
     showMoreMessages,
     showSwipeButtons,
     swipe_left,
@@ -6689,59 +6690,9 @@ export async function getChat() {
 }
 
 async function getChatResult() {
-    name2 = characters[this_chid].name;
+    const result = await getChatResultCore();
+    name2 = result?.characterName ?? characters[this_chid].name;
     syncName2(name2);
-    let freshChat = false;
-    if (chat.length === 0) {
-        const message = getFirstMessage();
-        if (message.mes) {
-            chat.push(message);
-            freshChat = true;
-        }
-        // Make sure the chat appears on the server
-        await saveChatConditional();
-    }
-    await loadItemizedPrompts(getCurrentChatId());
-    await printMessages();
-    select_selected_character(this_chid);
-
-    await eventSource.emit(event_types.CHAT_CHANGED, (getCurrentChatId()));
-    if (freshChat) await eventSource.emit(event_types.CHAT_CREATED);
-
-    if (chat.length === 1) {
-        const chat_id = (chat.length - 1);
-        await eventSource.emit(event_types.MESSAGE_RECEIVED, chat_id, 'first_message');
-        await eventSource.emit(event_types.CHARACTER_MESSAGE_RENDERED, chat_id, 'first_message');
-    }
-}
-
-function getFirstMessage() {
-    const firstMes = characters[this_chid].first_mes || '';
-    const alternateGreetings = characters[this_chid]?.data?.alternate_greetings;
-
-    const message = {
-        name: name2,
-        is_user: false,
-        is_system: false,
-        send_date: getMessageTimeStamp(),
-        mes: getRegexedString(firstMes, regex_placement.AI_OUTPUT),
-        extra: {},
-    };
-
-    if (Array.isArray(alternateGreetings) && alternateGreetings.length > 0) {
-        const swipes = [message.mes, ...(alternateGreetings.map(greeting => getRegexedString(greeting, regex_placement.AI_OUTPUT)))];
-
-        if (!message.mes) {
-            swipes.shift();
-            message.mes = swipes[0];
-        }
-
-        message['swipe_id'] = 0;
-        message['swipes'] = swipes;
-        message['swipe_info'] = [];
-    }
-
-    return message;
 }
 
 export async function openCharacterChat(file_name) {

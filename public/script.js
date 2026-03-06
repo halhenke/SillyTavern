@@ -262,7 +262,7 @@ import { getClientVersion as getClientVersionCore, syncClientVersion, syncConnec
 import { bindBackendStatusCore, cancelStatusCheck as cancelStatusCheckCore, displayOnlineStatus as displayOnlineStatusCore, resultCheckStatus as resultCheckStatusCore, setAbortStatusCheck, setOnlineStatus as setOnlineStatusCore, startStatusLoading as startStatusLoadingCore, stopStatusLoading as stopStatusLoadingCore } from './scripts/backend-status-core.js';
 import { bindCharacterCore, syncCharacterGroupOverlay, syncCharacters, syncPrintCharactersDebounced } from './scripts/character-core.js';
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
-import { bindChatOperationsCore, getChatResult as getChatResultCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
+import { bindChatOperationsCore, getChat as getChatCore, getChatResult as getChatResultCore, openCharacterChat as openCharacterChatCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
 import { bindGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault } from './scripts/generation-core.js';
 import { bindMessageCore, setEditedMessageId as setEditedMessageIdCore } from './scripts/message-core.js';
@@ -518,6 +518,7 @@ bindChatOperationsCore({
     addOneMessage,
     appendMediaToMessage,
     clearChat,
+    createOrEditCharacter,
     deactivateSendButtons,
     deleteLastMessage,
     deleteSwipe,
@@ -531,7 +532,6 @@ bindChatOperationsCore({
     getMaxContextSize,
     hideSwipeButtons,
     loadItemizedPrompts,
-    openCharacterChat,
     printMessages,
     processDroppedFiles,
     reloadCurrentChat,
@@ -546,6 +546,7 @@ bindChatOperationsCore({
     showSwipeButtons,
     swipe_left,
     swipe_right,
+    unshallowCharacter,
 });
 bindUiCore({
     addCopyToCodeBlocks,
@@ -6645,47 +6646,17 @@ export async function unshallowCharacter(characterId) {
 }
 
 export async function getChat() {
-    //console.log('/api/chats/get -- entered for -- ' + characters[this_chid].name);
-    try {
-        await unshallowCharacter(this_chid);
-
-        const response = await $.ajax({
-            type: 'POST',
-            url: '/api/chats/get',
-            data: JSON.stringify({
-                ch_name: characters[this_chid].name,
-                file_name: characters[this_chid].chat,
-                avatar_url: characters[this_chid].avatar,
-            }),
-            dataType: 'json',
-            contentType: 'application/json',
-        });
-        if (response[0] !== undefined) {
-            chat.splice(0, chat.length, ...response);
-            chat_create_date = chat[0]['create_date'];
-            chat_metadata = chat[0]['chat_metadata'] ?? {};
-            syncChatMetadata(chat_metadata);
-
-            chat.shift();
-        } else {
-            chat_create_date = humanizedDateTime();
-        }
-        if (!chat_metadata['integrity']) {
-            chat_metadata['integrity'] = uuidv4();
-        }
-        await getChatResult();
-        eventSource.emit('chatLoaded', { detail: { id: this_chid, character: characters[this_chid] } });
-
-        // Focus on the textarea if not already focused on a visible text input
-        setTimeout(function () {
-            if ($(document.activeElement).is('input:visible, textarea:visible')) {
-                return;
-            }
-            $('#send_textarea').trigger('click').trigger('focus');
-        }, 200);
-    } catch (error) {
-        await getChatResult();
-        console.log(error);
+    const result = await getChatCore();
+    if (result?.characterName !== undefined) {
+        name2 = result.characterName;
+        syncName2(name2);
+    }
+    if (result?.chatCreateDate !== undefined) {
+        chat_create_date = result.chatCreateDate;
+    }
+    if (result?.chatMetadata !== undefined) {
+        chat_metadata = result.chatMetadata;
+        syncChatMetadata(chat_metadata);
     }
 }
 
@@ -6696,15 +6667,18 @@ async function getChatResult() {
 }
 
 export async function openCharacterChat(file_name) {
-    await waitUntilCondition(() => !isChatSaving, debounce_timeout.extended, 10);
-    await clearChat();
-    characters[this_chid]['chat'] = file_name;
-    chat.length = 0;
-    chat_metadata = {};
-    syncChatMetadata(chat_metadata);
-    await getChat();
-    $('#selected_chat_pole').val(file_name);
-    await createOrEditCharacter(new CustomEvent('newChat'));
+    const result = await openCharacterChatCore(file_name);
+    if (result?.characterName !== undefined) {
+        name2 = result.characterName;
+        syncName2(name2);
+    }
+    if (result?.chatCreateDate !== undefined) {
+        chat_create_date = result.chatCreateDate;
+    }
+    if (result?.chatMetadata !== undefined) {
+        chat_metadata = result.chatMetadata;
+        syncChatMetadata(chat_metadata);
+    }
 }
 
 ////////// OPTIMZED MAIN API CHANGE FUNCTION ////////////

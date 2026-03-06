@@ -929,3 +929,25 @@
 ### Next
 1. Continue on the chat lifecycle path by targeting `getChat()` or `reloadCurrentChat()` next.
 2. Prefer moving whole post-fetch/post-clear orchestration blocks instead of peeling off disconnected utilities.
+
+## 2026-03-07 - Monolith Reduction Wave 10 (Chat Load/Open Flow)
+
+### Completed
+- Moved `getChat()` out of `public/script.js` into `public/scripts/chat-operations-core.js`.
+- Moved `openCharacterChat()` out of `public/script.js` into `public/scripts/chat-operations-core.js`.
+- Added the minimal internal callbacks needed for that ownership move:
+  - `unshallowCharacter`
+  - `createOrEditCharacter`
+- Updated `public/script.js` to keep thin compatibility wrappers that only mirror local `name2`, `chat_create_date`, and `chat_metadata` state after the core completes the workflow.
+
+### Measurable Impact
+- `public/script.js` no longer owns the main character chat fetch/load path or the “switch to specific chat file” orchestration path.
+- The chat lifecycle extraction now covers both the fetch/load stage and the post-load stage, leaving much less of the character-chat path in the monolith body.
+
+### Insights
+- Returning a compact result object from extracted lifecycle code is working well for legacy-state mirroring: it avoids over-coupling the core back to `script.js`.
+- This confirms the migration can move meaningful asynchronous orchestration paths without needing a full state-management rewrite first.
+
+### Next
+1. Continue on the same path with `reloadCurrentChat()` so the full clear/reload branch leaves the monolith.
+2. After that, reassess whether the next best slice is still chat lifecycle or whether message rendering becomes the higher-value target.

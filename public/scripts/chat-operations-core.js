@@ -1,13 +1,18 @@
 import { getMessageTimeStamp } from './RossAscends-mods.js';
+import { isChatSaving } from './app-state-core.js';
 import { characters } from './character-core.js';
 import { getCurrentChatId, chat_metadata, syncChatMetadata, this_chid } from './chat-core.js';
+import { debounce_timeout } from './constants.js';
 import { event_types, eventSource } from './events.js';
 import { getRegexedString, regex_placement } from './extensions/regex/engine.js';
+import { waitUntilCondition, uuidv4 } from './utils.js';
+import { humanizedDateTime } from './RossAscends-mods.js';
 
 let activateSendButtonsImpl = null;
 let addOneMessageImpl = null;
 let appendMediaToMessageImpl = null;
 let clearChatImpl = null;
+let createOrEditCharacterImpl = null;
 let deactivateSendButtonsImpl = null;
 let deleteSwipeImpl = null;
 let deleteLastMessageImpl = null;
@@ -20,7 +25,6 @@ let getCharactersImpl = null;
 let getCurrentChatDetailsImpl = null;
 let getMaxContextSizeImpl = null;
 let hideSwipeButtonsImpl = null;
-let openCharacterChatImpl = null;
 let processDroppedFilesImpl = null;
 let printMessagesImpl = null;
 let reloadCurrentChatImpl = null;
@@ -36,6 +40,7 @@ let showSwipeButtonsImpl = null;
 let showMoreMessagesImpl = null;
 let swipeLeftImpl = null;
 let swipeRightImpl = null;
+let unshallowCharacterImpl = null;
 
 export let chat = [];
 export let create_save = {};
@@ -54,6 +59,7 @@ function throwUnbound(name) {
  *   addOneMessage: (...args: any[]) => any,
  *   appendMediaToMessage: (...args: any[]) => any,
  *   clearChat: (...args: any[]) => Promise<any>,
+ *   createOrEditCharacter: (...args: any[]) => Promise<any>,
  *   deactivateSendButtons: (...args: any[]) => any,
  *   deleteSwipe: (...args: any[]) => Promise<any>,
  *   deleteLastMessage: (...args: any[]) => Promise<any>,
@@ -66,11 +72,10 @@ function throwUnbound(name) {
  *   getCurrentChatDetails: (...args: any[]) => any,
  *   getMaxContextSize: (...args: any[]) => number,
  *   hideSwipeButtons: (...args: any[]) => any,
- *   openCharacterChat: (...args: any[]) => Promise<any>,
  *   processDroppedFiles: (...args: any[]) => Promise<any>,
  *   printMessages: (...args: any[]) => Promise<any>,
  *   reloadCurrentChat: (...args: any[]) => Promise<any>,
- *   renameChat: (...args: any[]) => Promise<any>,
+  *   renameChat: (...args: any[]) => Promise<any>,
  *   loadItemizedPrompts: (...args: any[]) => Promise<any>,
  *   saveChat: (...args: any[]) => Promise<any>,
  *   saveChatConditional: (...args: any[]) => Promise<any>,
@@ -82,6 +87,7 @@ function throwUnbound(name) {
  *   showMoreMessages: (...args: any[]) => Promise<any>,
  *   swipe_left: (...args: any[]) => Promise<any>,
  *   swipe_right: (...args: any[]) => Promise<any>,
+ *   unshallowCharacter: (...args: any[]) => Promise<any>,
  * }} impl Implementations to bind
  */
 export function bindChatOperationsCore(impl) {
@@ -89,6 +95,7 @@ export function bindChatOperationsCore(impl) {
     addOneMessageImpl = impl?.addOneMessage ?? null;
     appendMediaToMessageImpl = impl?.appendMediaToMessage ?? null;
     clearChatImpl = impl?.clearChat ?? null;
+    createOrEditCharacterImpl = impl?.createOrEditCharacter ?? null;
     deactivateSendButtonsImpl = impl?.deactivateSendButtons ?? null;
     deleteSwipeImpl = impl?.deleteSwipe ?? null;
     deleteLastMessageImpl = impl?.deleteLastMessage ?? null;
@@ -101,7 +108,6 @@ export function bindChatOperationsCore(impl) {
     getCurrentChatDetailsImpl = impl?.getCurrentChatDetails ?? null;
     getMaxContextSizeImpl = impl?.getMaxContextSize ?? null;
     hideSwipeButtonsImpl = impl?.hideSwipeButtons ?? null;
-    openCharacterChatImpl = impl?.openCharacterChat ?? null;
     processDroppedFilesImpl = impl?.processDroppedFiles ?? null;
     printMessagesImpl = impl?.printMessages ?? null;
     reloadCurrentChatImpl = impl?.reloadCurrentChat ?? null;
@@ -117,6 +123,7 @@ export function bindChatOperationsCore(impl) {
     showMoreMessagesImpl = impl?.showMoreMessages ?? null;
     swipeLeftImpl = impl?.swipe_left ?? null;
     swipeRightImpl = impl?.swipe_right ?? null;
+    unshallowCharacterImpl = impl?.unshallowCharacter ?? null;
 }
 
 export function syncChat(value) {
@@ -224,11 +231,6 @@ export function loadItemizedPrompts(...args) {
     return loadItemizedPromptsImpl(...args);
 }
 
-export function openCharacterChat(...args) {
-    if (!openCharacterChatImpl) throwUnbound('openCharacterChat');
-    return openCharacterChatImpl(...args);
-}
-
 export function printMessages(...args) {
     if (!printMessagesImpl) throwUnbound('printMessages');
     return printMessagesImpl(...args);
@@ -334,6 +336,82 @@ export async function getChatResult() {
     }
 
     return { characterName, freshChat };
+}
+
+export async function getChat() {
+    if (!unshallowCharacterImpl) throwUnbound('unshallowCharacter');
+
+    try {
+        await unshallowCharacterImpl(this_chid);
+
+        const response = await $.ajax({
+            type: 'POST',
+            url: '/api/chats/get',
+            data: JSON.stringify({
+                ch_name: characters[this_chid].name,
+                file_name: characters[this_chid].chat,
+                avatar_url: characters[this_chid].avatar,
+            }),
+            dataType: 'json',
+            contentType: 'application/json',
+        });
+
+        let chatCreateDate = '';
+        if (response[0] !== undefined) {
+            chat.splice(0, chat.length, ...response);
+            chatCreateDate = chat[0].create_date;
+            syncChatMetadata(chat[0].chat_metadata ?? {});
+            chat.shift();
+        } else {
+            chatCreateDate = humanizedDateTime();
+        }
+
+        if (!chat_metadata.integrity) {
+            chat_metadata.integrity = uuidv4();
+        }
+
+        const result = await getChatResult();
+        eventSource.emit('chatLoaded', { detail: { id: this_chid, character: characters[this_chid] } });
+
+        setTimeout(() => {
+            if ($(document.activeElement).is('input:visible, textarea:visible')) {
+                return;
+            }
+
+            $('#send_textarea').trigger('click').trigger('focus');
+        }, 200);
+
+        return {
+            ...result,
+            chatCreateDate,
+            chatMetadata: chat_metadata,
+        };
+    } catch (error) {
+        const result = await getChatResult();
+        console.log(error);
+        return {
+            ...result,
+            chatCreateDate: humanizedDateTime(),
+            chatMetadata: chat_metadata,
+        };
+    }
+}
+
+export async function openCharacterChat(file_name) {
+    if (!clearChatImpl) throwUnbound('clearChat');
+    if (!createOrEditCharacterImpl) throwUnbound('createOrEditCharacter');
+
+    await waitUntilCondition(() => !isChatSaving, debounce_timeout.extended, 10);
+    await clearChatImpl();
+    characters[this_chid].chat = file_name;
+    chat.length = 0;
+    syncChatMetadata({});
+
+    const result = await getChat();
+    $('#selected_chat_pole').val(file_name);
+    await createOrEditCharacterImpl(new CustomEvent('newChat'));
+
+    return result;
 }
 
 export function showMoreMessages(...args) {

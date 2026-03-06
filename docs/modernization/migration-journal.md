@@ -975,3 +975,26 @@
 ### Next
 1. Reassess the next highest-yield slice between `sendTextareaMessage()` and message render/update flows.
 2. Continue preferring full async workflow moves over isolated utility extraction.
+
+## 2026-03-07 - Monolith Reduction Wave 12 (Send Entry Flow)
+
+### Completed
+- Moved `sendTextareaMessage()` out of `public/script.js` into `public/scripts/session-core.js`.
+- Replaced direct monolith dependencies with narrow read-only callbacks bound from `script.js`:
+  - `getContinueOnSend`
+  - `getSelectedGroup`
+  - `hasPendingFileAttachment`
+  - `isExecutingCommandsFromChatInput`
+- Updated `public/script.js` to keep a thin compatibility wrapper that simply delegates to `session-core`.
+
+### Measurable Impact
+- `public/script.js` no longer owns the main “send current textarea contents” entrypoint into generation.
+- The session core now owns the decision path for continue-on-send, temporary assistant chat creation, and the handoff into `Generate(...)`.
+
+### Insights
+- Read-only callback bindings are working well for UI-derived conditions and avoid pulling legacy modules like `slash-commands.js` and `chats.js` directly into a core.
+- The next nearby candidates are not all equally clean: `clearChat()` is still coupled to local debounce timer state and some UI-only delete-mode behavior, so it should be handled as a more deliberate batch instead of being forced into this one.
+
+### Next
+1. Reassess whether the best next slice is `clearChat()`/message operations or the message render/update path.
+2. Keep prioritizing entrypoints and full async workflows over utility cleanup.

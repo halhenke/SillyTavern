@@ -1,14 +1,21 @@
 import { characters } from './character-core.js';
 import { chat_metadata, name2, setCharacterId as setChatCharacterId, setCharacterName as setChatCharacterName, this_chid, syncChatMetadata, syncName2, syncThisChid } from './chat-core.js';
 import { chat, systemUserName } from './chat-operations-core.js';
+import { Generate } from './generation-core.js';
+import { editedMessageId } from './message-core.js';
 import { SAFETY_CHAT } from './system-messages.js';
+import { is_send_press } from './ui-core.js';
 
 let cancelTtsPlayImpl = null;
 let deleteCharacterChatByNameImpl = null;
 let doNavbarIconClickImpl = null;
 let doNewChatImpl = null;
 let getEntitiesListImpl = null;
+let getContinueOnSendImpl = null;
+let getSelectedGroupImpl = null;
 let getSystemMessageByTypeImpl = null;
+let hasPendingFileAttachmentImpl = null;
+let isExecutingCommandsFromChatInputImpl = null;
 let newAssistantChatImpl = null;
 let renameGroupOrCharacterChatImpl = null;
 let selectCharacterByIdImpl = null;
@@ -16,7 +23,6 @@ let selectRightMenuWithAnimationImpl = null;
 let selectRmInfoImpl = null;
 let selectSelectedCharacterImpl = null;
 let sendSystemMessageImpl = null;
-let sendTextareaMessageImpl = null;
 let setActiveCharacterImpl = null;
 let setActiveGroupImpl = null;
 let setCharacterIdImpl = null;
@@ -42,8 +48,12 @@ function throwUnbound(name) {
  *   deleteCharacterChatByName: (...args: any[]) => Promise<any>,
  *   doNavbarIconClick: (...args: any[]) => Promise<any>,
  *   doNewChat: (...args: any[]) => Promise<any>,
+ *   getContinueOnSend: () => boolean,
  *   getEntitiesList: (...args: any[]) => any,
+ *   getSelectedGroup: () => string|null|undefined,
  *   getSystemMessageByType: (...args: any[]) => any,
+ *   hasPendingFileAttachment: () => boolean,
+ *   isExecutingCommandsFromChatInput: () => boolean,
  *   newAssistantChat: (...args: any[]) => Promise<any>,
  *   renameGroupOrCharacterChat: (...args: any[]) => Promise<any>,
  *   selectCharacterById: (...args: any[]) => Promise<any>,
@@ -51,7 +61,6 @@ function throwUnbound(name) {
  *   select_rm_info: (...args: any[]) => any,
  *   select_selected_character: (...args: any[]) => Promise<any>,
  *   sendSystemMessage: (...args: any[]) => any,
- *   sendTextareaMessage: (...args: any[]) => Promise<any>,
  *   setActiveCharacter: (...args: any[]) => any,
  *   setActiveGroup: (...args: any[]) => any,
  *   setCharacterId: (...args: any[]) => any,
@@ -66,8 +75,12 @@ export function bindSessionCore(impl) {
     deleteCharacterChatByNameImpl = impl?.deleteCharacterChatByName ?? null;
     doNavbarIconClickImpl = impl?.doNavbarIconClick ?? null;
     doNewChatImpl = impl?.doNewChat ?? null;
+    getContinueOnSendImpl = impl?.getContinueOnSend ?? null;
     getEntitiesListImpl = impl?.getEntitiesList ?? null;
+    getSelectedGroupImpl = impl?.getSelectedGroup ?? null;
     getSystemMessageByTypeImpl = impl?.getSystemMessageByType ?? null;
+    hasPendingFileAttachmentImpl = impl?.hasPendingFileAttachment ?? null;
+    isExecutingCommandsFromChatInputImpl = impl?.isExecutingCommandsFromChatInput ?? null;
     newAssistantChatImpl = impl?.newAssistantChat ?? null;
     renameGroupOrCharacterChatImpl = impl?.renameGroupOrCharacterChat ?? null;
     selectCharacterByIdImpl = impl?.selectCharacterById ?? null;
@@ -75,7 +88,6 @@ export function bindSessionCore(impl) {
     selectRmInfoImpl = impl?.select_rm_info ?? null;
     selectSelectedCharacterImpl = impl?.select_selected_character ?? null;
     sendSystemMessageImpl = impl?.sendSystemMessage ?? null;
-    sendTextareaMessageImpl = impl?.sendTextareaMessage ?? null;
     setActiveCharacterImpl = impl?.setActiveCharacter ?? null;
     setActiveGroupImpl = impl?.setActiveGroup ?? null;
     setCharacterIdImpl = impl?.setCharacterId ?? null;
@@ -221,12 +233,43 @@ export function sendSystemMessage(...args) {
     return sendSystemMessageImpl(...args);
 }
 
-export function sendTextareaMessage(...args) {
-    if (!sendTextareaMessageImpl) {
-        throwUnbound('sendTextareaMessage');
+export async function sendTextareaMessage(...args) {
+    if (!getContinueOnSendImpl) {
+        throwUnbound('getContinueOnSend');
+    }
+    if (!getSelectedGroupImpl) {
+        throwUnbound('getSelectedGroup');
+    }
+    if (!hasPendingFileAttachmentImpl) {
+        throwUnbound('hasPendingFileAttachment');
+    }
+    if (!isExecutingCommandsFromChatInputImpl) {
+        throwUnbound('isExecutingCommandsFromChatInput');
     }
 
-    return sendTextareaMessageImpl(...args);
+    if (is_send_press) return;
+    if (isExecutingCommandsFromChatInputImpl()) return;
+    if (editedMessageId) return;
+
+    let generateType;
+    const textareaText = String($('#send_textarea').val());
+    const selectedGroup = getSelectedGroupImpl();
+    if (getContinueOnSendImpl() &&
+        !hasPendingFileAttachmentImpl() &&
+        !textareaText &&
+        !selectedGroup &&
+        chat.length &&
+        !chat[chat.length - 1].is_user &&
+        !chat[chat.length - 1].is_system
+    ) {
+        generateType = 'continue';
+    }
+
+    if (textareaText && !selectedGroup && this_chid === undefined && name2 !== neutralCharacterName) {
+        await newAssistantChat({ temporary: false });
+    }
+
+    return Generate(generateType);
 }
 
 export function setActiveCharacter(...args) {

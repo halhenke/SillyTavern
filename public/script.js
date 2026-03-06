@@ -268,7 +268,7 @@ import { bindGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDep
 import { bindMessageCore, setEditedMessageId as setEditedMessageIdCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
-import { bindSessionCore, resetChatState as resetChatStateCore, setExternalAbortController as setExternalAbortControllerCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes } from './scripts/session-core.js';
+import { bindSessionCore, resetChatState as resetChatStateCore, sendTextareaMessage as sendTextareaMessageCore, setExternalAbortController as setExternalAbortControllerCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes } from './scripts/session-core.js';
 import { bindSettingsCore } from './scripts/settings-core.js';
 import { activateSendButtons as activateSendButtonsCore, bindUiCore, deactivateSendButtons as deactivateSendButtonsCore, getSlideToggleOptions as getSlideToggleOptionsCore, hideStopButton as hideStopButtonCore, reloadMarkdownProcessor as reloadMarkdownProcessorCore, setAnimationDuration as setAnimationDurationCore, setSendButtonState as setSendButtonStateCore, showStopButton as showStopButtonCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
 import { accountStorage } from './scripts/util/AccountStorage.js';
@@ -480,8 +480,12 @@ bindSessionCore({
     deleteCharacterChatByName,
     doNavbarIconClick,
     doNewChat,
+    getContinueOnSend: () => power_user.continue_on_send,
     getEntitiesList,
+    getSelectedGroup: () => selected_group,
     getSystemMessageByType,
+    hasPendingFileAttachment,
+    isExecutingCommandsFromChatInput: () => isExecutingCommandsFromChatInput,
     newAssistantChat,
     renameGroupOrCharacterChat,
     selectCharacterById,
@@ -489,7 +493,6 @@ bindSessionCore({
     select_rm_info,
     select_selected_character,
     sendSystemMessage,
-    sendTextareaMessage,
     setActiveCharacter,
     setActiveGroup,
     setCharacterId,
@@ -1600,30 +1603,7 @@ export async function reloadCurrentChat() {
  * Send the message currently typed into the chat box.
  */
 export async function sendTextareaMessage() {
-    if (is_send_press) return;
-    if (isExecutingCommandsFromChatInput) return;
-    if (this_edit_mes_id) return; // don't proceed if editing a message
-
-    let generateType;
-    // "Continue on send" is activated when the user hits "send" (or presses enter) on an empty chat box, and the last
-    // message was sent from a character (not the user or the system).
-    const textareaText = String($('#send_textarea').val());
-    if (power_user.continue_on_send &&
-        !hasPendingFileAttachment() &&
-        !textareaText &&
-        !selected_group &&
-        chat.length &&
-        !chat[chat.length - 1]['is_user'] &&
-        !chat[chat.length - 1]['is_system']
-    ) {
-        generateType = 'continue';
-    }
-
-    if (textareaText && !selected_group && this_chid === undefined && name2 !== neutralCharacterName) {
-        await newAssistantChat({ temporary: false });
-    }
-
-    Generate(generateType);
+    return sendTextareaMessageCore();
 }
 
 /**

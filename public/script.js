@@ -4,7 +4,6 @@ import {
     DOMPurify,
     hljs,
     Handlebars,
-    SVGInject,
     Popper,
     initLibraryShims,
     default as libs,
@@ -262,10 +261,10 @@ import { getClientVersion as getClientVersionCore, syncClientVersion, syncConnec
 import { bindBackendStatusCore, cancelStatusCheck as cancelStatusCheckCore, displayOnlineStatus as displayOnlineStatusCore, resultCheckStatus as resultCheckStatusCore, setAbortStatusCheck, setOnlineStatus as setOnlineStatusCore, startStatusLoading as startStatusLoadingCore, stopStatusLoading as stopStatusLoadingCore } from './scripts/backend-status-core.js';
 import { bindCharacterCore, syncCharacterGroupOverlay, syncCharacters, syncPrintCharactersDebounced } from './scripts/character-core.js';
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
-import { bindChatOperationsCore, getChat as getChatCore, getChatResult as getChatResultCore, openCharacterChat as openCharacterChatCore, reloadCurrentChat as reloadCurrentChatCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
+import { addOneMessage as addOneMessageCore, bindChatOperationsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
 import { bindGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault } from './scripts/generation-core.js';
-import { bindMessageCore, setEditedMessageId as setEditedMessageIdCore } from './scripts/message-core.js';
+import { bindMessageCore, setEditedMessageId as setEditedMessageIdCore, updateMessageBlock as updateMessageBlockCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
 import { bindSessionCore, resetChatState as resetChatStateCore, sendTextareaMessage as sendTextareaMessageCore, setExternalAbortController as setExternalAbortControllerCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes } from './scripts/session-core.js';
@@ -419,7 +418,6 @@ let exportPopper = Popper.createPopper(document.getElementById('export_button'),
 let isExportPopupOpen = false;
 
 // Saved here for performance reasons
-const messageTemplate = $('#message_template .mes');
 const chatElement = $('#chat');
 
 let dialogueResolve = null;
@@ -447,13 +445,14 @@ bindParserCore({
     substituteParamsExtended,
 });
 bindMessageCore({
+    addCopyToCodeBlocks,
     cleanUpMessage,
     closeMessageEditor,
     getFirstDisplayedMessageId,
     messageFormatting,
     saveChatDebounced,
     syncMesToSwipe,
-    updateMessageBlock,
+    updateReasoningUI,
 });
 bindExtensionsCore({
     getExtensionPrompt,
@@ -518,8 +517,10 @@ bindGenerationCore({
 });
 bindChatOperationsCore({
     activateSendButtons,
-    addOneMessage,
+    addCopyToCodeBlocks,
     appendMediaToMessage,
+    applyCharacterTagsToMessageDivs,
+    applyStylePins,
     cancelDebouncedChatSave,
     cancelDebouncedMetadataSave,
     cancelDeleteMode: () => $('#dialogue_del_mes_cancel').trigger('click'),
@@ -530,18 +531,20 @@ bindChatOperationsCore({
     displayPastChats,
     extractMessageBias,
     formatCharacterAvatar,
+    getChatTruncation: () => power_user.chat_truncation,
     getCharacterAvatar,
     getCharacterCardFields,
     getCharacters,
     getCurrentChatDetails,
     getGroupChat,
+    getItemizedPrompts: () => itemizedPrompts,
     getMaxContextSize,
     getSelectedGroup: () => selected_group,
     hideSwipeButtons,
     isDeleteMode: () => is_delete_mode,
     loadItemizedPrompts,
+    messageFormatting,
     preserveNeutralChat,
-    printMessages,
     processDroppedFiles,
     renameChat,
     resetChatState,
@@ -558,14 +561,18 @@ bindChatOperationsCore({
     saveChat,
     saveChatConditional,
     saveItemizedPrompts,
+    scrollChatToBottom,
     saveReply,
     sendMessageAsUser,
     select_selected_character,
     showMoreMessages,
     showSwipeButtons,
+    shouldShowTimestampModelIcon: () => power_user.timestamp_model_icon,
     swipe_left,
     swipe_right,
     unshallowCharacter,
+    updateBookmarkDisplay,
+    updateReasoningUI,
 });
 bindUiCore({
     addCopyToCodeBlocks,
@@ -1517,47 +1524,7 @@ export async function showMoreMessages(messagesToLoad = null) {
 }
 
 export async function printMessages() {
-    let startIndex = 0;
-    let count = power_user.chat_truncation || Number.MAX_SAFE_INTEGER;
-
-    if (chat.length > count) {
-        startIndex = chat.length - count;
-        $('#chat').append('<div id="show_more_messages">Show more messages</div>');
-    }
-
-    for (let i = startIndex; i < chat.length; i++) {
-        const item = chat[i];
-        addOneMessage(item, { scroll: false, forceId: i, showSwipes: false });
-    }
-
-    // Scroll to bottom when all images are loaded
-    const images = document.querySelectorAll('#chat .mes img');
-    let imagesLoaded = 0;
-
-    for (let i = 0; i < images.length; i++) {
-        const image = images[i];
-        if (image instanceof HTMLImageElement) {
-            if (image.complete) {
-                incrementAndCheck();
-            } else {
-                image.addEventListener('load', incrementAndCheck);
-            }
-        }
-    }
-
-    $('#chat .mes').removeClass('last_mes');
-    $('#chat .mes').last().addClass('last_mes');
-    hideSwipeButtons();
-    showSwipeButtons();
-    scrollChatToBottom();
-    applyStylePins();
-
-    function incrementAndCheck() {
-        imagesLoaded++;
-        if (imagesLoaded === images.length) {
-            scrollChatToBottom();
-        }
-    }
+    return printMessagesCore();
 }
 
 /**
@@ -1772,114 +1739,6 @@ export function messageFormatting(mes, ch_name, isSystem, isUser, messageId, san
 }
 
 /**
- * Inserts or replaces an SVG icon adjacent to the provided message's timestamp.
- *
- * If the `extra.api` is "openai" and `extra.model` contains the substring "claude",
- * the function fetches the "claude.svg". Otherwise, it fetches the SVG named after
- * the value in `extra.api`.
- *
- * @param {JQuery<HTMLElement>} mes - The message element containing the timestamp where the icon should be inserted or replaced.
- * @param {Object} extra - Contains the API and model details.
- * @param {string} extra.api - The name of the API, used to determine which SVG to fetch.
- * @param {string} extra.model - The model name, used to check for the substring "claude".
- */
-function insertSVGIcon(mes, extra) {
-    // Determine the SVG filename
-    let modelName;
-
-    // Claude on OpenRouter or Anthropic
-    if (extra.api === 'openai' && extra.model?.toLowerCase().includes('claude')) {
-        modelName = 'claude';
-    }
-    // OpenAI on OpenRouter
-    else if (extra.api === 'openai' && extra.model?.toLowerCase().includes('openai')) {
-        modelName = 'openai';
-    }
-    // OpenRouter website model or other models
-    else if (extra.api === 'openai' && (extra.model === null || extra.model?.toLowerCase().includes('/'))) {
-        modelName = 'openrouter';
-    }
-    // Everything else
-    else {
-        modelName = extra.api;
-    }
-
-    const insertOrReplaceSVG = (image, className, targetSelector, insertBefore) => {
-        image.onload = async function () {
-            let existingSVG = insertBefore ? mes.find(targetSelector).prev(`.${className}`) : mes.find(targetSelector).next(`.${className}`);
-            if (existingSVG.length) {
-                existingSVG.replaceWith(image);
-            } else {
-                if (insertBefore) mes.find(targetSelector).before(image);
-                else mes.find(targetSelector).after(image);
-            }
-            await SVGInject(image);
-        };
-    };
-
-    const createModelImage = (className, targetSelector, insertBefore) => {
-        const image = new Image();
-        image.classList.add('icon-svg', className);
-        image.src = `/img/${modelName}.svg`;
-        image.title = `${extra?.api ? extra.api + ' - ' : ''}${extra?.model ?? ''}`;
-        insertOrReplaceSVG(image, className, targetSelector, insertBefore);
-    };
-
-    createModelImage('timestamp-icon', '.timestamp');
-    createModelImage('thinking-icon', '.mes_reasoning_header_title', true);
-}
-
-
-function getMessageFromTemplate({
-    mesId,
-    swipeId,
-    characterName,
-    isUser,
-    avatarImg,
-    bias,
-    isSystem,
-    title,
-    timerValue,
-    timerTitle,
-    bookmarkLink,
-    forceAvatar,
-    timestamp,
-    tokenCount,
-    extra,
-    type,
-}) {
-    const mes = messageTemplate.clone();
-    mes.attr({
-        'mesid': mesId,
-        'swipeid': swipeId,
-        'ch_name': characterName,
-        'is_user': isUser,
-        'is_system': !!isSystem,
-        'bookmark_link': bookmarkLink,
-        'force_avatar': !!forceAvatar,
-        'timestamp': timestamp,
-        ...(type ? { type } : {}),
-    });
-    mes.find('.avatar img').attr('src', avatarImg);
-    mes.find('.ch_name .name_text').text(characterName);
-    mes.find('.mes_bias').html(bias);
-    mes.find('.timestamp').text(timestamp).attr('title', `${extra?.api ? extra.api + ' - ' : ''}${extra?.model ?? ''}`);
-    mes.find('.mesIDDisplay').text(`#${mesId}`);
-    tokenCount && mes.find('.tokenCounterDisplay').text(`${tokenCount}t`);
-    title && mes.attr('title', title);
-    timerValue && mes.find('.mes_timer').attr('title', timerTitle).text(timerValue);
-    bookmarkLink && updateBookmarkDisplay(mes);
-
-    updateReasoningUI(mes);
-
-    if (power_user.timestamp_model_icon && extra?.api) {
-        insertSVGIcon(mes, extra);
-    }
-
-    return mes;
-}
-
-/**
  * Re-renders a message block with updated content.
  * @param {number} messageId Message ID
  * @param {object} message Message object
@@ -1887,16 +1746,7 @@ function getMessageFromTemplate({
  * @param {boolean} [options.rerenderMessage=true] Whether to re-render the message content (inside <c>.mes_text</c>)
  */
 export function updateMessageBlock(messageId, message, { rerenderMessage = true } = {}) {
-    const messageElement = $(`#chat [mesid="${messageId}"]`);
-    if (rerenderMessage) {
-        const text = message?.extra?.display_text ?? message.mes;
-        messageElement.find('.mes_text').html(messageFormatting(text, message.name, message.is_system, message.is_user, messageId, {}, false));
-    }
-
-    updateReasoningUI(messageElement);
-
-    addCopyToCodeBlocks(messageElement);
-    appendMediaToMessage(message, messageElement);
+    return updateMessageBlockCore(messageId, message, { rerenderMessage });
 }
 
 /**
@@ -2039,172 +1889,7 @@ export function addCopyToCodeBlocks(messageElement) {
  * @returns {void}
  */
 export function addOneMessage(mes, { type = 'normal', insertAfter = null, scroll = true, insertBefore = null, forceId = null, showSwipes = true } = {}) {
-    let messageText = mes['mes'];
-    const momentDate = timestampToMoment(mes.send_date);
-    const timestamp = momentDate.isValid() ? momentDate.format('LL LT') : '';
-
-    if (mes?.extra?.display_text) {
-        messageText = mes.extra.display_text;
-    }
-
-    // Forbidden black magic
-    // This allows to use "continue" on user messages
-    if (type === 'swipe' && mes.swipe_id === undefined) {
-        mes.swipe_id = 0;
-        mes.swipes = [mes.mes];
-    }
-
-    let avatarImg = getThumbnailUrl('persona', user_avatar);
-    const isSystem = mes.is_system;
-    const title = mes.title;
-
-    //for non-user mesages
-    if (!mes['is_user']) {
-        if (mes.force_avatar) {
-            avatarImg = mes.force_avatar;
-        } else if (this_chid === undefined) {
-            avatarImg = system_avatar;
-        } else {
-            if (characters[this_chid].avatar !== 'none') {
-                avatarImg = getThumbnailUrl('avatar', characters[this_chid].avatar);
-            } else {
-                avatarImg = default_avatar;
-            }
-        }
-        //old processing:
-        //if messge is from sytem, use the name provided in the message JSONL to proceed,
-        //if not system message, use name2 (char's name) to proceed
-        //characterName = mes.is_system || mes.force_avatar ? mes.name : name2;
-    } else if (mes['is_user'] && mes['force_avatar']) {
-        // Special case for persona images.
-        avatarImg = mes['force_avatar'];
-    }
-
-    // if mes.uses_system_ui is true, set an override on the sanitizer options
-    const sanitizerOverrides = mes.uses_system_ui ? { MESSAGE_ALLOW_SYSTEM_UI: true } : {};
-
-    messageText = messageFormatting(
-        messageText,
-        mes.name,
-        isSystem,
-        mes.is_user,
-        chat.indexOf(mes),
-        sanitizerOverrides,
-        false,
-    );
-    const bias = messageFormatting(mes.extra?.bias ?? '', '', false, false, -1, {}, false);
-    let bookmarkLink = mes?.extra?.bookmark_link ?? '';
-
-    let params = {
-        mesId: forceId ?? chat.length - 1,
-        swipeId: mes.swipe_id ?? 0,
-        characterName: mes.name,
-        isUser: mes.is_user,
-        avatarImg: avatarImg,
-        bias: bias,
-        isSystem: isSystem,
-        title: title,
-        bookmarkLink: bookmarkLink,
-        forceAvatar: mes.force_avatar,
-        timestamp: timestamp,
-        extra: mes.extra,
-        tokenCount: mes.extra?.token_count ?? 0,
-        type: mes.extra?.type ?? '',
-        ...formatGenerationTimer(mes.gen_started, mes.gen_finished, mes.extra?.token_count, mes.extra?.reasoning_duration, mes.extra?.time_to_first_token),
-    };
-
-    const renderedMessage = getMessageFromTemplate(params);
-
-    if (type !== 'swipe') {
-        if (!insertAfter && !insertBefore) {
-            chatElement.append(renderedMessage);
-        }
-        else if (insertAfter) {
-            const target = chatElement.find(`.mes[mesid="${insertAfter}"]`);
-            $(renderedMessage).insertAfter(target);
-        } else {
-            const target = chatElement.find(`.mes[mesid="${insertBefore}"]`);
-            $(renderedMessage).insertBefore(target);
-        }
-    }
-
-    // Callers push the new message to chat before calling addOneMessage
-    const newMessageId = typeof forceId == 'number' ? forceId : chat.length - 1;
-
-    const newMessage = $(`#chat [mesid="${newMessageId}"]`);
-    const isSmallSys = mes?.extra?.isSmallSys;
-
-    if (isSmallSys === true) {
-        newMessage.addClass('smallSysMes');
-    }
-
-    if (Array.isArray(mes?.extra?.tool_invocations)) {
-        newMessage.addClass('toolCall');
-    }
-
-    //shows or hides the Prompt display button
-    let mesIdToFind = type === 'swipe' ? params.mesId - 1 : params.mesId;  //Number(newMessage.attr('mesId'));
-
-    //if we have itemized messages, and the array isn't null..
-    if (params.isUser === false && Array.isArray(itemizedPrompts) && itemizedPrompts.length > 0) {
-        const itemizedPrompt = itemizedPrompts.find(x => Number(x.mesId) === Number(mesIdToFind));
-        if (itemizedPrompt) {
-            newMessage.find('.mes_prompt').show();
-        }
-    }
-
-    newMessage.find('.avatar img').on('error', function () {
-        $(this).hide();
-        $(this).parent().html('<div class="missing-avatar fa-solid fa-user-slash"></div>');
-    });
-
-    if (type === 'swipe') {
-        const swipeMessage = chatElement.find(`[mesid="${chat.length - 1}"]`);
-        swipeMessage.attr('swipeid', params.swipeId);
-        swipeMessage.find('.mes_text').html(messageText).attr('title', title);
-        swipeMessage.find('.timestamp').text(timestamp).attr('title', `${params.extra.api} - ${params.extra.model}`);
-        updateReasoningUI(swipeMessage);
-        appendMediaToMessage(mes, swipeMessage);
-        if (power_user.timestamp_model_icon && params.extra?.api) {
-            insertSVGIcon(swipeMessage, params.extra);
-        }
-
-        if (mes.swipe_id == mes.swipes.length - 1) {
-            swipeMessage.find('.mes_timer').text(params.timerValue).attr('title', params.timerTitle);
-            swipeMessage.find('.tokenCounterDisplay').text(`${params.tokenCount}t`);
-        } else {
-            swipeMessage.find('.mes_timer').empty();
-            swipeMessage.find('.tokenCounterDisplay').empty();
-        }
-    } else {
-        const messageId = forceId ?? chat.length - 1;
-        chatElement.find(`[mesid="${messageId}"] .mes_text`).append(messageText);
-        appendMediaToMessage(mes, newMessage);
-        showSwipes && hideSwipeButtons();
-    }
-
-    addCopyToCodeBlocks(newMessage);
-
-    // Set the swipes counter for past messages, only visible if 'Show Swipes on All Message' is enabled
-    if (!params.isUser && newMessageId !== 0 && newMessageId !== chat.length - 1) {
-        const swipesNum = chat[newMessageId].swipes?.length;
-        const swipeId = chat[newMessageId].swipe_id + 1;
-        newMessage.find('.swipes-counter').text(formatSwipeCounter(swipeId, swipesNum));
-    }
-
-    if (showSwipes) {
-        $('#chat .mes').last().addClass('last_mes');
-        $('#chat .mes').eq(-2).removeClass('last_mes');
-        hideSwipeButtons();
-        showSwipeButtons();
-    }
-
-    // Don't scroll if not inserting last
-    if (!insertAfter && !insertBefore && scroll) {
-        scrollChatToBottom();
-    }
-
-    applyCharacterTagsToMessageDivs({ mesIds: newMessageId });
+    return addOneMessageCore(mes, { type, insertAfter, scroll, insertBefore, forceId, showSwipes });
 }
 
 /**
@@ -2241,29 +1926,7 @@ export function formatCharacterAvatar(characterAvatar) {
  * console.log(timerTitle); // Generation queued: 12:34:56 7 Jan 2021\nReply received: 12:34:57 7 Jan 2021\nTime to generate: 1.2 seconds\nToken rate: 5 t/s
  */
 function formatGenerationTimer(gen_started, gen_finished, tokenCount, reasoningDuration = null, timeToFirstToken = null) {
-    if (!gen_started || !gen_finished) {
-        return {};
-    }
-
-    const dateFormat = 'HH:mm:ss D MMM YYYY';
-    const start = moment(gen_started);
-    const finish = moment(gen_finished);
-    const seconds = finish.diff(start, 'seconds', true);
-    const timerValue = `${seconds.toFixed(1)}s`;
-    const timerTitle = [
-        `Generation queued: ${start.format(dateFormat)}`,
-        `Reply received: ${finish.format(dateFormat)}`,
-        `Time to generate: ${seconds} seconds`,
-        timeToFirstToken ? `Time to first token: ${timeToFirstToken / 1000} seconds` : '',
-        reasoningDuration > 0 ? `Time to think: ${reasoningDuration / 1000} seconds` : '',
-        tokenCount > 0 ? `Token rate: ${Number(tokenCount / seconds).toFixed(3)} t/s` : '',
-    ].filter(x => x).join('\n').trim();
-
-    if (isNaN(seconds) || seconds < 0) {
-        return { timerValue: '', timerTitle };
-    }
-
-    return { timerValue, timerTitle };
+    return formatGenerationTimerCore(gen_started, gen_finished, tokenCount, reasoningDuration, timeToFirstToken);
 }
 
 export function scrollChatToBottom() {
@@ -8452,11 +8115,7 @@ async function createOrEditCharacter(e) {
  * @returns {string} The formatted counter.
  */
 function formatSwipeCounter(current, total) {
-    if (isNaN(current) || isNaN(total)) {
-        return '';
-    }
-
-    return `${current}\u200b/\u200b${total}`;
+    return formatSwipeCounterCore(current, total);
 }
 
 /**

@@ -1,10 +1,13 @@
+import { appendMediaToMessage } from './chat-operations-core.js';
+
 let cleanUpMessageImpl = null;
 let closeMessageEditorImpl = null;
 let getFirstDisplayedMessageIdImpl = null;
 let messageFormattingImpl = null;
 let saveChatDebouncedImpl = null;
 let syncMesToSwipeImpl = null;
-let updateMessageBlockImpl = null;
+let addCopyToCodeBlocksImpl = null;
+let updateReasoningUIImpl = null;
 
 export let editedMessageId = undefined;
 
@@ -21,7 +24,8 @@ function throwUnbound(name) {
  *   messageFormatting: (...args: any[]) => any,
  *   saveChatDebounced: (...args: any[]) => any,
  *   syncMesToSwipe: (...args: any[]) => any,
- *   updateMessageBlock: (...args: any[]) => any,
+ *   addCopyToCodeBlocks: (...args: any[]) => any,
+ *   updateReasoningUI: (...args: any[]) => any,
  * }} impl Implementations to bind
  */
 export function bindMessageCore(impl) {
@@ -31,7 +35,8 @@ export function bindMessageCore(impl) {
     messageFormattingImpl = impl?.messageFormatting ?? null;
     saveChatDebouncedImpl = impl?.saveChatDebounced ?? null;
     syncMesToSwipeImpl = impl?.syncMesToSwipe ?? null;
-    updateMessageBlockImpl = impl?.updateMessageBlock ?? null;
+    addCopyToCodeBlocksImpl = impl?.addCopyToCodeBlocks ?? null;
+    updateReasoningUIImpl = impl?.updateReasoningUI ?? null;
 }
 
 export function cleanUpMessage(...args) {
@@ -88,9 +93,25 @@ export function syncMesToSwipe(...args) {
 }
 
 export function updateMessageBlock(...args) {
-    if (!updateMessageBlockImpl) {
-        throwUnbound('updateMessageBlock');
+    if (!messageFormattingImpl) {
+        throwUnbound('messageFormatting');
+    }
+    if (!addCopyToCodeBlocksImpl) {
+        throwUnbound('addCopyToCodeBlocks');
+    }
+    if (!updateReasoningUIImpl) {
+        throwUnbound('updateReasoningUI');
     }
 
-    return updateMessageBlockImpl(...args);
+    const [messageId, message, { rerenderMessage = true } = {}] = args;
+    const messageElement = $(`#chat [mesid="${messageId}"]`);
+    if (rerenderMessage) {
+        const text = message?.extra?.display_text ?? message.mes;
+        messageElement.find('.mes_text').html(messageFormattingImpl(text, message.name, message.is_system, message.is_user, messageId, {}, false));
+    }
+
+    updateReasoningUIImpl(messageElement);
+    addCopyToCodeBlocksImpl(messageElement);
+    appendMediaToMessage(message, messageElement);
+    return messageElement;
 }

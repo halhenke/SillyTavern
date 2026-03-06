@@ -1024,3 +1024,28 @@
 ### Next
 1. Target the message render/update path next (`printMessages()`, `addOneMessage()`, `updateMessageBlock()`), or another adjacent cluster with a similarly clear boundary.
 2. Avoid spending too many more waves on small chat-maintenance helpers unless they unlock a larger UI migration step.
+
+## 2026-03-07 - Monolith Reduction Wave 14 (Message Render/Update Flow)
+
+### Completed
+- Moved `addOneMessage()` out of `public/script.js` into `public/scripts/chat-operations-core.js`.
+- Moved `printMessages()` out of `public/script.js` into `public/scripts/chat-operations-core.js`.
+- Moved `updateMessageBlock()` out of `public/script.js` into `public/scripts/message-core.js`.
+- Moved the rendering helpers needed for that ownership shift into `chat-operations-core.js`:
+  - message template rendering
+  - timestamp/model icon insertion
+  - generation timer formatting
+  - swipe counter formatting
+- Removed the now-dead monolith copies of the private message-template helpers from `public/script.js`.
+
+### Measurable Impact
+- `public/script.js` no longer owns the main message render/update loop for chat history.
+- This is one of the larger UI-facing reductions so far because it removes both the list render path and the single-message update path from the monolith body.
+
+### Insights
+- For rendering code, the right migration shape is core-owned DOM orchestration plus callback-based access to cycle-prone services like reasoning, bookmarks, style pins, and tag application.
+- After this wave, the remaining high-value monolith areas are more likely to be generation orchestration or character create/edit flows than generic chat rendering.
+
+### Next
+1. Reassess the next highest-yield slice between generation orchestration entrypoints and character create/edit flows.
+2. Keep favoring multi-function concern batches where private helper code can leave the monolith along with the public function.

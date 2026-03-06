@@ -1,26 +1,14 @@
-let setOnlineStatusImpl = null;
-let startStatusLoadingImpl = null;
-let resultCheckStatusImpl = null;
+import { event_types, eventSource } from './events.js';
+import { online_status, syncOnlineStatus } from './generation-core.js';
+import { AbortReason } from './util/AbortReason.js';
 
 export let abortStatusCheck = new AbortController();
 
-function throwUnbound(name) {
-    throw new Error(`[backend-status-core] ${name} was called before bindings were initialized`);
-}
-
 /**
  * Binds legacy backend status functions to standalone wrappers.
- * @param {{
- *   setOnlineStatus: (value: string) => void,
- *   startStatusLoading: () => void,
- *   resultCheckStatus: () => void,
- * }} impl Implementations to bind
+ * Backend status core now owns its own implementation surface.
  */
-export function bindBackendStatusCore(impl) {
-    setOnlineStatusImpl = impl?.setOnlineStatus ?? null;
-    startStatusLoadingImpl = impl?.startStatusLoading ?? null;
-    resultCheckStatusImpl = impl?.resultCheckStatus ?? null;
-}
+export function bindBackendStatusCore() {}
 
 /**
  * Synchronizes the current abort controller instance.
@@ -30,26 +18,56 @@ export function setAbortStatusCheck(controller) {
     abortStatusCheck = controller;
 }
 
-export function setOnlineStatus(...args) {
-    if (!setOnlineStatusImpl) {
-        throwUnbound('setOnlineStatus');
-    }
-
-    return setOnlineStatusImpl(...args);
+export function cancelStatusCheck(reason = 'Manually cancelled status check') {
+    abortStatusCheck?.abort(new AbortReason(reason));
+    abortStatusCheck = new AbortController();
+    setOnlineStatus('no_connection');
+    return abortStatusCheck;
 }
 
-export function startStatusLoading(...args) {
-    if (!startStatusLoadingImpl) {
-        throwUnbound('startStatusLoading');
+export function displayOnlineStatus() {
+    const indicatorNodes = document.querySelectorAll('.online_status_indicator');
+    const textNodes = document.querySelectorAll('.online_status_text');
+    const noConnectionText = document.getElementById('API-status-top')?.getAttribute('no_connection_text') ?? '';
+
+    for (const node of indicatorNodes) {
+        node.classList.toggle('success', online_status !== 'no_connection');
     }
 
-    return startStatusLoadingImpl(...args);
+    for (const node of textNodes) {
+        node.textContent = online_status === 'no_connection' ? noConnectionText : online_status;
+    }
 }
 
-export function resultCheckStatus(...args) {
-    if (!resultCheckStatusImpl) {
-        throwUnbound('resultCheckStatus');
+export function setOnlineStatus(value) {
+    const previousStatus = online_status;
+    syncOnlineStatus(value);
+    displayOnlineStatus();
+    if (previousStatus !== online_status) {
+        eventSource.emitAndWait(event_types.ONLINE_STATUS_CHANGED, online_status);
     }
+    return online_status;
+}
 
-    return resultCheckStatusImpl(...args);
+export function startStatusLoading() {
+    for (const node of document.querySelectorAll('.api_loading')) {
+        node instanceof HTMLElement && (node.style.display = '');
+    }
+    for (const node of document.querySelectorAll('.api_button')) {
+        node.classList.add('disabled');
+    }
+}
+
+export function stopStatusLoading() {
+    for (const node of document.querySelectorAll('.api_loading')) {
+        node instanceof HTMLElement && (node.style.display = 'none');
+    }
+    for (const node of document.querySelectorAll('.api_button')) {
+        node.classList.remove('disabled');
+    }
+}
+
+export function resultCheckStatus() {
+    displayOnlineStatus();
+    stopStatusLoading();
 }

@@ -249,7 +249,6 @@ import { DragAndDropHandler } from './scripts/dragdrop.js';
 import { INTERACTABLE_CONTROL_CLASS, initKeyboard } from './scripts/keyboard.js';
 import { initDynamicStyles } from './scripts/dynamic-styles.js';
 import { initInputMarkdown } from './scripts/input-md-formatting.js';
-import { AbortReason } from './scripts/util/AbortReason.js';
 import { initSystemPrompts } from './scripts/sysprompt.js';
 import { registerExtensionSlashCommands as initExtensionSlashCommands } from './scripts/extensions-slashcommands.js';
 import { ToolManager } from './scripts/tool-calling.js';
@@ -262,7 +261,7 @@ import { getContext } from './scripts/st-context.js';
 import { extractReasoningFromData, initReasoning, parseReasoningInSwipes, PromptReasoning, ReasoningHandler, removeReasoningFromString, updateReasoningUI } from './scripts/reasoning.js';
 import { bindAppStateCore, setMenuType as setMenuTypeCore, syncDefaultPrintTimeout, syncEntitiesFilter, syncIsChatSaving, syncMenuType } from './scripts/app-state-core.js';
 import { syncClientVersion, syncConnectApiMap, syncMainApi, syncNaiSettings } from './scripts/api-core.js';
-import { bindBackendStatusCore, setAbortStatusCheck } from './scripts/backend-status-core.js';
+import { bindBackendStatusCore, cancelStatusCheck as cancelStatusCheckCore, displayOnlineStatus as displayOnlineStatusCore, resultCheckStatus as resultCheckStatusCore, setAbortStatusCheck, setOnlineStatus as setOnlineStatusCore, startStatusLoading as startStatusLoadingCore, stopStatusLoading as stopStatusLoadingCore } from './scripts/backend-status-core.js';
 import { bindCharacterCore, syncCharacterGroupOverlay, syncCharacters, syncPrintCharactersDebounced } from './scripts/character-core.js';
 import { bindChatCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
 import { bindChatOperationsCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
@@ -439,10 +438,8 @@ let scrollLock = false;
 export let abortStatusCheck = new AbortController();
 setAbortStatusCheck(abortStatusCheck);
 bindBackendStatusCore({
-    resultCheckStatus,
-    setOnlineStatus,
-    startStatusLoading,
 });
+bindBackendStatusCore();
 bindAppStateCore();
 bindParserCore({
     baseChatReplace,
@@ -891,20 +888,13 @@ function initStandaloneMode() {
 }
 
 function cancelStatusCheck(reason = 'Manually cancelled status check') {
-    abortStatusCheck?.abort(new AbortReason(reason));
-    abortStatusCheck = new AbortController();
+    abortStatusCheck = cancelStatusCheckCore(reason);
     setAbortStatusCheck(abortStatusCheck);
-    setOnlineStatus('no_connection');
+    return abortStatusCheck;
 }
 
 export function displayOnlineStatus() {
-    if (online_status == 'no_connection') {
-        $('.online_status_indicator').removeClass('success');
-        $('.online_status_text').text($('#API-status-top').attr('no_connection_text'));
-    } else {
-        $('.online_status_indicator').addClass('success');
-        $('.online_status_text').text(online_status);
-    }
+    return displayOnlineStatusCore();
 }
 
 /**
@@ -940,18 +930,15 @@ export function setActiveGroup(entityOrKey) {
 }
 
 export function startStatusLoading() {
-    $('.api_loading').show();
-    $('.api_button').addClass('disabled');
+    return startStatusLoadingCore();
 }
 
 export function stopStatusLoading() {
-    $('.api_loading').hide();
-    $('.api_button').removeClass('disabled');
+    return stopStatusLoadingCore();
 }
 
 export function resultCheckStatus() {
-    displayOnlineStatus();
-    stopStatusLoading();
+    return resultCheckStatusCore();
 }
 
 /**
@@ -6224,13 +6211,9 @@ export function setCharacterName(value) {
  * @param {string|'no_connection'} value Connection status value
  */
 export function setOnlineStatus(value) {
-    const previousStatus = online_status;
-    online_status = value;
+    online_status = setOnlineStatusCore(value);
     syncOnlineStatus(online_status);
-    displayOnlineStatus();
-    if (previousStatus !== online_status) {
-        eventSource.emitAndWait(event_types.ONLINE_STATUS_CHANGED, online_status);
-    }
+    return online_status;
 }
 
 export function setEditedMessageId(value) {

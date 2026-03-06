@@ -843,3 +843,28 @@
 ### Next
 1. Continue batching small-to-medium helper moves instead of single-function waves where the concern boundary is clear.
 2. Start carving out one larger chat lifecycle slice after a few more helper batches reduce state ownership in `script.js`.
+
+## 2026-03-07 - Monolith Reduction Wave 6 (Backend Status Batch)
+
+### Completed
+- Moved the backend status implementation cluster out of `public/script.js` into `public/scripts/backend-status-core.js`:
+  - `cancelStatusCheck(...)`
+  - `displayOnlineStatus()`
+  - `setOnlineStatus(...)`
+  - `startStatusLoading()`
+  - `stopStatusLoading()`
+  - `resultCheckStatus()`
+- Updated `public/script.js` to keep thin compatibility wrappers that delegate to `backend-status-core` and preserve the exported abort controller mirror.
+- Simplified `bindBackendStatusCore(...)` so the backend status core now owns its implementation surface directly rather than relying on bound legacy callbacks.
+
+### Measurable Impact
+- `public/script.js` no longer owns the primary implementation for the backend connection/status UI flow.
+- This removes a cohesive DOM/event/status subsystem from the monolith in one pass, which is more meaningful than continued single-helper extraction.
+
+### Insights
+- Status-related code is a good medium-size extraction target because it has a self-contained boundary across DOM updates, event emission, and abort-controller lifecycle.
+- The wrapper pattern still scales for medium slices: move the implementation cluster first, then remove the compatibility layer after the remaining direct monolith callers are gone.
+
+### Next
+1. Continue taking medium-size concern batches out of `public/script.js` instead of isolated helpers.
+2. Target one larger chat lifecycle or UI orchestration path next, where state ownership is now cleaner after the status extraction.

@@ -799,3 +799,22 @@
 ### Next
 1. Continue moving small pure chat/session helpers out of `public/script.js`.
 2. After a few more low-risk moves, begin carving out one higher-value chat lifecycle path end-to-end.
+
+## 2026-03-07 - Monolith Reduction Wave 4 (Session Reset Move)
+
+### Completed
+- Moved `resetChatState(...)` implementation out of `public/script.js` into `public/scripts/session-core.js`.
+- Updated `public/script.js` to keep a compatibility wrapper that delegates to `session-core` and re-synchronizes local mirrored exports (`name2`, `this_chid`, `chat_metadata`).
+- Simplified `bindSessionCore(...)` by removing `resetChatState` from the bound implementation surface because the function now lives in the core directly.
+
+### Measurable Impact
+- `public/script.js` no longer owns the primary implementation of the chat-state reset path.
+- This is the first post-adapter move that coordinates multiple core modules (`chat-core`, `chat-operations-core`, `character-core`, `system-messages`) from outside the monolith body.
+
+### Insights
+- Core-to-core orchestration is now viable for pure state reset flows, which is a necessary step before moving larger chat lifecycle paths.
+- Aliasing imported helper names in core modules is important as more cores begin owning real implementations instead of wrapper-only surfaces.
+
+### Next
+1. Continue moving small chat/session orchestration helpers out of `public/script.js`.
+2. Start selecting one larger chat lifecycle slice to move end-to-end once a few more state helpers are externalized.

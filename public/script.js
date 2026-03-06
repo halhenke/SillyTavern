@@ -271,7 +271,7 @@ import { bindGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDep
 import { bindMessageCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
-import { bindSessionCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes } from './scripts/session-core.js';
+import { bindSessionCore, resetChatState as resetChatStateCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes } from './scripts/session-core.js';
 import { bindSettingsCore } from './scripts/settings-core.js';
 import { bindUiCore, setAnimationDuration as setAnimationDurationCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
 import { accountStorage } from './scripts/util/AccountStorage.js';
@@ -495,7 +495,6 @@ bindSessionCore({
     getSystemMessageByType,
     newAssistantChat,
     renameGroupOrCharacterChat,
-    resetChatState,
     selectCharacterById,
     selectRightMenuWithAnimation,
     select_rm_info,
@@ -6192,18 +6191,14 @@ export function deactivateSendButtons() {
 }
 
 export function resetChatState() {
-    // replaces deleted charcter name with system user since it will be displayed next.
-    name2 = (this_chid === undefined && neutralCharacterName) ? neutralCharacterName : systemUserName;
+    const nextState = resetChatStateCore();
+    name2 = nextState.name2;
+    this_chid = nextState.this_chid;
+    chat_metadata = nextState.chat_metadata;
     syncName2(name2);
-    //unsets expected chid before reloading (related to getCharacters/printCharacters from using old arrays)
-    setCharacterId(undefined);
-    // sets up system user to tell user about having deleted a character
-    chat.splice(0, chat.length, ...SAFETY_CHAT);
-    // resets chat metadata
-    chat_metadata = {};
+    syncThisChid(this_chid);
     syncChatMetadata(chat_metadata);
-    // resets the characters array, forcing getcharacters to reset
-    characters.length = 0;
+    return nextState;
 }
 
 /**

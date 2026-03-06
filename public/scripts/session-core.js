@@ -1,3 +1,8 @@
+import { characters } from './character-core.js';
+import { chat_metadata, name2, setCharacterId as setChatCharacterId, setCharacterName as setChatCharacterName, this_chid, syncChatMetadata, syncName2, syncThisChid } from './chat-core.js';
+import { chat, systemUserName } from './chat-operations-core.js';
+import { SAFETY_CHAT } from './system-messages.js';
+
 let cancelTtsPlayImpl = null;
 let deleteCharacterChatByNameImpl = null;
 let doNavbarIconClickImpl = null;
@@ -6,7 +11,6 @@ let getEntitiesListImpl = null;
 let getSystemMessageByTypeImpl = null;
 let newAssistantChatImpl = null;
 let renameGroupOrCharacterChatImpl = null;
-let resetChatStateImpl = null;
 let selectCharacterByIdImpl = null;
 let selectRightMenuWithAnimationImpl = null;
 let selectRmInfoImpl = null;
@@ -42,7 +46,6 @@ function throwUnbound(name) {
  *   getSystemMessageByType: (...args: any[]) => any,
  *   newAssistantChat: (...args: any[]) => Promise<any>,
  *   renameGroupOrCharacterChat: (...args: any[]) => Promise<any>,
- *   resetChatState: (...args: any[]) => any,
  *   selectCharacterById: (...args: any[]) => Promise<any>,
  *   selectRightMenuWithAnimation: (...args: any[]) => Promise<any>,
  *   select_rm_info: (...args: any[]) => any,
@@ -68,7 +71,6 @@ export function bindSessionCore(impl) {
     getSystemMessageByTypeImpl = impl?.getSystemMessageByType ?? null;
     newAssistantChatImpl = impl?.newAssistantChat ?? null;
     renameGroupOrCharacterChatImpl = impl?.renameGroupOrCharacterChat ?? null;
-    resetChatStateImpl = impl?.resetChatState ?? null;
     selectCharacterByIdImpl = impl?.selectCharacterById ?? null;
     selectRightMenuWithAnimationImpl = impl?.selectRightMenuWithAnimation ?? null;
     selectRmInfoImpl = impl?.select_rm_info ?? null;
@@ -165,12 +167,20 @@ export function renameGroupOrCharacterChat(...args) {
     return renameGroupOrCharacterChatImpl(...args);
 }
 
-export function resetChatState(...args) {
-    if (!resetChatStateImpl) {
-        throwUnbound('resetChatState');
-    }
-
-    return resetChatStateImpl(...args);
+export function resetChatState() {
+    const nextName = (this_chid === undefined && neutralCharacterName) ? neutralCharacterName : systemUserName;
+    setChatCharacterName(nextName);
+    syncName2(name2);
+    setChatCharacterId(undefined);
+    syncThisChid(this_chid);
+    chat.splice(0, chat.length, ...SAFETY_CHAT);
+    syncChatMetadata({});
+    characters.length = 0;
+    return {
+        chat_metadata,
+        name2,
+        this_chid,
+    };
 }
 
 export function selectCharacterById(...args) {

@@ -1,3 +1,6 @@
+import { chat } from './chat-operations-core.js';
+import { event_types, eventSource } from './events.js';
+
 let addCopyToCodeBlocksImpl = null;
 let callPopupImpl = null;
 let reloadMarkdownProcessorImpl = null;
@@ -81,8 +84,38 @@ export function scrollChatToBottom(...args) {
     return scrollChatToBottomImpl(...args);
 }
 
+export function getSlideToggleOptions() {
+    return {
+        miliseconds: animation_duration * 1.5,
+        transitionFunction: animation_duration > 0 ? 'ease-in-out' : 'step-start',
+    };
+}
+
 export function setAnimationDuration(ms = null) {
     animation_duration = ms ?? ANIMATION_DURATION_DEFAULT;
     document.documentElement.style.setProperty('--animation-duration', `${animation_duration}ms`);
     return animation_duration;
+}
+
+export function showStopButton() {
+    document.getElementById('mes_stop')?.style.setProperty('display', 'flex');
+}
+
+export function hideStopButton() {
+    const stopButton = document.getElementById('mes_stop');
+    if (stopButton && getComputedStyle(stopButton).display !== 'none') {
+        stopButton?.style.setProperty('display', 'none');
+        eventSource.emit(event_types.GENERATION_ENDED, chat.length);
+    }
+}
+
+export function activateSendButtons(setSendButtonState) {
+    setSendButtonState(false);
+    hideStopButton();
+    delete document.body.dataset.generating;
+}
+
+export function deactivateSendButtons() {
+    showStopButton();
+    document.body.dataset.generating = 'true';
 }

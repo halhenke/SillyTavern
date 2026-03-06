@@ -818,3 +818,28 @@
 ### Next
 1. Continue moving small chat/session orchestration helpers out of `public/script.js`.
 2. Start selecting one larger chat lifecycle slice to move end-to-end once a few more state helpers are externalized.
+
+## 2026-03-07 - Monolith Reduction Wave 5 (UI + App State Helper Batch)
+
+### Completed
+- Moved `setMenuType(...)` implementation out of `public/script.js` into `public/scripts/app-state-core.js`.
+- Moved these UI helper implementations out of `public/script.js` into `public/scripts/ui-core.js`:
+  - `getSlideToggleOptions(...)`
+  - `showStopButton()`
+  - `hideStopButton()`
+  - `activateSendButtons()`
+  - `deactivateSendButtons()`
+- Updated `public/script.js` to keep thin compatibility wrappers that delegate to the relevant core module and preserve local mirrored exports.
+- Simplified `bindAppStateCore(...)` and `bindUiCore(...)` by removing implementations that are now owned directly by their cores.
+
+### Measurable Impact
+- `public/script.js` no longer owns a cluster of recurring UI/app-state helper implementations.
+- This removes a noticeable amount of UI state/control logic from the monolith in one pass rather than one function at a time.
+
+### Insights
+- Batching related low-risk helpers is materially faster now that the adapter layer is stable.
+- UI/app-state helpers are good batch candidates because they share clear boundaries and have limited backend or extension API coupling.
+
+### Next
+1. Continue batching small-to-medium helper moves instead of single-function waves where the concern boundary is clear.
+2. Start carving out one larger chat lifecycle slice after a few more helper batches reduce state ownership in `script.js`.

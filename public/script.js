@@ -260,7 +260,7 @@ import { initSettingsSearch } from './scripts/setting-search.js';
 import { initBulkEdit } from './scripts/bulk-edit.js';
 import { getContext } from './scripts/st-context.js';
 import { extractReasoningFromData, initReasoning, parseReasoningInSwipes, PromptReasoning, ReasoningHandler, removeReasoningFromString, updateReasoningUI } from './scripts/reasoning.js';
-import { bindAppStateCore, syncDefaultPrintTimeout, syncEntitiesFilter, syncIsChatSaving, syncMenuType } from './scripts/app-state-core.js';
+import { bindAppStateCore, setMenuType as setMenuTypeCore, syncDefaultPrintTimeout, syncEntitiesFilter, syncIsChatSaving, syncMenuType } from './scripts/app-state-core.js';
 import { syncClientVersion, syncConnectApiMap, syncMainApi, syncNaiSettings } from './scripts/api-core.js';
 import { bindBackendStatusCore, setAbortStatusCheck } from './scripts/backend-status-core.js';
 import { bindCharacterCore, syncCharacterGroupOverlay, syncCharacters, syncPrintCharactersDebounced } from './scripts/character-core.js';
@@ -273,7 +273,7 @@ import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumb
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
 import { bindSessionCore, resetChatState as resetChatStateCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes } from './scripts/session-core.js';
 import { bindSettingsCore } from './scripts/settings-core.js';
-import { bindUiCore, setAnimationDuration as setAnimationDurationCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
+import { activateSendButtons as activateSendButtonsCore, bindUiCore, deactivateSendButtons as deactivateSendButtonsCore, getSlideToggleOptions as getSlideToggleOptionsCore, hideStopButton as hideStopButtonCore, setAnimationDuration as setAnimationDurationCore, showStopButton as showStopButtonCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
 import { accountStorage } from './scripts/util/AccountStorage.js';
 import { initWelcomeScreen, openPermanentAssistantChat, openPermanentAssistantCard, getPermanentAssistantAvatar } from './scripts/welcome-screen.js';
 import { initDataMaid } from './scripts/data-maid.js';
@@ -443,9 +443,7 @@ bindBackendStatusCore({
     setOnlineStatus,
     startStatusLoading,
 });
-bindAppStateCore({
-    setMenuType,
-});
+bindAppStateCore();
 bindParserCore({
     baseChatReplace,
     extractJsonFromData,
@@ -777,10 +775,7 @@ export function getRequestHeaders({ omitContentType = false } = {}) {
 }
 
 export function getSlideToggleOptions() {
-    return {
-        miliseconds: animation_duration * 1.5,
-        transitionFunction: animation_duration > 0 ? 'ease-in-out' : 'step-start',
-    };
+    return getSlideToggleOptionsCore();
 }
 
 $.ajaxPrefilter((options, originalOptions, xhr) => {
@@ -2904,15 +2899,11 @@ export function isStreamingEnabled() {
 }
 
 function showStopButton() {
-    $('#mes_stop').css({ 'display': 'flex' });
+    return showStopButtonCore();
 }
 
 function hideStopButton() {
-    // prevent NOOP, because hideStopButton() gets called multiple times
-    if ($('#mes_stop').css('display') !== 'none') {
-        $('#mes_stop').css({ 'display': 'none' });
-        eventSource.emit(event_types.GENERATION_ENDED, chat.length);
-    }
+    return hideStopButtonCore();
 }
 
 class StreamingProcessor {
@@ -6177,17 +6168,14 @@ function getGeneratingModel(mes) {
  * A function mainly used to switch 'generating' state - setting it to false and activating the buttons again
  */
 export function activateSendButtons() {
-    setSendButtonState(false);
-    hideStopButton();
-    delete document.body.dataset.generating;
+    return activateSendButtonsCore(setSendButtonState);
 }
 
 /**
  * A function mainly used to switch 'generating' state - setting it to true and deactivating the buttons
  */
 export function deactivateSendButtons() {
-    showStopButton();
-    document.body.dataset.generating = 'true';
+    return deactivateSendButtonsCore();
 }
 
 export function resetChatState() {
@@ -6206,10 +6194,9 @@ export function resetChatState() {
  * @param {'characters' | 'character_edit' | 'create' | 'group_edit' | 'group_create'} value
  */
 export function setMenuType(value) {
-    menu_type = value;
+    menu_type = setMenuTypeCore(value);
     syncMenuType(menu_type);
-    // Allow custom CSS to see which menu type is active
-    document.getElementById('right-nav-panel').dataset.menuType = menu_type;
+    return menu_type;
 }
 
 export function setExternalAbortController(controller) {

@@ -263,7 +263,7 @@ import { bindCharacterCore, createOrEditCharacter as createOrEditCharacterCore, 
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
 import { addOneMessage as addOneMessageCore, bindChatOperationsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
-import { bindGenerationCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
+import { bindGenerationCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
 import { bindMessageCore, setEditedMessageId as setEditedMessageIdCore, updateMessageBlock as updateMessageBlockCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
@@ -514,10 +514,15 @@ bindSessionCore({
 bindGenerationCore({
     Generate,
     createRawPrompt,
+    executeSlashCommandsOnChatInput,
     generateHorde,
+    getAnimationDuration: () => animation_duration,
     getAbortController: () => abortController,
     getAutoContinueConfig: () => power_user.auto_continue,
+    getCustomStoppingStrings,
     getGenerateUrl,
+    getGroups: () => groups,
+    getInstructStoppingSequences,
     getKoboldGenerationData,
     getKoboldSettingsConfig: () => ({
         kaiSettings: kai_settings,
@@ -531,6 +536,7 @@ bindGenerationCore({
         textgenType: textgen_settings.type,
         textgenOobaType: textgen_types.OOBA,
     }),
+    getNamesAsStopStrings: () => power_user.context.names_as_stop_strings,
     getNovelGenerationData,
     getNovelSettingsConfig: () => ({
         naiSettings: nai_settings,
@@ -2076,35 +2082,7 @@ export function substituteParams(content, _name1, _name2, _original, _group, _re
  * @returns {string[]} Array of stopping strings
  */
 export function getStoppingStrings(isImpersonate, isContinue) {
-    const result = [];
-
-    if (power_user.context.names_as_stop_strings) {
-        const charString = `\n${name2}:`;
-        const userString = `\n${name1}:`;
-        result.push(isImpersonate ? charString : userString);
-
-        result.push(userString);
-
-        if (isContinue && Array.isArray(chat) && chat[chat.length - 1]?.is_user) {
-            result.push(charString);
-        }
-
-        // Add group members as stopping strings if generating for a specific group member or user. (Allow slash commands to work around name stopping string restrictions)
-        if (selected_group && (name2 || isImpersonate)) {
-            const group = groups.find(x => x.id === selected_group);
-
-            if (group && Array.isArray(group.members)) {
-                const names = group.members
-                    .map(x => characters.find(y => y.avatar == x))
-                    .filter(x => x && x.name && x.name !== name2)
-                    .map(x => `\n${x.name}:`);
-                result.push(...names);
-            }
-        }
-    }
-
-    result.push(...getInstructStoppingSequences());
-    result.push(...getCustomStoppingStrings());
+    const result = getStoppingStringsCore(isImpersonate, isContinue);
 
     if (power_user.single_line) {
         result.unshift('\n');
@@ -2139,13 +2117,7 @@ export async function generateQuietPrompt({ quietPrompt = '', quietToLoud = fals
  * @returns {Promise<boolean>} Whether the message sending was interrupted
  */
 export async function processCommands(message) {
-    if (!message || !message.trim().startsWith('/')) {
-        return false;
-    }
-    await executeSlashCommandsOnChatInput(message, {
-        clearChatInput: true,
-    });
-    return true;
+    return processCommandsCore(message);
 }
 
 /**
@@ -2898,16 +2870,7 @@ export async function generateRaw({ prompt = '', api = null, instructOverride = 
  * @returns {Promise<void>} Resolves when the message is removed.
  */
 function removeLastMessage() {
-    return new Promise((resolve) => {
-        const lastMes = $('#chat').children('.mes').last();
-        if (lastMes.length === 0) {
-            return resolve();
-        }
-        lastMes.hide(animation_duration, function () {
-            $(this).remove();
-            resolve();
-        });
-    });
+    return removeLastMessageCore();
 }
 
 /**

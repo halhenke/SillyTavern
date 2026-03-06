@@ -1164,3 +1164,29 @@
 ### Next
 1. Reassess whether the next useful batch is the first focused helper/internal extraction from `Generate(...)` or another UI-heavy character-editor surface.
 2. Keep generation-related moves centered on coherent helper layers rather than forcing the entire pipeline over at once.
+
+## 2026-03-07 - Monolith Reduction Wave 19 (Generate Helper Batch)
+
+### Completed
+- Moved `getStoppingStrings()` out of `public/script.js` into `public/scripts/generation-core.js`.
+- Moved `processCommands()` out of `public/script.js` into `public/scripts/generation-core.js`.
+- Moved the internal last-message DOM removal helper used by `Generate(...)` out of `public/script.js` into `public/scripts/generation-core.js`.
+- Updated `public/script.js` to keep thin wrappers and call the core-owned helper implementations.
+- Extended `bindGenerationCore(...)` with narrow callbacks for:
+  - slash-command execution
+  - animation-duration access
+  - custom/instruct stopping-string providers
+  - group list access
+  - names-as-stop-strings preference access
+
+### Measurable Impact
+- `Generate(...)` now depends on more core-owned generation helpers instead of monolith-owned local internals.
+- This continues shrinking the internal helper surface around generation before moving the main orchestration body.
+
+### Insights
+- The `Generate(...)` migration is safest when decomposed into helper layers first: command handling, stopping-string assembly, and DOM cleanup are all good extraction seams.
+- Some generation helpers need a mixed strategy: core-owned logic with narrow callbacks for high-churn UI/runtime dependencies.
+
+### Next
+1. Reassess whether the next `Generate(...)` reduction should target one more helper cluster or the first larger orchestration segment.
+2. Keep the remaining `Generate(...)` work focused on coherent preflight or post-response segments rather than arbitrary line-count reduction.

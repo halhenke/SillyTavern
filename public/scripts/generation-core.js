@@ -1,4 +1,6 @@
 import { main_api } from './api-core.js';
+import { characters } from './character-core.js';
+import { name1, name2 } from './chat-core.js';
 import { event_types, eventSource } from './events.js';
 import { cleanUpMessage } from './message-core.js';
 import { getRequestHeaders } from './network-core.js';
@@ -11,16 +13,21 @@ let generateHordeImpl = null;
 let getKoboldGenerationDataImpl = null;
 let getKoboldSettingsConfigImpl = null;
 let getGenerateUrlImpl = null;
+let getGroupsImpl = null;
 let getNovelGenerationDataImpl = null;
 let getNovelSettingsConfigImpl = null;
 let getOpenAiMaxTokensImpl = null;
+let getAnimationDurationImpl = null;
 let getAbortControllerImpl = null;
 let getAutoContinueConfigImpl = null;
+let getCustomStoppingStringsImpl = null;
 let getGeneratingApiConfigImpl = null;
-let getStoppingStringsImpl = null;
+let getInstructStoppingSequencesImpl = null;
+let getNamesAsStopStringsImpl = null;
 let getTextareaTextImpl = null;
 let getTokenCountImpl = null;
 let getTextGenGenerationDataImpl = null;
+let executeSlashCommandsOnChatInputImpl = null;
 let getSelectedGroupImpl = null;
 let hideStopButtonImpl = null;
 let isStreamingEnabledImpl = null;
@@ -52,16 +59,21 @@ function throwUnbound(name) {
  *   Generate: (...args: any[]) => Promise<any>,
  *   createRawPrompt: (...args: any[]) => string|object[],
  *   generateHorde: (...args: any[]) => Promise<any>,
+ *   executeSlashCommandsOnChatInput: (...args: any[]) => Promise<any>,
+ *   getAnimationDuration: () => number,
+ *   getCustomStoppingStrings: () => string[],
  *   getKoboldGenerationData: (...args: any[]) => any,
  *   getKoboldSettingsConfig: () => { kaiSettings?: any, kaiFlags?: any, koboldaiSettings?: any, koboldaiSettingNames?: any },
  *   getAbortController: () => AbortController|null|undefined,
  *   getAutoContinueConfig: () => { enabled?: boolean, target_length?: number, allow_chat_completions?: boolean },
  *   getGenerateUrl: (...args: any[]) => string,
+ *   getGroups: () => any[],
+ *   getInstructStoppingSequences: () => string[],
+ *   getNamesAsStopStrings: () => boolean,
  *   getNovelGenerationData: (...args: any[]) => any,
  *   getNovelSettingsConfig: () => { naiSettings?: any, novelaiSettings?: any, novelaiSettingNames?: any },
  *   getOpenAiMaxTokens: () => number,
  *   getGeneratingApiConfig: () => { mainApi?: string, openAiSource?: string, textgenType?: string, textgenOobaType?: string },
- *   getStoppingStrings: (...args: any[]) => string[],
  *   getTextareaText: () => string,
  *   getTokenCount: (text: string) => number,
  *   getTextGenGenerationData: (...args: any[]) => Promise<any>,
@@ -83,16 +95,21 @@ export function bindGenerationCore(impl) {
     generateImpl = impl?.Generate ?? null;
     createRawPromptImpl = impl?.createRawPrompt ?? null;
     generateHordeImpl = impl?.generateHorde ?? null;
+    executeSlashCommandsOnChatInputImpl = impl?.executeSlashCommandsOnChatInput ?? null;
+    getAnimationDurationImpl = impl?.getAnimationDuration ?? null;
+    getCustomStoppingStringsImpl = impl?.getCustomStoppingStrings ?? null;
     getKoboldGenerationDataImpl = impl?.getKoboldGenerationData ?? null;
     getKoboldSettingsConfigImpl = impl?.getKoboldSettingsConfig ?? null;
     getAbortControllerImpl = impl?.getAbortController ?? null;
     getAutoContinueConfigImpl = impl?.getAutoContinueConfig ?? null;
     getGenerateUrlImpl = impl?.getGenerateUrl ?? null;
+    getGroupsImpl = impl?.getGroups ?? null;
+    getInstructStoppingSequencesImpl = impl?.getInstructStoppingSequences ?? null;
+    getNamesAsStopStringsImpl = impl?.getNamesAsStopStrings ?? null;
     getNovelGenerationDataImpl = impl?.getNovelGenerationData ?? null;
     getNovelSettingsConfigImpl = impl?.getNovelSettingsConfig ?? null;
     getOpenAiMaxTokensImpl = impl?.getOpenAiMaxTokens ?? null;
     getGeneratingApiConfigImpl = impl?.getGeneratingApiConfig ?? null;
-    getStoppingStringsImpl = impl?.getStoppingStrings ?? null;
     getTextareaTextImpl = impl?.getTextareaText ?? null;
     getTokenCountImpl = impl?.getTokenCount ?? null;
     getTextGenGenerationDataImpl = impl?.getTextGenGenerationData ?? null;
@@ -299,11 +316,84 @@ export function getGeneratingApi() {
 }
 
 export function getStoppingStrings(...args) {
-    if (!getStoppingStringsImpl) {
-        throwUnbound('getStoppingStrings');
+    if (!getInstructStoppingSequencesImpl) {
+        throwUnbound('getInstructStoppingSequences');
+    }
+    if (!getCustomStoppingStringsImpl) {
+        throwUnbound('getCustomStoppingStrings');
+    }
+    if (!getNamesAsStopStringsImpl) {
+        throwUnbound('getNamesAsStopStrings');
+    }
+    if (!getGroupsImpl) {
+        throwUnbound('getGroups');
+    }
+    if (!getSelectedGroupImpl) {
+        throwUnbound('getSelectedGroup');
     }
 
-    return getStoppingStringsImpl(...args);
+    const [isImpersonate, isContinue] = args;
+    const result = [];
+
+    if (getNamesAsStopStringsImpl()) {
+        const charString = `\n${name2}:`;
+        const userString = `\n${name1}:`;
+        result.push(isImpersonate ? charString : userString);
+        result.push(userString);
+
+        if (isContinue && Array.isArray(chat) && chat[chat.length - 1]?.is_user) {
+            result.push(charString);
+        }
+
+        const selectedGroup = getSelectedGroupImpl();
+        if (selectedGroup && (name2 || isImpersonate)) {
+            const group = getGroupsImpl().find(x => x.id === selectedGroup);
+            if (group && Array.isArray(group.members)) {
+                const names = group.members
+                    .map(x => characters.find(y => y.avatar == x))
+                    .filter(x => x && x.name && x.name !== name2)
+                    .map(x => `\n${x.name}:`);
+                result.push(...names);
+            }
+        }
+    }
+
+    result.push(...getInstructStoppingSequencesImpl());
+    result.push(...getCustomStoppingStringsImpl());
+
+    return result.filter(x => x).filter((value, index, array) => array.indexOf(value) === index);
+}
+
+export async function processCommands(message) {
+    if (!executeSlashCommandsOnChatInputImpl) {
+        throwUnbound('executeSlashCommandsOnChatInput');
+    }
+
+    if (!message || !message.trim().startsWith('/')) {
+        return false;
+    }
+
+    await executeSlashCommandsOnChatInputImpl(message, {
+        clearChatInput: true,
+    });
+    return true;
+}
+
+export function removeLastMessage() {
+    if (!getAnimationDurationImpl) {
+        throwUnbound('getAnimationDuration');
+    }
+
+    return new Promise((resolve) => {
+        const lastMes = $('#chat').children('.mes').last();
+        if (lastMes.length === 0) {
+            return resolve();
+        }
+        lastMes.hide(getAnimationDurationImpl(), function () {
+            $(this).remove();
+            resolve();
+        });
+    });
 }
 
 export function isStreamingEnabled(...args) {

@@ -1138,3 +1138,29 @@
 ### Next
 1. Reassess whether the next best batch is character-editor UI helpers around the same surface or a focused helper batch around `Generate(...)`.
 2. Keep preferring core-owned persistence/orchestration over moving large DOM-heavy editor widgets all at once.
+
+## 2026-03-07 - Monolith Reduction Wave 18 (Raw/Quiet Generation Batch)
+
+### Completed
+- Moved `generateQuietPrompt()` out of `public/script.js` into `public/scripts/generation-core.js`.
+- Moved `generateRaw()` out of `public/script.js` into `public/scripts/generation-core.js`.
+- Moved the temporary response-length override helper (`TempResponseLength`) out of `public/script.js` into `public/scripts/generation-core.js`.
+- Updated `public/script.js` to keep thin compatibility wrappers for the raw/quiet generation entry points.
+- Extended `bindGenerationCore(...)` with narrow callbacks for the remaining generation-adjacent dependencies:
+  - raw prompt construction
+  - Horde/OpenAI request helpers
+  - Kobold/Novel/TextGen generation data builders
+  - OpenAI max-token accessors
+  - result post-processing helpers
+
+### Measurable Impact
+- `public/script.js` no longer owns the raw generation utility path or the quiet-generation helper path.
+- This removes another significant generation-focused surface from the monolith without yet moving the full `Generate(...)` orchestration body.
+
+### Insights
+- The generation area is still best migrated in layers: raw/quiet helpers first, then the larger `Generate(...)` pipeline once enough adjacent state and helper ownership has been reduced.
+- Callback-based binding remains the right pattern here because importing the full provider stack directly into `generation-core` would recreate the same dependency pressure the migration is trying to remove.
+
+### Next
+1. Reassess whether the next useful batch is the first focused helper/internal extraction from `Generate(...)` or another UI-heavy character-editor surface.
+2. Keep generation-related moves centered on coherent helper layers rather than forcing the entire pipeline over at once.

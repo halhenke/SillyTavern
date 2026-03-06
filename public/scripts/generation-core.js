@@ -1,22 +1,37 @@
+import { main_api } from './api-core.js';
+import { event_types, eventSource } from './events.js';
+import { cleanUpMessage } from './message-core.js';
+import { getRequestHeaders } from './network-core.js';
+import { extractJsonFromData, extractMessageFromData } from './parser-core.js';
 import { chat } from './chat-operations-core.js';
 
 let generateImpl = null;
-let generateRawImpl = null;
-let generateQuietPromptImpl = null;
+let createRawPromptImpl = null;
+let generateHordeImpl = null;
+let getKoboldGenerationDataImpl = null;
+let getKoboldSettingsConfigImpl = null;
 let getGenerateUrlImpl = null;
+let getNovelGenerationDataImpl = null;
+let getNovelSettingsConfigImpl = null;
+let getOpenAiMaxTokensImpl = null;
 let getAbortControllerImpl = null;
 let getAutoContinueConfigImpl = null;
 let getGeneratingApiConfigImpl = null;
 let getStoppingStringsImpl = null;
 let getTextareaTextImpl = null;
 let getTokenCountImpl = null;
+let getTextGenGenerationDataImpl = null;
 let getSelectedGroupImpl = null;
 let hideStopButtonImpl = null;
 let isStreamingEnabledImpl = null;
+let removeReasoningFromStringImpl = null;
 let sendGenerationRequestImpl = null;
+let sendOpenAIRequestImpl = null;
 let sendStreamingRequestImpl = null;
+let setOpenAiMaxTokensImpl = null;
 let setGenerationParamsFromPresetImpl = null;
 let setGenerationProgressImpl = null;
+let trimToEndSentenceImpl = null;
 let triggerContinueImpl = null;
 
 export let amount_gen = 0;
@@ -35,43 +50,63 @@ function throwUnbound(name) {
  * Binds legacy generation implementations to standalone wrappers.
  * @param {{
  *   Generate: (...args: any[]) => Promise<any>,
- *   generateRaw: (...args: any[]) => Promise<any>,
- *   generateQuietPrompt: (...args: any[]) => Promise<any>,
+ *   createRawPrompt: (...args: any[]) => string|object[],
+ *   generateHorde: (...args: any[]) => Promise<any>,
+ *   getKoboldGenerationData: (...args: any[]) => any,
+ *   getKoboldSettingsConfig: () => { kaiSettings?: any, kaiFlags?: any, koboldaiSettings?: any, koboldaiSettingNames?: any },
  *   getAbortController: () => AbortController|null|undefined,
  *   getAutoContinueConfig: () => { enabled?: boolean, target_length?: number, allow_chat_completions?: boolean },
  *   getGenerateUrl: (...args: any[]) => string,
+ *   getNovelGenerationData: (...args: any[]) => any,
+ *   getNovelSettingsConfig: () => { naiSettings?: any, novelaiSettings?: any, novelaiSettingNames?: any },
+ *   getOpenAiMaxTokens: () => number,
  *   getGeneratingApiConfig: () => { mainApi?: string, openAiSource?: string, textgenType?: string, textgenOobaType?: string },
  *   getStoppingStrings: (...args: any[]) => string[],
  *   getTextareaText: () => string,
  *   getTokenCount: (text: string) => number,
+ *   getTextGenGenerationData: (...args: any[]) => Promise<any>,
  *   getSelectedGroup: () => string|null|undefined,
  *   hideStopButton: () => any,
  *   isStreamingEnabled: (...args: any[]) => boolean,
+ *   removeReasoningFromString: (...args: any[]) => string,
  *   sendGenerationRequest: (...args: any[]) => Promise<any>,
+ *   sendOpenAIRequest: (...args: any[]) => Promise<any>,
  *   sendStreamingRequest: (...args: any[]) => Promise<any>,
+ *   setOpenAiMaxTokens: (value: number) => any,
  *   setGenerationParamsFromPreset: (...args: any[]) => void,
  *   setGenerationProgress: (...args: any[]) => void,
+ *   trimToEndSentence: (...args: any[]) => string,
  *   triggerContinue: () => any,
  * }} impl Implementations to bind
  */
 export function bindGenerationCore(impl) {
     generateImpl = impl?.Generate ?? null;
-    generateRawImpl = impl?.generateRaw ?? null;
-    generateQuietPromptImpl = impl?.generateQuietPrompt ?? null;
+    createRawPromptImpl = impl?.createRawPrompt ?? null;
+    generateHordeImpl = impl?.generateHorde ?? null;
+    getKoboldGenerationDataImpl = impl?.getKoboldGenerationData ?? null;
+    getKoboldSettingsConfigImpl = impl?.getKoboldSettingsConfig ?? null;
     getAbortControllerImpl = impl?.getAbortController ?? null;
     getAutoContinueConfigImpl = impl?.getAutoContinueConfig ?? null;
     getGenerateUrlImpl = impl?.getGenerateUrl ?? null;
+    getNovelGenerationDataImpl = impl?.getNovelGenerationData ?? null;
+    getNovelSettingsConfigImpl = impl?.getNovelSettingsConfig ?? null;
+    getOpenAiMaxTokensImpl = impl?.getOpenAiMaxTokens ?? null;
     getGeneratingApiConfigImpl = impl?.getGeneratingApiConfig ?? null;
     getStoppingStringsImpl = impl?.getStoppingStrings ?? null;
     getTextareaTextImpl = impl?.getTextareaText ?? null;
     getTokenCountImpl = impl?.getTokenCount ?? null;
+    getTextGenGenerationDataImpl = impl?.getTextGenGenerationData ?? null;
     getSelectedGroupImpl = impl?.getSelectedGroup ?? null;
     hideStopButtonImpl = impl?.hideStopButton ?? null;
     isStreamingEnabledImpl = impl?.isStreamingEnabled ?? null;
+    removeReasoningFromStringImpl = impl?.removeReasoningFromString ?? null;
     sendGenerationRequestImpl = impl?.sendGenerationRequest ?? null;
+    sendOpenAIRequestImpl = impl?.sendOpenAIRequest ?? null;
     sendStreamingRequestImpl = impl?.sendStreamingRequest ?? null;
+    setOpenAiMaxTokensImpl = impl?.setOpenAiMaxTokens ?? null;
     setGenerationParamsFromPresetImpl = impl?.setGenerationParamsFromPreset ?? null;
     setGenerationProgressImpl = impl?.setGenerationProgress ?? null;
+    trimToEndSentenceImpl = impl?.trimToEndSentence ?? null;
     triggerContinueImpl = impl?.triggerContinue ?? null;
 }
 
@@ -111,20 +146,132 @@ export function Generate(...args) {
     return generateImpl(...args);
 }
 
-export function generateRaw(...args) {
-    if (!generateRawImpl) {
-        throwUnbound('generateRaw');
+class TempResponseLength {
+    static #originalResponseLength = -1;
+    static #lastApi = null;
+
+    static isCustomized() {
+        return this.#originalResponseLength > -1;
     }
 
-    return generateRawImpl(...args);
+    static save(api, responseLength) {
+        if (!getOpenAiMaxTokensImpl) {
+            throwUnbound('getOpenAiMaxTokens');
+        }
+        if (!setOpenAiMaxTokensImpl) {
+            throwUnbound('setOpenAiMaxTokens');
+        }
+
+        if (api === 'openai') {
+            this.#originalResponseLength = getOpenAiMaxTokensImpl();
+            setOpenAiMaxTokensImpl(responseLength);
+        } else {
+            this.#originalResponseLength = amount_gen;
+            amount_gen = responseLength;
+            syncAmountGen(amount_gen);
+        }
+
+        this.#lastApi = api;
+        console.log('[TempResponseLength] Saved original response length:', TempResponseLength.#originalResponseLength);
+    }
+
+    static restore(api) {
+        if (!getOpenAiMaxTokensImpl) {
+            throwUnbound('getOpenAiMaxTokens');
+        }
+        if (!setOpenAiMaxTokensImpl) {
+            throwUnbound('setOpenAiMaxTokens');
+        }
+
+        if (this.#originalResponseLength === -1) {
+            return;
+        }
+        if (!api && this.#lastApi) {
+            api = this.#lastApi;
+        }
+        if (api === 'openai') {
+            setOpenAiMaxTokensImpl(this.#originalResponseLength);
+        } else {
+            amount_gen = this.#originalResponseLength;
+            syncAmountGen(amount_gen);
+        }
+
+        console.log('[TempResponseLength] Restored original response length:', this.#originalResponseLength);
+        this.#originalResponseLength = -1;
+        this.#lastApi = null;
+    }
+
+    static setupEventHook(api) {
+        const eventHook = () => {
+            if (this.isCustomized()) {
+                this.restore(api);
+            }
+        };
+
+        switch (api) {
+            case 'openai':
+                eventSource.once(event_types.CHAT_COMPLETION_SETTINGS_READY, eventHook);
+                break;
+            default:
+                eventSource.once(event_types.GENERATE_AFTER_DATA, eventHook);
+                break;
+        }
+
+        return eventHook;
+    }
+
+    static removeEventHook(api, eventHook) {
+        switch (api) {
+            case 'openai':
+                eventSource.removeListener(event_types.CHAT_COMPLETION_SETTINGS_READY, eventHook);
+                break;
+            default:
+                eventSource.removeListener(event_types.GENERATE_AFTER_DATA, eventHook);
+                break;
+        }
+    }
 }
 
-export function generateQuietPrompt(...args) {
-    if (!generateQuietPromptImpl) {
-        throwUnbound('generateQuietPrompt');
+export async function generateQuietPrompt({ quietPrompt = '', quietToLoud = false, skipWIAN = false, quietImage = null, quietName = null, responseLength = null, forceChId = null, jsonSchema = null, removeReasoning = true, trimToSentence = false } = {}) {
+    if (!trimToEndSentenceImpl) {
+        throwUnbound('trimToEndSentence');
+    }
+    if (!removeReasoningFromStringImpl) {
+        throwUnbound('removeReasoningFromString');
     }
 
-    return generateQuietPromptImpl(...args);
+    if (arguments.length > 0 && typeof arguments[0] !== 'object') {
+        console.trace('generateQuietPrompt called with positional arguments. Please use an object instead.');
+        [quietPrompt, quietToLoud, skipWIAN, quietImage, quietName, responseLength, forceChId, jsonSchema] = arguments;
+    }
+
+    const responseLengthCustomized = typeof responseLength === 'number' && responseLength > 0;
+    let eventHook = () => { };
+    try {
+        const generateOptions = {
+            quiet_prompt: quietPrompt ?? '',
+            quietToLoud: quietToLoud ?? false,
+            skipWIAN: skipWIAN ?? false,
+            force_name2: true,
+            quietImage: quietImage ?? null,
+            quietName: quietName ?? null,
+            force_chid: forceChId ?? null,
+            jsonSchema: jsonSchema ?? null,
+        };
+        if (responseLengthCustomized) {
+            TempResponseLength.save(main_api, responseLength);
+            eventHook = TempResponseLength.setupEventHook(main_api);
+        }
+        let result = await Generate('quiet', generateOptions);
+        result = trimToSentence ? trimToEndSentenceImpl(result) : result;
+        result = removeReasoning ? removeReasoningFromStringImpl(result) : result;
+        return result;
+    } finally {
+        if (responseLengthCustomized && TempResponseLength.isCustomized()) {
+            TempResponseLength.restore(main_api);
+            TempResponseLength.removeEventHook(main_api, eventHook);
+        }
+    }
 }
 
 export function getGenerateUrl(...args) {
@@ -165,6 +312,137 @@ export function isStreamingEnabled(...args) {
     }
 
     return isStreamingEnabledImpl(...args);
+}
+
+export async function generateRaw({ prompt = '', api = null, instructOverride = false, quietToLoud = false, systemPrompt = '', responseLength = null, trimNames = true, prefill = '', jsonSchema = null } = {}) {
+    if (!createRawPromptImpl) {
+        throwUnbound('createRawPrompt');
+    }
+    if (!getKoboldGenerationDataImpl) {
+        throwUnbound('getKoboldGenerationData');
+    }
+    if (!getKoboldSettingsConfigImpl) {
+        throwUnbound('getKoboldSettingsConfig');
+    }
+    if (!getNovelGenerationDataImpl) {
+        throwUnbound('getNovelGenerationData');
+    }
+    if (!getNovelSettingsConfigImpl) {
+        throwUnbound('getNovelSettingsConfig');
+    }
+    if (!getTextGenGenerationDataImpl) {
+        throwUnbound('getTextGenGenerationData');
+    }
+    if (!sendOpenAIRequestImpl) {
+        throwUnbound('sendOpenAIRequest');
+    }
+    if (!generateHordeImpl) {
+        throwUnbound('generateHorde');
+    }
+    if (arguments.length > 0 && typeof arguments[0] !== 'object') {
+        console.trace('generateRaw called with positional arguments. Please use an object instead.');
+        [prompt, api, instructOverride, quietToLoud, systemPrompt, responseLength, trimNames, prefill, jsonSchema] = arguments;
+    }
+
+    if (!api) {
+        api = main_api;
+    }
+
+    const abortController = new AbortController();
+    const responseLengthCustomized = typeof responseLength === 'number' && responseLength > 0;
+    let eventHook = () => { };
+
+    prompt = createRawPromptImpl(prompt, api, instructOverride, quietToLoud, systemPrompt, prefill);
+
+    try {
+        if (responseLengthCustomized) {
+            TempResponseLength.save(api, responseLength);
+        }
+        let generateData = {};
+
+        switch (api) {
+            case 'kobold':
+            case 'koboldhorde': {
+                const { kaiSettings, kaiFlags, koboldaiSettings, koboldaiSettingNames } = getKoboldSettingsConfigImpl() ?? {};
+                if (kaiSettings.preset_settings === 'gui') {
+                    generateData = { prompt: prompt, gui_settings: true, max_length: amount_gen, max_context_length: max_context, api_server: kaiSettings.api_server };
+                } else {
+                    const isHorde = api === 'koboldhorde';
+                    const koboldSettings = koboldaiSettings[koboldaiSettingNames[kaiSettings.preset_settings]];
+                    generateData = getKoboldGenerationDataImpl(prompt.toString(), koboldSettings, amount_gen, max_context, isHorde, 'quiet');
+                }
+                TempResponseLength.restore(api);
+                break;
+            }
+            case 'novel': {
+                const { naiSettings, novelaiSettings, novelaiSettingNames } = getNovelSettingsConfigImpl() ?? {};
+                const novelSettings = novelaiSettings[novelaiSettingNames[naiSettings.preset_settings_novel]];
+                generateData = getNovelGenerationDataImpl(prompt, novelSettings, amount_gen, false, false, null, 'quiet');
+                TempResponseLength.restore(api);
+                break;
+            }
+            case 'textgenerationwebui':
+                generateData = await getTextGenGenerationDataImpl(prompt, amount_gen, false, false, null, 'quiet');
+                TempResponseLength.restore(api);
+                break;
+            case 'openai':
+                generateData = prompt;
+                eventHook = TempResponseLength.setupEventHook(api);
+                break;
+        }
+
+        let data = {};
+
+        if (api === 'koboldhorde') {
+            data = await generateHordeImpl(prompt.toString(), generateData, abortController.signal, false);
+        } else if (api === 'openai') {
+            data = await sendOpenAIRequestImpl('quiet', generateData, abortController.signal, { jsonSchema });
+        } else {
+            const generateUrl = getGenerateUrl(api);
+            const response = await fetch(generateUrl, {
+                method: 'POST',
+                headers: getRequestHeaders(),
+                cache: 'no-cache',
+                body: JSON.stringify(generateData),
+                signal: abortController.signal,
+            });
+
+            if (!response.ok) {
+                throw await response.json();
+            }
+
+            data = await response.json();
+        }
+
+        if (data.error) {
+            throw new Error(data.response);
+        }
+
+        if (jsonSchema) {
+            return extractJsonFromData(data, { mainApi: api });
+        }
+
+        const message = cleanUpMessage({
+            getMessage: extractMessageFromData(data),
+            isImpersonate: false,
+            isContinue: false,
+            displayIncompleteSentences: true,
+            includeUserPromptBias: false,
+            trimNames: trimNames,
+            trimWrongNames: trimNames,
+        });
+
+        if (!message) {
+            throw new Error('No message generated');
+        }
+
+        return message;
+    } finally {
+        if (responseLengthCustomized && TempResponseLength.isCustomized()) {
+            TempResponseLength.restore(api);
+            TempResponseLength.removeEventHook(api, eventHook);
+        }
+    }
 }
 
 export function sendGenerationRequest(...args) {

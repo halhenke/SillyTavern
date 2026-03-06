@@ -263,7 +263,7 @@ import { bindCharacterCore, createOrEditCharacter as createOrEditCharacterCore, 
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
 import { addOneMessage as addOneMessageCore, bindChatOperationsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
-import { bindGenerationCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
+import { bindGenerationCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
 import { bindMessageCore, setEditedMessageId as setEditedMessageIdCore, updateMessageBlock as updateMessageBlockCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
@@ -513,27 +513,46 @@ bindSessionCore({
 });
 bindGenerationCore({
     Generate,
-    generateRaw,
-    generateQuietPrompt,
+    createRawPrompt,
+    generateHorde,
     getAbortController: () => abortController,
     getAutoContinueConfig: () => power_user.auto_continue,
     getGenerateUrl,
+    getKoboldGenerationData,
+    getKoboldSettingsConfig: () => ({
+        kaiSettings: kai_settings,
+        kaiFlags: kai_flags,
+        koboldaiSettings: koboldai_settings,
+        koboldaiSettingNames: koboldai_setting_names,
+    }),
     getGeneratingApiConfig: () => ({
         mainApi: main_api,
         openAiSource: oai_settings.chat_completion_source,
         textgenType: textgen_settings.type,
         textgenOobaType: textgen_types.OOBA,
     }),
+    getNovelGenerationData,
+    getNovelSettingsConfig: () => ({
+        naiSettings: nai_settings,
+        novelaiSettings: novelai_settings,
+        novelaiSettingNames: novelai_setting_names,
+    }),
+    getOpenAiMaxTokens: () => oai_settings.openai_max_tokens,
     getStoppingStrings,
     getTextareaText: () => String($('#send_textarea').val()),
     getTokenCount,
+    getTextGenGenerationData,
     getSelectedGroup: () => selected_group,
     hideStopButton,
     isStreamingEnabled,
+    removeReasoningFromString,
     sendGenerationRequest,
+    sendOpenAIRequest,
     sendStreamingRequest,
+    setOpenAiMaxTokens: (value) => oai_settings.openai_max_tokens = value,
     setGenerationParamsFromPreset,
     setGenerationProgress,
+    trimToEndSentence,
     triggerContinue: () => $('#option_continue').trigger('click'),
 });
 bindChatOperationsCore({
@@ -2111,39 +2130,7 @@ export function getStoppingStrings(isImpersonate, isContinue) {
  * @returns {Promise<string>} Generated text. If using structured output, will contain a serialized JSON object.
  */
 export async function generateQuietPrompt({ quietPrompt = '', quietToLoud = false, skipWIAN = false, quietImage = null, quietName = null, responseLength = null, forceChId = null, jsonSchema = null, removeReasoning = true, trimToSentence = false } = {}) {
-    if (arguments.length > 0 && typeof arguments[0] !== 'object') {
-        console.trace('generateQuietPrompt called with positional arguments. Please use an object instead.');
-        [quietPrompt, quietToLoud, skipWIAN, quietImage, quietName, responseLength, forceChId, jsonSchema] = arguments;
-    }
-
-    const responseLengthCustomized = typeof responseLength === 'number' && responseLength > 0;
-    let eventHook = () => { };
-    try {
-        /** @type {GenerateOptions} */
-        const generateOptions = {
-            quiet_prompt: quietPrompt ?? '',
-            quietToLoud: quietToLoud ?? false,
-            skipWIAN: skipWIAN ?? false,
-            force_name2: true,
-            quietImage: quietImage ?? null,
-            quietName: quietName ?? null,
-            force_chid: forceChId ?? null,
-            jsonSchema: jsonSchema ?? null,
-        };
-        if (responseLengthCustomized) {
-            TempResponseLength.save(main_api, responseLength);
-            eventHook = TempResponseLength.setupEventHook(main_api);
-        }
-        let result = await Generate('quiet', generateOptions);
-        result = trimToSentence ? trimToEndSentence(result) : result;
-        result = removeReasoning ? removeReasoningFromString(result) : result;
-        return result;
-    } finally {
-        if (responseLengthCustomized && TempResponseLength.isCustomized()) {
-            TempResponseLength.restore(main_api);
-            TempResponseLength.removeEventHook(main_api, eventHook);
-        }
-    }
+    return generateQuietPromptCore({ quietPrompt, quietToLoud, skipWIAN, quietImage, quietName, responseLength, forceChId, jsonSchema, removeReasoning, trimToSentence });
 }
 
 /**
@@ -2903,205 +2890,7 @@ export function createRawPrompt(prompt, api, instructOverride, quietToLoud, syst
  * @returns {Promise<string>} Generated message
  */
 export async function generateRaw({ prompt = '', api = null, instructOverride = false, quietToLoud = false, systemPrompt = '', responseLength = null, trimNames = true, prefill = '', jsonSchema = null } = {}) {
-    if (arguments.length > 0 && typeof arguments[0] !== 'object') {
-        console.trace('generateRaw called with positional arguments. Please use an object instead.');
-        [prompt, api, instructOverride, quietToLoud, systemPrompt, responseLength, trimNames, prefill, jsonSchema] = arguments;
-    }
-
-    if (!api) {
-        api = main_api;
-    }
-
-    const abortController = new AbortController();
-    const responseLengthCustomized = typeof responseLength === 'number' && responseLength > 0;
-    let eventHook = () => { };
-
-    // construct final prompt from the input. Can either be a string or an array of chat-style messages.
-    prompt = createRawPrompt(prompt, api, instructOverride, quietToLoud, systemPrompt, prefill);
-
-    try {
-        if (responseLengthCustomized) {
-            TempResponseLength.save(api, responseLength);
-        }
-        /** @type {object|any[]} */
-        let generateData = {};
-
-        switch (api) {
-            case 'kobold':
-            case 'koboldhorde':
-                if (kai_settings.preset_settings === 'gui') {
-                    generateData = { prompt: prompt, gui_settings: true, max_length: amount_gen, max_context_length: max_context, api_server: kai_settings.api_server };
-                } else {
-                    const isHorde = api === 'koboldhorde';
-                    const koboldSettings = koboldai_settings[koboldai_setting_names[kai_settings.preset_settings]];
-                    generateData = getKoboldGenerationData(prompt.toString(), koboldSettings, amount_gen, max_context, isHorde, 'quiet');
-                }
-                TempResponseLength.restore(api);
-                break;
-            case 'novel': {
-                const novelSettings = novelai_settings[novelai_setting_names[nai_settings.preset_settings_novel]];
-                generateData = getNovelGenerationData(prompt, novelSettings, amount_gen, false, false, null, 'quiet');
-                TempResponseLength.restore(api);
-                break;
-            }
-            case 'textgenerationwebui':
-                generateData = await getTextGenGenerationData(prompt, amount_gen, false, false, null, 'quiet');
-                TempResponseLength.restore(api);
-                break;
-            case 'openai': {
-                generateData = prompt;  // generateData is just the chat message object
-                eventHook = TempResponseLength.setupEventHook(api);
-            } break;
-        }
-
-        let data = {};
-
-        if (api === 'koboldhorde') {
-            data = await generateHorde(prompt.toString(), generateData, abortController.signal, false);
-        } else if (api === 'openai') {
-            data = await sendOpenAIRequest('quiet', generateData, abortController.signal, { jsonSchema });
-        } else {
-            const generateUrl = getGenerateUrl(api);
-            const response = await fetch(generateUrl, {
-                method: 'POST',
-                headers: getRequestHeaders(),
-                cache: 'no-cache',
-                body: JSON.stringify(generateData),
-                signal: abortController.signal,
-            });
-
-            if (!response.ok) {
-                throw await response.json();
-            }
-
-            data = await response.json();
-        }
-
-        // should only happen for text completions
-        // other frontend paths do not return data if calling the backend fails,
-        // they throw things instead
-        if (data.error) {
-            throw new Error(data.response);
-        }
-
-        if (jsonSchema) {
-            return extractJsonFromData(data, { mainApi: api });
-        }
-
-        // format result, exclude user prompt bias
-        const message = cleanUpMessage({
-            getMessage: extractMessageFromData(data),
-            isImpersonate: false,
-            isContinue: false,
-            displayIncompleteSentences: true,
-            includeUserPromptBias: false,
-            trimNames: trimNames,
-            trimWrongNames: trimNames,
-        });
-
-        if (!message) {
-            throw new Error('No message generated');
-        }
-
-        return message;
-    } finally {
-        if (responseLengthCustomized && TempResponseLength.isCustomized()) {
-            TempResponseLength.restore(api);
-            TempResponseLength.removeEventHook(api, eventHook);
-        }
-    }
-}
-
-class TempResponseLength {
-    static #originalResponseLength = -1;
-    static #lastApi = null;
-
-    static isCustomized() {
-        return this.#originalResponseLength > -1;
-    }
-
-    /**
-     * Save the current response length for the specified API.
-     * @param {string} api API identifier
-     * @param {number} responseLength New response length
-     */
-    static save(api, responseLength) {
-        if (api === 'openai') {
-            this.#originalResponseLength = oai_settings.openai_max_tokens;
-            oai_settings.openai_max_tokens = responseLength;
-        } else {
-            this.#originalResponseLength = amount_gen;
-            amount_gen = responseLength;
-            syncAmountGen(amount_gen);
-        }
-
-        this.#lastApi = api;
-        console.log('[TempResponseLength] Saved original response length:', TempResponseLength.#originalResponseLength);
-    }
-
-    /**
-     * Restore the original response length for the specified API.
-     * @param {string|null} api API identifier
-     * @returns {void}
-     */
-    static restore(api) {
-        if (this.#originalResponseLength === -1) {
-            return;
-        }
-        if (!api && this.#lastApi) {
-            api = this.#lastApi;
-        }
-        if (api === 'openai') {
-            oai_settings.openai_max_tokens = this.#originalResponseLength;
-        } else {
-            amount_gen = this.#originalResponseLength;
-            syncAmountGen(amount_gen);
-        }
-
-        console.log('[TempResponseLength] Restored original response length:', this.#originalResponseLength);
-        this.#originalResponseLength = -1;
-        this.#lastApi = null;
-    }
-
-    /**
-     * Sets up an event hook to restore the original response length when the event is emitted.
-     * @param {string} api API identifier
-     * @returns {function(): void} Event hook function
-     */
-    static setupEventHook(api) {
-        const eventHook = () => {
-            if (this.isCustomized()) {
-                this.restore(api);
-            }
-        };
-
-        switch (api) {
-            case 'openai':
-                eventSource.once(event_types.CHAT_COMPLETION_SETTINGS_READY, eventHook);
-                break;
-            default:
-                eventSource.once(event_types.GENERATE_AFTER_DATA, eventHook);
-                break;
-        }
-
-        return eventHook;
-    }
-
-    /**
-     * Removes the event hook for the specified API.
-     * @param {string} api API identifier
-     * @param {function(): void} eventHook Previously set up event hook
-     */
-    static removeEventHook(api, eventHook) {
-        switch (api) {
-            case 'openai':
-                eventSource.removeListener(event_types.CHAT_COMPLETION_SETTINGS_READY, eventHook);
-                break;
-            default:
-                eventSource.removeListener(event_types.GENERATE_AFTER_DATA, eventHook);
-                break;
-        }
-    }
+    return generateRawCore({ prompt, api, instructOverride, quietToLoud, systemPrompt, responseLength, trimNames, prefill, jsonSchema });
 }
 
 /**

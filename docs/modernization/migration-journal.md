@@ -1049,3 +1049,35 @@
 ### Next
 1. Reassess the next highest-yield slice between generation orchestration entrypoints and character create/edit flows.
 2. Keep favoring multi-function concern batches where private helper code can leave the monolith along with the public function.
+
+## 2026-03-07 - Monolith Reduction Wave 15 (Generation Control Batch)
+
+### Completed
+- Moved these generation control implementations out of `public/script.js` into `public/scripts/generation-core.js`:
+  - `stopGeneration()`
+  - `getGeneratingApi()`
+  - `getNextMessageId()`
+  - `shouldAutoContinue()`
+  - `triggerAutoContinue()`
+- Updated `public/script.js` to keep thin compatibility wrappers and preserve legacy event emission on `stopGeneration()`.
+- Replaced direct legacy dependencies with narrow bound callbacks for:
+  - abort controller access
+  - auto-continue settings
+  - generating API config
+  - textarea text access
+  - token counting
+  - selected group lookup
+  - stop-button hiding
+  - continue-button triggering
+
+### Measurable Impact
+- `public/script.js` no longer owns the main generation stop/continue control logic.
+- This reduces monolith ownership around generation behavior without yet taking on the full complexity of `Generate(...)`.
+
+### Insights
+- A dedicated “generation control” batch is a good intermediate step before touching the main generation pipeline, because it removes a coherent behavior surface while keeping the highest-risk orchestration body stable.
+- Callback-based API/config access is necessary here to avoid cycles with `openai.js` and `textgen-settings.js`.
+
+### Next
+1. Reassess whether the next generation move should be a focused helper/internal batch around `Generate(...)` or whether character create/edit is now the cleaner next target.
+2. Continue avoiding large cross-module import cycles by preferring config/state callbacks when moving generation logic.

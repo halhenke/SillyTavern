@@ -263,7 +263,7 @@ import { bindCharacterCore, syncCharacterGroupOverlay, syncCharacters, syncPrint
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
 import { addOneMessage as addOneMessageCore, bindChatOperationsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
-import { bindGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault } from './scripts/generation-core.js';
+import { bindGenerationCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
 import { bindMessageCore, setEditedMessageId as setEditedMessageIdCore, updateMessageBlock as updateMessageBlockCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
@@ -504,16 +504,26 @@ bindGenerationCore({
     Generate,
     generateRaw,
     generateQuietPrompt,
+    getAbortController: () => abortController,
+    getAutoContinueConfig: () => power_user.auto_continue,
     getGenerateUrl,
-    getGeneratingApi,
+    getGeneratingApiConfig: () => ({
+        mainApi: main_api,
+        openAiSource: oai_settings.chat_completion_source,
+        textgenType: textgen_settings.type,
+        textgenOobaType: textgen_types.OOBA,
+    }),
     getStoppingStrings,
+    getTextareaText: () => String($('#send_textarea').val()),
+    getTokenCount,
+    getSelectedGroup: () => selected_group,
+    hideStopButton,
     isStreamingEnabled,
     sendGenerationRequest,
     sendStreamingRequest,
     setGenerationParamsFromPreset,
     setGenerationProgress,
-    shouldAutoContinue,
-    stopGeneration,
+    triggerContinue: () => $('#option_continue').trigger('click'),
 });
 bindChatOperationsCore({
     activateSendButtons,
@@ -4440,16 +4450,7 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
  * Stops the generation and any streaming if it is currently running.
  */
 export function stopGeneration() {
-    let stopped = false;
-    if (streamingProcessor) {
-        streamingProcessor.onStopStreaming();
-        stopped = true;
-    }
-    if (abortController) {
-        abortController.abort('Clicked stop button');
-        hideStopButton();
-        stopped = true;
-    }
+    const stopped = stopGenerationCore();
     eventSource.emit(event_types.GENERATION_STOPPED);
     return stopped;
 }
@@ -4537,7 +4538,7 @@ function unblockGeneration(type) {
 }
 
 export function getNextMessageId(type) {
-    return type == 'swipe' ? chat.length - 1 : chat.length;
+    return getNextMessageIdCore(type);
 }
 
 /**
@@ -4547,65 +4548,12 @@ export function getNextMessageId(type) {
  * @returns {boolean} Whether the message should be auto-continued
  */
 export function shouldAutoContinue(messageChunk, isImpersonate) {
-    if (!power_user.auto_continue.enabled) {
-        console.debug('Auto-continue is disabled by user.');
-        return false;
-    }
-
-    if (typeof messageChunk !== 'string') {
-        console.debug('Not triggering auto-continue because message chunk is not a string');
-        return false;
-    }
-
-    if (isImpersonate) {
-        console.log('Continue for impersonation is not implemented yet');
-        return false;
-    }
-
     if (is_send_press) {
         console.debug('Auto-continue is disabled because a message is currently being sent.');
         return false;
     }
 
-    if (abortController && abortController.signal.aborted) {
-        console.debug('Auto-continue is not triggered because the generation was stopped.');
-        return false;
-    }
-
-    if (power_user.auto_continue.target_length <= 0) {
-        console.log('Auto-continue target length is 0, not triggering auto-continue');
-        return false;
-    }
-
-    if (main_api === 'openai' && !power_user.auto_continue.allow_chat_completions) {
-        console.log('Auto-continue for OpenAI is disabled by user.');
-        return false;
-    }
-
-    const textareaText = String($('#send_textarea').val());
-    const USABLE_LENGTH = 5;
-
-    if (textareaText.length > 0) {
-        console.log('Not triggering auto-continue because user input is not empty');
-        return false;
-    }
-
-    if (messageChunk.trim().length > USABLE_LENGTH && chat.length) {
-        const lastMessage = chat[chat.length - 1];
-        const messageLength = getTokenCount(lastMessage.mes);
-        const shouldAutoContinue = messageLength < power_user.auto_continue.target_length;
-
-        if (shouldAutoContinue) {
-            console.log(`Triggering auto-continue. Message tokens: ${messageLength}. Target tokens: ${power_user.auto_continue.target_length}. Message chunk: ${messageChunk}`);
-            return true;
-        } else {
-            console.log(`Not triggering auto-continue. Message tokens: ${messageLength}. Target tokens: ${power_user.auto_continue.target_length}`);
-            return false;
-        }
-    } else {
-        console.log('Last generated chunk was empty, not triggering auto-continue');
-        return false;
-    }
+    return shouldAutoContinueCore(messageChunk, isImpersonate);
 }
 
 /**
@@ -4614,14 +4562,7 @@ export function shouldAutoContinue(messageChunk, isImpersonate) {
  * @param {boolean} isImpersonate Is the user impersonation
  */
 export function triggerAutoContinue(messageChunk, isImpersonate) {
-    if (selected_group) {
-        console.debug('Auto-continue is disabled for group chat');
-        return;
-    }
-
-    if (shouldAutoContinue(messageChunk, isImpersonate)) {
-        $('#option_continue').trigger('click');
-    }
+    return triggerAutoContinueCore(messageChunk, isImpersonate);
 }
 
 export function getBiasStrings(textareaText, type) {
@@ -5698,14 +5639,7 @@ function saveImageToMessage(img, mes) {
 }
 
 export function getGeneratingApi() {
-    switch (main_api) {
-        case 'openai':
-            return oai_settings.chat_completion_source || 'openai';
-        case 'textgenerationwebui':
-            return textgen_settings.type === textgen_types.OOBA ? 'textgenerationwebui' : textgen_settings.type;
-        default:
-            return main_api;
-    }
+    return getGeneratingApiCore();
 }
 
 function getGeneratingModel(mes) {

@@ -1,16 +1,23 @@
+import { chat } from './chat-operations-core.js';
+
 let generateImpl = null;
 let generateRawImpl = null;
 let generateQuietPromptImpl = null;
 let getGenerateUrlImpl = null;
-let getGeneratingApiImpl = null;
+let getAbortControllerImpl = null;
+let getAutoContinueConfigImpl = null;
+let getGeneratingApiConfigImpl = null;
 let getStoppingStringsImpl = null;
+let getTextareaTextImpl = null;
+let getTokenCountImpl = null;
+let getSelectedGroupImpl = null;
+let hideStopButtonImpl = null;
 let isStreamingEnabledImpl = null;
 let sendGenerationRequestImpl = null;
 let sendStreamingRequestImpl = null;
 let setGenerationParamsFromPresetImpl = null;
 let setGenerationProgressImpl = null;
-let shouldAutoContinueImpl = null;
-let stopGenerationImpl = null;
+let triggerContinueImpl = null;
 
 export let amount_gen = 0;
 export let depth_prompt_depth_default = 0;
@@ -30,32 +37,42 @@ function throwUnbound(name) {
  *   Generate: (...args: any[]) => Promise<any>,
  *   generateRaw: (...args: any[]) => Promise<any>,
  *   generateQuietPrompt: (...args: any[]) => Promise<any>,
+ *   getAbortController: () => AbortController|null|undefined,
+ *   getAutoContinueConfig: () => { enabled?: boolean, target_length?: number, allow_chat_completions?: boolean },
  *   getGenerateUrl: (...args: any[]) => string,
- *   getGeneratingApi: (...args: any[]) => string,
+ *   getGeneratingApiConfig: () => { mainApi?: string, openAiSource?: string, textgenType?: string, textgenOobaType?: string },
  *   getStoppingStrings: (...args: any[]) => string[],
+ *   getTextareaText: () => string,
+ *   getTokenCount: (text: string) => number,
+ *   getSelectedGroup: () => string|null|undefined,
+ *   hideStopButton: () => any,
  *   isStreamingEnabled: (...args: any[]) => boolean,
  *   sendGenerationRequest: (...args: any[]) => Promise<any>,
  *   sendStreamingRequest: (...args: any[]) => Promise<any>,
  *   setGenerationParamsFromPreset: (...args: any[]) => void,
  *   setGenerationProgress: (...args: any[]) => void,
- *   shouldAutoContinue: (...args: any[]) => boolean,
- *   stopGeneration: (...args: any[]) => boolean,
+ *   triggerContinue: () => any,
  * }} impl Implementations to bind
  */
 export function bindGenerationCore(impl) {
     generateImpl = impl?.Generate ?? null;
     generateRawImpl = impl?.generateRaw ?? null;
     generateQuietPromptImpl = impl?.generateQuietPrompt ?? null;
+    getAbortControllerImpl = impl?.getAbortController ?? null;
+    getAutoContinueConfigImpl = impl?.getAutoContinueConfig ?? null;
     getGenerateUrlImpl = impl?.getGenerateUrl ?? null;
-    getGeneratingApiImpl = impl?.getGeneratingApi ?? null;
+    getGeneratingApiConfigImpl = impl?.getGeneratingApiConfig ?? null;
     getStoppingStringsImpl = impl?.getStoppingStrings ?? null;
+    getTextareaTextImpl = impl?.getTextareaText ?? null;
+    getTokenCountImpl = impl?.getTokenCount ?? null;
+    getSelectedGroupImpl = impl?.getSelectedGroup ?? null;
+    hideStopButtonImpl = impl?.hideStopButton ?? null;
     isStreamingEnabledImpl = impl?.isStreamingEnabled ?? null;
     sendGenerationRequestImpl = impl?.sendGenerationRequest ?? null;
     sendStreamingRequestImpl = impl?.sendStreamingRequest ?? null;
     setGenerationParamsFromPresetImpl = impl?.setGenerationParamsFromPreset ?? null;
     setGenerationProgressImpl = impl?.setGenerationProgress ?? null;
-    shouldAutoContinueImpl = impl?.shouldAutoContinue ?? null;
-    stopGenerationImpl = impl?.stopGeneration ?? null;
+    triggerContinueImpl = impl?.triggerContinue ?? null;
 }
 
 export function syncAmountGen(value) {
@@ -118,12 +135,20 @@ export function getGenerateUrl(...args) {
     return getGenerateUrlImpl(...args);
 }
 
-export function getGeneratingApi(...args) {
-    if (!getGeneratingApiImpl) {
-        throwUnbound('getGeneratingApi');
+export function getGeneratingApi() {
+    if (!getGeneratingApiConfigImpl) {
+        throwUnbound('getGeneratingApiConfig');
     }
 
-    return getGeneratingApiImpl(...args);
+    const { mainApi, openAiSource, textgenType, textgenOobaType } = getGeneratingApiConfigImpl() ?? {};
+    switch (mainApi) {
+        case 'openai':
+            return openAiSource || 'openai';
+        case 'textgenerationwebui':
+            return textgenType === textgenOobaType ? 'textgenerationwebui' : textgenType;
+        default:
+            return mainApi;
+    }
 }
 
 export function getStoppingStrings(...args) {
@@ -174,18 +199,121 @@ export function setGenerationProgress(...args) {
     return setGenerationProgressImpl(...args);
 }
 
-export function shouldAutoContinue(...args) {
-    if (!shouldAutoContinueImpl) {
-        throwUnbound('shouldAutoContinue');
-    }
-
-    return shouldAutoContinueImpl(...args);
+export function getNextMessageId(type) {
+    return type == 'swipe' ? chat.length - 1 : chat.length;
 }
 
-export function stopGeneration(...args) {
-    if (!stopGenerationImpl) {
-        throwUnbound('stopGeneration');
+export function shouldAutoContinue(messageChunk, isImpersonate) {
+    if (!getAutoContinueConfigImpl) {
+        throwUnbound('getAutoContinueConfig');
+    }
+    if (!getAbortControllerImpl) {
+        throwUnbound('getAbortController');
+    }
+    if (!getGeneratingApiConfigImpl) {
+        throwUnbound('getGeneratingApiConfig');
+    }
+    if (!getTextareaTextImpl) {
+        throwUnbound('getTextareaText');
+    }
+    if (!getTokenCountImpl) {
+        throwUnbound('getTokenCount');
     }
 
-    return stopGenerationImpl(...args);
+    const autoContinue = getAutoContinueConfigImpl() ?? {};
+    if (!autoContinue.enabled) {
+        console.debug('Auto-continue is disabled by user.');
+        return false;
+    }
+
+    if (typeof messageChunk !== 'string') {
+        console.debug('Not triggering auto-continue because message chunk is not a string');
+        return false;
+    }
+
+    if (isImpersonate) {
+        console.log('Continue for impersonation is not implemented yet');
+        return false;
+    }
+
+    const abortController = getAbortControllerImpl();
+    if (abortController && abortController.signal.aborted) {
+        console.debug('Auto-continue is not triggered because the generation was stopped.');
+        return false;
+    }
+
+    if (autoContinue.target_length <= 0) {
+        console.log('Auto-continue target length is 0, not triggering auto-continue');
+        return false;
+    }
+
+    const { mainApi } = getGeneratingApiConfigImpl() ?? {};
+    if (mainApi === 'openai' && !autoContinue.allow_chat_completions) {
+        console.log('Auto-continue for OpenAI is disabled by user.');
+        return false;
+    }
+
+    const textareaText = String(getTextareaTextImpl());
+    const USABLE_LENGTH = 5;
+    if (textareaText.length > 0) {
+        console.log('Not triggering auto-continue because user input is not empty');
+        return false;
+    }
+
+    if (messageChunk.trim().length > USABLE_LENGTH && chat.length) {
+        const lastMessage = chat[chat.length - 1];
+        const messageLength = getTokenCountImpl(lastMessage.mes);
+        const shouldContinue = messageLength < autoContinue.target_length;
+        if (shouldContinue) {
+            console.log(`Triggering auto-continue. Message tokens: ${messageLength}. Target tokens: ${autoContinue.target_length}. Message chunk: ${messageChunk}`);
+            return true;
+        }
+        console.log(`Not triggering auto-continue. Message tokens: ${messageLength}. Target tokens: ${autoContinue.target_length}`);
+        return false;
+    }
+
+    console.log('Last generated chunk was empty, not triggering auto-continue');
+    return false;
+}
+
+export function triggerAutoContinue(messageChunk, isImpersonate) {
+    if (!getSelectedGroupImpl) {
+        throwUnbound('getSelectedGroup');
+    }
+    if (!triggerContinueImpl) {
+        throwUnbound('triggerContinue');
+    }
+
+    if (getSelectedGroupImpl()) {
+        console.debug('Auto-continue is disabled for group chat');
+        return;
+    }
+
+    if (shouldAutoContinue(messageChunk, isImpersonate)) {
+        triggerContinueImpl();
+    }
+}
+
+export function stopGeneration() {
+    if (!getAbortControllerImpl) {
+        throwUnbound('getAbortController');
+    }
+    if (!hideStopButtonImpl) {
+        throwUnbound('hideStopButton');
+    }
+
+    let stopped = false;
+    if (streamingProcessor) {
+        streamingProcessor.onStopStreaming();
+        stopped = true;
+    }
+
+    const abortController = getAbortControllerImpl();
+    if (abortController) {
+        abortController.abort('Clicked stop button');
+        hideStopButtonImpl();
+        stopped = true;
+    }
+
+    return stopped;
 }

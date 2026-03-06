@@ -4,7 +4,7 @@ import { name1, name2 } from './chat-core.js';
 import { event_types, eventSource } from './events.js';
 import { cleanUpMessage } from './message-core.js';
 import { getRequestHeaders } from './network-core.js';
-import { extractJsonFromData, extractMessageFromData } from './parser-core.js';
+import { extractJsonFromData, extractMessageFromData, getBiasStrings, removeMacros } from './parser-core.js';
 import { chat } from './chat-operations-core.js';
 
 let generateImpl = null;
@@ -22,22 +22,29 @@ let getAbortControllerImpl = null;
 let getAutoContinueConfigImpl = null;
 let getCustomStoppingStringsImpl = null;
 let getGeneratingApiConfigImpl = null;
+let getGenericSystemMessageTypeImpl = null;
 let getInstructStoppingSequencesImpl = null;
 let getNamesAsStopStringsImpl = null;
+let getOaiSendIfEmptyImpl = null;
 let getTextareaTextImpl = null;
 let getTokenCountImpl = null;
 let getTextGenGenerationDataImpl = null;
 let executeSlashCommandsOnChatInputImpl = null;
 let getSelectedGroupImpl = null;
+let hasPendingFileAttachmentImpl = null;
 let hideStopButtonImpl = null;
 let isStreamingEnabledImpl = null;
 let removeReasoningFromStringImpl = null;
+let deactivateSendButtonsImpl = null;
+let sendMessageAsUserImpl = null;
 let sendGenerationRequestImpl = null;
 let sendOpenAIRequestImpl = null;
+let sendSystemMessageImpl = null;
 let sendStreamingRequestImpl = null;
 let setOpenAiMaxTokensImpl = null;
 let setGenerationParamsFromPresetImpl = null;
 let setGenerationProgressImpl = null;
+let setSendButtonStateImpl = null;
 let trimToEndSentenceImpl = null;
 let triggerContinueImpl = null;
 
@@ -62,6 +69,7 @@ function throwUnbound(name) {
  *   executeSlashCommandsOnChatInput: (...args: any[]) => Promise<any>,
  *   getAnimationDuration: () => number,
  *   getCustomStoppingStrings: () => string[],
+ *   getGenericSystemMessageType: () => any,
  *   getKoboldGenerationData: (...args: any[]) => any,
  *   getKoboldSettingsConfig: () => { kaiSettings?: any, kaiFlags?: any, koboldaiSettings?: any, koboldaiSettingNames?: any },
  *   getAbortController: () => AbortController|null|undefined,
@@ -70,6 +78,7 @@ function throwUnbound(name) {
  *   getGroups: () => any[],
  *   getInstructStoppingSequences: () => string[],
  *   getNamesAsStopStrings: () => boolean,
+ *   getOaiSendIfEmpty: () => string,
  *   getNovelGenerationData: (...args: any[]) => any,
  *   getNovelSettingsConfig: () => { naiSettings?: any, novelaiSettings?: any, novelaiSettingNames?: any },
  *   getOpenAiMaxTokens: () => number,
@@ -78,15 +87,20 @@ function throwUnbound(name) {
  *   getTokenCount: (text: string) => number,
  *   getTextGenGenerationData: (...args: any[]) => Promise<any>,
  *   getSelectedGroup: () => string|null|undefined,
+ *   hasPendingFileAttachment: () => boolean,
  *   hideStopButton: () => any,
  *   isStreamingEnabled: (...args: any[]) => boolean,
  *   removeReasoningFromString: (...args: any[]) => string,
+ *   deactivateSendButtons: () => any,
+ *   sendMessageAsUser: (...args: any[]) => Promise<any>,
  *   sendGenerationRequest: (...args: any[]) => Promise<any>,
  *   sendOpenAIRequest: (...args: any[]) => Promise<any>,
+ *   sendSystemMessage: (...args: any[]) => any,
  *   sendStreamingRequest: (...args: any[]) => Promise<any>,
  *   setOpenAiMaxTokens: (value: number) => any,
  *   setGenerationParamsFromPreset: (...args: any[]) => void,
  *   setGenerationProgress: (...args: any[]) => void,
+ *   setSendButtonState: (...args: any[]) => any,
  *   trimToEndSentence: (...args: any[]) => string,
  *   triggerContinue: () => any,
  * }} impl Implementations to bind
@@ -96,8 +110,10 @@ export function bindGenerationCore(impl) {
     createRawPromptImpl = impl?.createRawPrompt ?? null;
     generateHordeImpl = impl?.generateHorde ?? null;
     executeSlashCommandsOnChatInputImpl = impl?.executeSlashCommandsOnChatInput ?? null;
+    deactivateSendButtonsImpl = impl?.deactivateSendButtons ?? null;
     getAnimationDurationImpl = impl?.getAnimationDuration ?? null;
     getCustomStoppingStringsImpl = impl?.getCustomStoppingStrings ?? null;
+    getGenericSystemMessageTypeImpl = impl?.getGenericSystemMessageType ?? null;
     getKoboldGenerationDataImpl = impl?.getKoboldGenerationData ?? null;
     getKoboldSettingsConfigImpl = impl?.getKoboldSettingsConfig ?? null;
     getAbortControllerImpl = impl?.getAbortController ?? null;
@@ -106,6 +122,7 @@ export function bindGenerationCore(impl) {
     getGroupsImpl = impl?.getGroups ?? null;
     getInstructStoppingSequencesImpl = impl?.getInstructStoppingSequences ?? null;
     getNamesAsStopStringsImpl = impl?.getNamesAsStopStrings ?? null;
+    getOaiSendIfEmptyImpl = impl?.getOaiSendIfEmpty ?? null;
     getNovelGenerationDataImpl = impl?.getNovelGenerationData ?? null;
     getNovelSettingsConfigImpl = impl?.getNovelSettingsConfig ?? null;
     getOpenAiMaxTokensImpl = impl?.getOpenAiMaxTokens ?? null;
@@ -114,15 +131,19 @@ export function bindGenerationCore(impl) {
     getTokenCountImpl = impl?.getTokenCount ?? null;
     getTextGenGenerationDataImpl = impl?.getTextGenGenerationData ?? null;
     getSelectedGroupImpl = impl?.getSelectedGroup ?? null;
+    hasPendingFileAttachmentImpl = impl?.hasPendingFileAttachment ?? null;
     hideStopButtonImpl = impl?.hideStopButton ?? null;
     isStreamingEnabledImpl = impl?.isStreamingEnabled ?? null;
     removeReasoningFromStringImpl = impl?.removeReasoningFromString ?? null;
+    sendMessageAsUserImpl = impl?.sendMessageAsUser ?? null;
     sendGenerationRequestImpl = impl?.sendGenerationRequest ?? null;
     sendOpenAIRequestImpl = impl?.sendOpenAIRequest ?? null;
+    sendSystemMessageImpl = impl?.sendSystemMessage ?? null;
     sendStreamingRequestImpl = impl?.sendStreamingRequest ?? null;
     setOpenAiMaxTokensImpl = impl?.setOpenAiMaxTokens ?? null;
     setGenerationParamsFromPresetImpl = impl?.setGenerationParamsFromPreset ?? null;
     setGenerationProgressImpl = impl?.setGenerationProgress ?? null;
+    setSendButtonStateImpl = impl?.setSendButtonState ?? null;
     trimToEndSentenceImpl = impl?.trimToEndSentence ?? null;
     triggerContinueImpl = impl?.triggerContinue ?? null;
 }
@@ -394,6 +415,82 @@ export function removeLastMessage() {
             resolve();
         });
     });
+}
+
+export async function prepareGenerationMessages({ type, dryRun, isImpersonate, automaticTrigger, generationStarted }) {
+    if (!setSendButtonStateImpl) {
+        throwUnbound('setSendButtonState');
+    }
+    if (!deactivateSendButtonsImpl) {
+        throwUnbound('deactivateSendButtons');
+    }
+    if (!hasPendingFileAttachmentImpl) {
+        throwUnbound('hasPendingFileAttachment');
+    }
+    if (!sendSystemMessageImpl) {
+        throwUnbound('sendSystemMessage');
+    }
+    if (!sendMessageAsUserImpl) {
+        throwUnbound('sendMessageAsUser');
+    }
+    if (!getOaiSendIfEmptyImpl) {
+        throwUnbound('getOaiSendIfEmpty');
+    }
+    if (!getGenericSystemMessageTypeImpl) {
+        throwUnbound('getGenericSystemMessageType');
+    }
+
+    let textareaText;
+    if (type !== 'regenerate' && type !== 'swipe' && type !== 'quiet' && !isImpersonate && !dryRun) {
+        setSendButtonStateImpl(true);
+        textareaText = String($('#send_textarea').val());
+        $('#send_textarea').val('')[0].dispatchEvent(new Event('input', { bubbles: true }));
+    } else {
+        textareaText = '';
+        if (!(chat.length && chat[chat.length - 1].is_user) && type !== 'quiet' && type !== 'swipe' && !isImpersonate && !dryRun && chat.length) {
+            chat.length = chat.length - 1;
+            await removeLastMessage();
+            await eventSource.emit(event_types.MESSAGE_DELETED, chat.length);
+        }
+    }
+
+    const isContinue = type == 'continue';
+    if (isContinue && chat.length) {
+        const prevFinished = chat[chat.length - 1].gen_finished;
+        const prevStarted = chat[chat.length - 1].gen_started;
+
+        if (prevFinished && prevStarted) {
+            const timePassed = prevFinished - prevStarted;
+            generationStarted = new Date(Date.now() - timePassed);
+            chat[chat.length - 1].gen_started = generationStarted;
+        }
+    }
+
+    if (!dryRun) {
+        deactivateSendButtonsImpl();
+    }
+
+    const { messageBias, promptBias, isUserPromptBias } = getBiasStrings(textareaText, type);
+    const noAttachTypes = ['regenerate', 'swipe', 'impersonate', 'quiet', 'continue'];
+
+    if ((textareaText !== '' || (hasPendingFileAttachmentImpl() && !noAttachTypes.includes(type))) && !automaticTrigger && type !== 'quiet' && !dryRun) {
+        if (messageBias && !removeMacros(textareaText)) {
+            sendSystemMessageImpl(getGenericSystemMessageTypeImpl(), ' ', { bias: messageBias });
+        } else {
+            await sendMessageAsUserImpl(textareaText, messageBias);
+        }
+    } else if (textareaText === '' && !automaticTrigger && !dryRun && type === undefined && main_api == 'openai' && getOaiSendIfEmptyImpl().trim().length > 0) {
+        await sendMessageAsUserImpl(getOaiSendIfEmptyImpl().trim(), messageBias);
+    }
+
+    return {
+        generationStarted,
+        isContinue,
+        isUserPromptBias,
+        messageBias,
+        promptBias,
+        textareaText,
+    };
 }
 
 export function isStreamingEnabled(...args) {

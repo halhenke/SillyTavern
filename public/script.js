@@ -263,7 +263,7 @@ import { bindCharacterCore, createOrEditCharacter as createOrEditCharacterCore, 
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
 import { addOneMessage as addOneMessageCore, bindChatOperationsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
-import { bindGenerationCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
+import { bindGenerationCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, prepareGenerationMessages as prepareGenerationMessagesCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
 import { bindMessageCore, setEditedMessageId as setEditedMessageIdCore, updateMessageBlock as updateMessageBlockCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
@@ -514,12 +514,14 @@ bindSessionCore({
 bindGenerationCore({
     Generate,
     createRawPrompt,
+    deactivateSendButtons,
     executeSlashCommandsOnChatInput,
     generateHorde,
     getAnimationDuration: () => animation_duration,
     getAbortController: () => abortController,
     getAutoContinueConfig: () => power_user.auto_continue,
     getCustomStoppingStrings,
+    getGenericSystemMessageType: () => system_message_types.GENERIC,
     getGenerateUrl,
     getGroups: () => groups,
     getInstructStoppingSequences,
@@ -545,19 +547,24 @@ bindGenerationCore({
     }),
     getOpenAiMaxTokens: () => oai_settings.openai_max_tokens,
     getStoppingStrings,
+    getOaiSendIfEmpty: () => oai_settings.send_if_empty,
     getTextareaText: () => String($('#send_textarea').val()),
     getTokenCount,
     getTextGenGenerationData,
     getSelectedGroup: () => selected_group,
+    hasPendingFileAttachment,
     hideStopButton,
     isStreamingEnabled,
     removeReasoningFromString,
+    sendMessageAsUser,
     sendGenerationRequest,
     sendOpenAIRequest,
+    sendSystemMessage,
     sendStreamingRequest,
     setOpenAiMaxTokens: (value) => oai_settings.openai_max_tokens = value,
     setGenerationParamsFromPreset,
     setGenerationProgress,
+    setSendButtonState,
     trimToEndSentence,
     triggerContinue: () => $('#option_continue').trigger('click'),
 });
@@ -3008,69 +3015,21 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
         return Promise.resolve();
     }
 
-    let textareaText;
-    if (type !== 'regenerate' && type !== 'swipe' && type !== 'quiet' && !isImpersonate && !dryRun) {
-        setSendButtonState(true);
-        textareaText = String($('#send_textarea').val());
-        $('#send_textarea').val('')[0].dispatchEvent(new Event('input', { bubbles: true }));
-    } else {
-        textareaText = '';
-        if (chat.length && chat[chat.length - 1]['is_user']) {
-            //do nothing? why does this check exist?
-        }
-        else if (type !== 'quiet' && type !== 'swipe' && !isImpersonate && !dryRun && chat.length) {
-            chat.length = chat.length - 1;
-            await removeLastMessage();
-            await eventSource.emit(event_types.MESSAGE_DELETED, chat.length);
-        }
-    }
-
-    const isContinue = type == 'continue';
-
-    // Rewrite the generation timer to account for the time passed for all the continuations.
-    if (isContinue && chat.length) {
-        const prevFinished = chat[chat.length - 1]['gen_finished'];
-        const prevStarted = chat[chat.length - 1]['gen_started'];
-
-        if (prevFinished && prevStarted) {
-            const timePassed = prevFinished - prevStarted;
-            generation_started = new Date(Date.now() - timePassed);
-            chat[chat.length - 1]['gen_started'] = generation_started;
-        }
-    }
-
-    if (!dryRun) {
-        deactivateSendButtons();
-    }
-
-    let { messageBias, promptBias, isUserPromptBias } = getBiasStrings(textareaText, type);
-
-    //*********************************
-    //PRE FORMATING STRING
-    //*********************************
-
-    // These generation types should not attach pending files to the chat
-    const noAttachTypes = [
-        'regenerate',
-        'swipe',
-        'impersonate',
-        'quiet',
-        'continue',
-    ];
-    //for normal messages sent from user..
-    if ((textareaText != '' || (hasPendingFileAttachment() && !noAttachTypes.includes(type))) && !automatic_trigger && type !== 'quiet' && !dryRun) {
-        // If user message contains no text other than bias - send as a system message
-        if (messageBias && !removeMacros(textareaText)) {
-            sendSystemMessage(system_message_types.GENERIC, ' ', { bias: messageBias });
-        }
-        else {
-            await sendMessageAsUser(textareaText, messageBias);
-        }
-    }
-    else if (textareaText == '' && !automatic_trigger && !dryRun && type === undefined && main_api == 'openai' && oai_settings.send_if_empty.trim().length > 0) {
-        // Use send_if_empty if set and the user message is empty. Only when sending messages normally
-        await sendMessageAsUser(oai_settings.send_if_empty.trim(), messageBias);
-    }
+    let {
+        generationStarted,
+        isContinue,
+        messageBias,
+        promptBias,
+        isUserPromptBias,
+        textareaText,
+    } = await prepareGenerationMessagesCore({
+        type,
+        dryRun,
+        isImpersonate,
+        automaticTrigger: automatic_trigger,
+        generationStarted: generation_started,
+    });
+    generation_started = generationStarted;
 
     let {
         description,

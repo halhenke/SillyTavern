@@ -1190,3 +1190,33 @@
 ### Next
 1. Reassess whether the next `Generate(...)` reduction should target one more helper cluster or the first larger orchestration segment.
 2. Keep the remaining `Generate(...)` work focused on coherent preflight or post-response segments rather than arbitrary line-count reduction.
+
+## 2026-03-07 - Monolith Reduction Wave 20 (Generate Message-Input Preflight)
+
+### Completed
+- Moved the message-input preflight segment out of `public/script.js` into `public/scripts/generation-core.js` as `prepareGenerationMessages(...)`.
+- That extracted block now owns:
+  - textarea capture/reset for generation
+  - continue-timer carry-forward handling
+  - send-button/deactivation handling for this preflight stage
+  - prompt-bias extraction
+  - user/system message dispatch before prompt assembly
+- Updated `Generate(...)` in `public/script.js` to consume the returned preflight state instead of owning that block inline.
+- Extended `bindGenerationCore(...)` with narrow callbacks for:
+  - send button state changes
+  - send-message/system-message dispatch
+  - pending attachment lookup
+  - OpenAI `send_if_empty` access
+  - generic system-message type access
+
+### Measurable Impact
+- A meaningful preflight segment of `Generate(...)` is now core-owned instead of monolith-owned.
+- The remaining `Generate(...)` body is more concentrated around prompt assembly, provider payload construction, and response handling.
+
+### Insights
+- The large `Generate(...)` move becomes tractable once preflight state mutation is peeled off into return-value helpers rather than trying to migrate the entire control flow in one pass.
+- Returning a compact state bundle from `generation-core` is a safer pattern here than spreading more mutable globals across the script/core boundary.
+
+### Next
+1. Reassess whether the next `Generate(...)` move should target prompt-assembly setup or provider-response handling.
+2. Keep the next wave centered on one coherent orchestration segment rather than another set of tiny helpers.

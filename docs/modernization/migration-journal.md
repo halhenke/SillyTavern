@@ -740,3 +740,25 @@
 ### Next
 1. Start replacing bind/sync adapter-core internals with true standalone domain services (chat lifecycle first).
 2. Advance React surface migration against adapter cores with parity checks.
+
+## 2026-03-07 - Monolith Reduction Wave 1 (UI Implementation Move)
+
+### Completed
+- Moved the `setAnimationDuration(...)` implementation out of `public/script.js` into `public/scripts/ui-core.js`.
+- Updated `public/script.js` to keep a thin export wrapper that delegates to `ui-core` while preserving local exported state parity.
+- Simplified `bindUiCore(...)` by removing `setAnimationDuration` from its bound implementation surface because the function now lives in `ui-core` directly.
+
+### Measurable Impact
+- `public/script.js` no longer owns the primary implementation of `setAnimationDuration(...)`; it now proxies to `ui-core`.
+- This is the first post-adapter step that reduces monolith implementation ownership rather than only redirecting imports.
+
+### Insights
+- The right sequencing is:
+  1. detach runtime adapters from `script.js`,
+  2. move low-risk implementations into cores,
+  3. then delete redundant monolith bodies once enough call sites are migrated.
+- Low-coupling UI helpers are the safest first candidates because they have minimal extension/API surface risk.
+
+### Next
+1. Continue moving low-risk concrete implementations out of `public/script.js` into core modules.
+2. Target small chat/session helpers next, then larger chat lifecycle logic once state ownership is clearer.

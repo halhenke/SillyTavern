@@ -273,7 +273,7 @@ import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumb
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
 import { bindSessionCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes } from './scripts/session-core.js';
 import { bindSettingsCore } from './scripts/settings-core.js';
-import { bindUiCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
+import { bindUiCore, setAnimationDuration as setAnimationDurationCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
 import { accountStorage } from './scripts/util/AccountStorage.js';
 import { initWelcomeScreen, openPermanentAssistantChat, openPermanentAssistantCard, getPermanentAssistantAvatar } from './scripts/welcome-screen.js';
 import { initDataMaid } from './scripts/data-maid.js';
@@ -566,7 +566,6 @@ bindUiCore({
     callPopup,
     reloadMarkdownProcessor,
     scrollChatToBottom,
-    setAnimationDuration,
 });
 export let charDragDropHandler = null;
 
@@ -920,10 +919,9 @@ export function displayOnlineStatus() {
  * @param {number} ms Duration in milliseconds. Resets to default if null.
  */
 export function setAnimationDuration(ms = null) {
-    animation_duration = ms ?? ANIMATION_DURATION_DEFAULT;
+    animation_duration = setAnimationDurationCore(ms);
     syncAnimationDuration(animation_duration);
-    // Set CSS variable to document
-    document.documentElement.style.setProperty('--animation-duration', `${animation_duration}ms`);
+    return animation_duration;
 }
 
 /**

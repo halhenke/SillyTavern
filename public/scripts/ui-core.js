@@ -2,7 +2,6 @@ let addCopyToCodeBlocksImpl = null;
 let callPopupImpl = null;
 let reloadMarkdownProcessorImpl = null;
 let scrollChatToBottomImpl = null;
-let setAnimationDurationImpl = null;
 
 export let ANIMATION_DURATION_DEFAULT = 0;
 export let animation_duration = 0;
@@ -21,7 +20,6 @@ function throwUnbound(name) {
  *   callPopup: (...args: any[]) => any,
  *   reloadMarkdownProcessor: (...args: any[]) => any,
  *   scrollChatToBottom: (...args: any[]) => any,
- *   setAnimationDuration: (...args: any[]) => any,
  * }} impl Implementations to bind
  */
 export function bindUiCore(impl) {
@@ -29,7 +27,6 @@ export function bindUiCore(impl) {
     callPopupImpl = impl?.callPopup ?? null;
     reloadMarkdownProcessorImpl = impl?.reloadMarkdownProcessor ?? null;
     scrollChatToBottomImpl = impl?.scrollChatToBottom ?? null;
-    setAnimationDurationImpl = impl?.setAnimationDuration ?? null;
 }
 
 export function syncAnimationDurationDefault(value) {
@@ -84,10 +81,8 @@ export function scrollChatToBottom(...args) {
     return scrollChatToBottomImpl(...args);
 }
 
-export function setAnimationDuration(...args) {
-    if (!setAnimationDurationImpl) {
-        throwUnbound('setAnimationDuration');
-    }
-
-    return setAnimationDurationImpl(...args);
+export function setAnimationDuration(ms = null) {
+    animation_duration = ms ?? ANIMATION_DURATION_DEFAULT;
+    document.documentElement.style.setProperty('--animation-duration', `${animation_duration}ms`);
+    return animation_duration;
 }

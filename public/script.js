@@ -267,7 +267,7 @@ import { bindGenerationCore, getGeneratingApi as getGeneratingApiCore, getNextMe
 import { bindMessageCore, setEditedMessageId as setEditedMessageIdCore, updateMessageBlock as updateMessageBlockCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
-import { bindSessionCore, resetChatState as resetChatStateCore, sendTextareaMessage as sendTextareaMessageCore, setExternalAbortController as setExternalAbortControllerCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes } from './scripts/session-core.js';
+import { bindSessionCore, doNewChat as doNewChatCore, newAssistantChat as newAssistantChatCore, renameGroupOrCharacterChat as renameGroupOrCharacterChatCore, resetChatState as resetChatStateCore, sendTextareaMessage as sendTextareaMessageCore, setExternalAbortController as setExternalAbortControllerCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes, updateRemoteChatName as updateRemoteChatNameCore } from './scripts/session-core.js';
 import { bindSettingsCore } from './scripts/settings-core.js';
 import { activateSendButtons as activateSendButtonsCore, bindUiCore, deactivateSendButtons as deactivateSendButtonsCore, getSlideToggleOptions as getSlideToggleOptionsCore, hideStopButton as hideStopButtonCore, reloadMarkdownProcessor as reloadMarkdownProcessorCore, setAnimationDuration as setAnimationDurationCore, setSendButtonState as setSendButtonStateCore, showStopButton as showStopButtonCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
 import { accountStorage } from './scripts/util/AccountStorage.js';
@@ -476,17 +476,20 @@ bindChatCore({
 });
 bindSessionCore({
     cancelTtsPlay,
+    createNewGroupChat,
+    createOrEditCharacter,
     deleteCharacterChatByName,
+    deleteGroupChat,
+    delChat,
     doNavbarIconClick,
-    doNewChat,
     getContinueOnSend: () => power_user.continue_on_send,
     getEntitiesList,
     getSelectedGroup: () => selected_group,
     getSystemMessageByType,
     hasPendingFileAttachment,
     isExecutingCommandsFromChatInput: () => isExecutingCommandsFromChatInput,
-    newAssistantChat,
-    renameGroupOrCharacterChat,
+    openPermanentAssistantChat,
+    renameGroupChat,
     selectCharacterById,
     selectRightMenuWithAnimation,
     select_rm_info,
@@ -498,7 +501,6 @@ bindSessionCore({
     setCharacterName,
     setScenarioOverride,
     unshallowCharacter,
-    updateRemoteChatName,
 });
 bindGenerationCore({
     Generate,
@@ -8556,38 +8558,8 @@ async function importFromURL(items, files) {
 }
 
 export async function doNewChat({ deleteCurrentChat = false } = {}) {
-    //Make a new chat for selected character
-    if ((!selected_group && this_chid == undefined) || menu_type == 'create') {
-        return;
-    }
-
-    //Fix it; New chat doesn't create while open create character menu
-    await waitUntilCondition(() => !isChatSaving, debounce_timeout.extended, 10);
-    await clearChat();
-    chat.length = 0;
-
     chat_file_for_del = getCurrentChatDetails()?.sessionName;
-
-    // Make it easier to find in backups
-    if (deleteCurrentChat) {
-        await saveChatConditional();
-    }
-
-    if (selected_group) {
-        await createNewGroupChat(selected_group);
-        if (deleteCurrentChat) await deleteGroupChat(selected_group, chat_file_for_del);
-    }
-    else {
-        //RossAscends: added character name to new chat filenames and replaced Date.now() with humanizedDateTime;
-        chat_metadata = {};
-        syncChatMetadata(chat_metadata);
-        characters[this_chid].chat = `${name2} - ${humanizedDateTime()}`;
-        $('#selected_chat_pole').val(characters[this_chid].chat);
-        await getChat();
-        await createOrEditCharacter(new CustomEvent('newChat'));
-        if (deleteCurrentChat) await delChat(chat_file_for_del + '.jsonl');
-    }
-
+    return doNewChatCore({ deleteCurrentChat });
 }
 
 /**
@@ -8600,65 +8572,7 @@ export async function doNewChat({ deleteCurrentChat = false } = {}) {
  * @param {boolean} [param.loader=true] Whether to show loader during the operation
  */
 export async function renameGroupOrCharacterChat({ characterId, groupId, oldFileName, newFileName, loader }) {
-    const currentChatId = getCurrentChatId();
-    const body = {
-        is_group: !!groupId,
-        avatar_url: characters[characterId]?.avatar,
-        original_file: `${oldFileName}.jsonl`,
-        renamed_file: `${newFileName.trim()}.jsonl`,
-    };
-
-    if (body.original_file === body.renamed_file) {
-        console.debug('Chat rename cancelled, old and new names are the same');
-        return;
-    }
-    if (equalsIgnoreCaseAndAccents(body.original_file, body.renamed_file)) {
-        toastr.warning(t`Name not accepted, as it is the same as before (ignoring case and accents).`, t`Rename Chat`);
-        return;
-    }
-
-    try {
-        loader && showLoader();
-
-        const response = await fetch('/api/chats/rename', {
-            method: 'POST',
-            body: JSON.stringify(body),
-            headers: getRequestHeaders(),
-        });
-
-        if (!response.ok) {
-            throw new Error('Unsuccessful request.');
-        }
-
-        const data = await response.json();
-
-        if (data.error) {
-            throw new Error('Server returned an error.');
-        }
-
-        if (data.sanitizedFileName) {
-            newFileName = data.sanitizedFileName;
-        }
-
-        if (groupId) {
-            await renameGroupChat(groupId, oldFileName, newFileName);
-        }
-        else if (characterId !== undefined && String(characterId) === String(this_chid) && characters[characterId]?.chat === oldFileName) {
-            characters[characterId].chat = newFileName;
-            $('#selected_chat_pole').val(characters[characterId].chat);
-            await createOrEditCharacter();
-        }
-
-        if (currentChatId) {
-            await reloadCurrentChat();
-        }
-    } catch {
-        loader && hideLoader();
-        await delay(500);
-        await callGenericPopup('An error has occurred. Chat was not renamed.', POPUP_TYPE.TEXT);
-    } finally {
-        loader && hideLoader();
-    }
+    return renameGroupOrCharacterChatCore({ characterId, groupId, oldFileName, newFileName, loader });
 }
 
 /**
@@ -8683,24 +8597,7 @@ export async function renameChat(oldFileName, newName) {
  * @returns {Promise<void>}
  */
 export async function updateRemoteChatName(characterId, newName) {
-    const character = characters[characterId];
-    if (!character) {
-        console.warn(`Character not found for ID: ${characterId}`);
-        return;
-    }
-    character.chat = newName;
-    const mergeRequest = {
-        avatar: character.avatar,
-        chat: newName,
-    };
-    const mergeResponse = await fetch('/api/characters/merge-attributes', {
-        method: 'POST',
-        headers: getRequestHeaders(),
-        body: JSON.stringify(mergeRequest),
-    });
-    if (!mergeResponse.ok) {
-        console.error('Failed to save extension field', mergeResponse.statusText);
-    }
+    return updateRemoteChatNameCore(characterId, newName);
 }
 
 
@@ -8811,15 +8708,7 @@ async function removeCharacterFromUI() {
  * @returns {Promise<void>} - A promise that resolves when the new assistant chat is created
  */
 export async function newAssistantChat({ temporary = false } = {}) {
-    await clearChat();
-    if (!temporary) {
-        return openPermanentAssistantChat();
-    }
-    chat.splice(0, chat.length);
-    chat_metadata = {};
-    syncChatMetadata(chat_metadata);
-    setCharacterName(neutralCharacterName);
-    sendSystemMessage(system_message_types.ASSISTANT_NOTE);
+    return newAssistantChatCore({ temporary });
 }
 
 /**

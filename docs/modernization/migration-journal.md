@@ -1081,3 +1081,30 @@
 ### Next
 1. Reassess whether the next generation move should be a focused helper/internal batch around `Generate(...)` or whether character create/edit is now the cleaner next target.
 2. Continue avoiding large cross-module import cycles by preferring config/state callbacks when moving generation logic.
+
+## 2026-03-07 - Monolith Reduction Wave 16 (Session Chat Management Batch)
+
+### Completed
+- Moved these session/chat-management implementations out of `public/script.js` into `public/scripts/session-core.js`:
+  - `doNewChat()`
+  - `newAssistantChat()`
+  - `renameGroupOrCharacterChat()`
+  - `updateRemoteChatName()`
+- Updated `public/script.js` to keep thin compatibility wrappers for those exports.
+- Extended `bindSessionCore(...)` with narrow callbacks for the remaining cycle-prone dependencies:
+  - group chat create/delete/rename
+  - local `delChat()` deletion path
+  - `createOrEditCharacter()`
+  - permanent assistant chat open flow
+
+### Measurable Impact
+- `public/script.js` no longer owns the main “start a new chat / temp assistant / rename chat” session-management flow.
+- This removes another user-visible orchestration cluster from the monolith without taking on the full character editor yet.
+
+### Insights
+- The next clean reductions are still orchestration-heavy, but they are safer when grouped by lifecycle surface instead of by individual helper size.
+- `session-core` is now a better home for neutral-assistant and chat-file lifecycle logic than `script.js`, because it already owns reset/send/session coordination.
+
+### Next
+1. Reassess whether the next highest-yield extraction is the character create/edit flow or the first focused helper batch around `Generate(...)`.
+2. Keep using callback bindings for flows that would otherwise create cycles through `welcome-screen.js`, group chat modules, or character editing.

@@ -889,3 +889,23 @@
 ### Next
 1. Target a larger UI orchestration or chat lifecycle slice that still lives mostly in `public/script.js`.
 2. Continue preferring real ownership moves in existing cores over creating more wrapper-only surfaces.
+
+## 2026-03-07 - Monolith Reduction Wave 8 (State Setter Batch)
+
+### Completed
+- Moved `setEditedMessageId(...)` out of `public/script.js` into `public/scripts/message-core.js`.
+- Moved `setExternalAbortController(...)` out of `public/script.js` into `public/scripts/session-core.js`.
+- Moved `setSendButtonState(...)` out of `public/script.js` into `public/scripts/ui-core.js` while preserving the existing `runtime/chat-operations-adapter.js` export surface for compatibility.
+- Updated `public/script.js` to keep thin compatibility wrappers and removed the corresponding bound implementation entries from `bindMessageCore(...)`, `bindSessionCore(...)`, and `bindChatOperationsCore(...)`.
+
+### Measurable Impact
+- `public/script.js` no longer owns another cluster of mutable UI/session/message state setters.
+- Runtime compatibility remains stable even where the internal ownership changed modules, which is important for keeping extension and internal import churn low during the migration.
+
+### Insights
+- Small state setters are still worth batching when they also let us simplify bound implementation surfaces across multiple cores in one commit.
+- Preserving adapter exports while changing internal ownership is a useful pattern for migration speed: it decouples code movement from broader import rewrites.
+
+### Next
+1. Stop spending many more waves on isolated setters unless they unlock a larger path immediately after.
+2. Target one higher-value chat or UI orchestration slice next, now that the remaining state ownership in `public/script.js` is narrower.

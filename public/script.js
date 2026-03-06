@@ -265,12 +265,12 @@ import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId 
 import { bindChatOperationsCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
 import { bindGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault } from './scripts/generation-core.js';
-import { bindMessageCore } from './scripts/message-core.js';
+import { bindMessageCore, setEditedMessageId as setEditedMessageIdCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
-import { bindSessionCore, resetChatState as resetChatStateCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes } from './scripts/session-core.js';
+import { bindSessionCore, resetChatState as resetChatStateCore, setExternalAbortController as setExternalAbortControllerCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes } from './scripts/session-core.js';
 import { bindSettingsCore } from './scripts/settings-core.js';
-import { activateSendButtons as activateSendButtonsCore, bindUiCore, deactivateSendButtons as deactivateSendButtonsCore, getSlideToggleOptions as getSlideToggleOptionsCore, hideStopButton as hideStopButtonCore, reloadMarkdownProcessor as reloadMarkdownProcessorCore, setAnimationDuration as setAnimationDurationCore, showStopButton as showStopButtonCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
+import { activateSendButtons as activateSendButtonsCore, bindUiCore, deactivateSendButtons as deactivateSendButtonsCore, getSlideToggleOptions as getSlideToggleOptionsCore, hideStopButton as hideStopButtonCore, reloadMarkdownProcessor as reloadMarkdownProcessorCore, setAnimationDuration as setAnimationDurationCore, setSendButtonState as setSendButtonStateCore, showStopButton as showStopButtonCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
 import { accountStorage } from './scripts/util/AccountStorage.js';
 import { initWelcomeScreen, openPermanentAssistantChat, openPermanentAssistantCard, getPermanentAssistantAvatar } from './scripts/welcome-screen.js';
 import { initDataMaid } from './scripts/data-maid.js';
@@ -452,7 +452,6 @@ bindMessageCore({
     getFirstDisplayedMessageId,
     messageFormatting,
     saveChatDebounced,
-    setEditedMessageId,
     syncMesToSwipe,
     updateMessageBlock,
 });
@@ -495,7 +494,6 @@ bindSessionCore({
     setActiveGroup,
     setCharacterId,
     setCharacterName,
-    setExternalAbortController,
     setScenarioOverride,
     unshallowCharacter,
     updateRemoteChatName,
@@ -543,7 +541,6 @@ bindChatOperationsCore({
     saveItemizedPrompts,
     saveReply,
     sendMessageAsUser,
-    setSendButtonState,
     showMoreMessages,
     showSwipeButtons,
     swipe_left,
@@ -6133,7 +6130,8 @@ export function setMenuType(value) {
 }
 
 export function setExternalAbortController(controller) {
-    abortController = controller;
+    abortController = setExternalAbortControllerCore(controller);
+    return abortController;
 }
 
 /**
@@ -6163,12 +6161,13 @@ export function setOnlineStatus(value) {
 }
 
 export function setEditedMessageId(value) {
-    this_edit_mes_id = value;
+    this_edit_mes_id = setEditedMessageIdCore(value);
+    return this_edit_mes_id;
 }
 
 export function setSendButtonState(value) {
-    is_send_press = value;
-    syncIsSendPress(is_send_press);
+    is_send_press = setSendButtonStateCore(value);
+    return is_send_press;
 }
 
 /**

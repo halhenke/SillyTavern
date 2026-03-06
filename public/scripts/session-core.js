@@ -21,13 +21,13 @@ let setActiveCharacterImpl = null;
 let setActiveGroupImpl = null;
 let setCharacterIdImpl = null;
 let setCharacterNameImpl = null;
-let setExternalAbortControllerImpl = null;
 let setScenarioOverrideImpl = null;
 let unshallowCharacterImpl = null;
 let updateRemoteChatNameImpl = null;
 
 export let active_character = '';
 export let active_group = '';
+export let externalAbortController = null;
 export let neutralCharacterName = '';
 export let system_message_types = {};
 
@@ -56,7 +56,6 @@ function throwUnbound(name) {
  *   setActiveGroup: (...args: any[]) => any,
  *   setCharacterId: (...args: any[]) => any,
  *   setCharacterName: (...args: any[]) => any,
- *   setExternalAbortController: (...args: any[]) => any,
  *   setScenarioOverride: (...args: any[]) => Promise<any>,
  *   unshallowCharacter: (...args: any[]) => Promise<any>,
  *   updateRemoteChatName: (...args: any[]) => Promise<any>,
@@ -81,7 +80,6 @@ export function bindSessionCore(impl) {
     setActiveGroupImpl = impl?.setActiveGroup ?? null;
     setCharacterIdImpl = impl?.setCharacterId ?? null;
     setCharacterNameImpl = impl?.setCharacterName ?? null;
-    setExternalAbortControllerImpl = impl?.setExternalAbortController ?? null;
     setScenarioOverrideImpl = impl?.setScenarioOverride ?? null;
     unshallowCharacterImpl = impl?.unshallowCharacter ?? null;
     updateRemoteChatNameImpl = impl?.updateRemoteChatName ?? null;
@@ -263,12 +261,9 @@ export function setCharacterName(...args) {
     return setCharacterNameImpl(...args);
 }
 
-export function setExternalAbortController(...args) {
-    if (!setExternalAbortControllerImpl) {
-        throwUnbound('setExternalAbortController');
-    }
-
-    return setExternalAbortControllerImpl(...args);
+export function setExternalAbortController(controller) {
+    externalAbortController = controller;
+    return externalAbortController;
 }
 
 export function setScenarioOverride(...args) {

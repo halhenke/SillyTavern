@@ -29,7 +29,6 @@ import {
     saveItemizedPrompts,
     saveReply,
     sendMessageAsUser,
-    setSendButtonState,
     showSwipeButtons,
     swipe_left,
     swipe_right,
@@ -38,6 +37,7 @@ import {
     systemUserName,
     system_avatar,
 } from '../chat-operations-core.js';
+import { setSendButtonState } from '../ui-core.js';
 
 export {
     activateSendButtons,

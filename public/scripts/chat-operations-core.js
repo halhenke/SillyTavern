@@ -27,7 +27,6 @@ let saveChatConditionalImpl = null;
 let saveItemizedPromptsImpl = null;
 let saveReplyImpl = null;
 let sendMessageAsUserImpl = null;
-let setSendButtonStateImpl = null;
 let showSwipeButtonsImpl = null;
 let showMoreMessagesImpl = null;
 let swipeLeftImpl = null;
@@ -73,7 +72,6 @@ function throwUnbound(name) {
  *   saveItemizedPrompts: (...args: any[]) => Promise<any>,
  *   saveReply: (...args: any[]) => Promise<any>,
  *   sendMessageAsUser: (...args: any[]) => Promise<any>,
- *   setSendButtonState: (...args: any[]) => any,
  *   showSwipeButtons: (...args: any[]) => any,
  *   showMoreMessages: (...args: any[]) => Promise<any>,
  *   swipe_left: (...args: any[]) => Promise<any>,
@@ -108,7 +106,6 @@ export function bindChatOperationsCore(impl) {
     saveItemizedPromptsImpl = impl?.saveItemizedPrompts ?? null;
     saveReplyImpl = impl?.saveReply ?? null;
     sendMessageAsUserImpl = impl?.sendMessageAsUser ?? null;
-    setSendButtonStateImpl = impl?.setSendButtonState ?? null;
     showSwipeButtonsImpl = impl?.showSwipeButtons ?? null;
     showMoreMessagesImpl = impl?.showMoreMessages ?? null;
     swipeLeftImpl = impl?.swipe_left ?? null;
@@ -268,11 +265,6 @@ export function saveReply(...args) {
 export function sendMessageAsUser(...args) {
     if (!sendMessageAsUserImpl) throwUnbound('sendMessageAsUser');
     return sendMessageAsUserImpl(...args);
-}
-
-export function setSendButtonState(...args) {
-    if (!setSendButtonStateImpl) throwUnbound('setSendButtonState');
-    return setSendButtonStateImpl(...args);
 }
 
 export function showMoreMessages(...args) {

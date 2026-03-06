@@ -134,3 +134,8 @@ export function deactivateSendButtons() {
     showStopButton();
     document.body.dataset.generating = 'true';
 }
+
+export function setSendButtonState(value) {
+    syncIsSendPress(value);
+    return is_send_press;
+}

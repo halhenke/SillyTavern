@@ -3,9 +3,10 @@ let closeMessageEditorImpl = null;
 let getFirstDisplayedMessageIdImpl = null;
 let messageFormattingImpl = null;
 let saveChatDebouncedImpl = null;
-let setEditedMessageIdImpl = null;
 let syncMesToSwipeImpl = null;
 let updateMessageBlockImpl = null;
+
+export let editedMessageId = undefined;
 
 function throwUnbound(name) {
     throw new Error(`[message-core] ${name} was called before bindings were initialized`);
@@ -19,7 +20,6 @@ function throwUnbound(name) {
  *   getFirstDisplayedMessageId: (...args: any[]) => any,
  *   messageFormatting: (...args: any[]) => any,
  *   saveChatDebounced: (...args: any[]) => any,
- *   setEditedMessageId: (...args: any[]) => any,
  *   syncMesToSwipe: (...args: any[]) => any,
  *   updateMessageBlock: (...args: any[]) => any,
  * }} impl Implementations to bind
@@ -30,7 +30,6 @@ export function bindMessageCore(impl) {
     getFirstDisplayedMessageIdImpl = impl?.getFirstDisplayedMessageId ?? null;
     messageFormattingImpl = impl?.messageFormatting ?? null;
     saveChatDebouncedImpl = impl?.saveChatDebounced ?? null;
-    setEditedMessageIdImpl = impl?.setEditedMessageId ?? null;
     syncMesToSwipeImpl = impl?.syncMesToSwipe ?? null;
     updateMessageBlockImpl = impl?.updateMessageBlock ?? null;
 }
@@ -75,12 +74,9 @@ export function saveChatDebounced(...args) {
     return saveChatDebouncedImpl(...args);
 }
 
-export function setEditedMessageId(...args) {
-    if (!setEditedMessageIdImpl) {
-        throwUnbound('setEditedMessageId');
-    }
-
-    return setEditedMessageIdImpl(...args);
+export function setEditedMessageId(value) {
+    editedMessageId = value;
+    return editedMessageId;
 }
 
 export function syncMesToSwipe(...args) {

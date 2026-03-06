@@ -1,3 +1,5 @@
+import { chat_metadata, syncChatMetadata } from './chat-core.js';
+
 let activateSendButtonsImpl = null;
 let addOneMessageImpl = null;
 let appendMediaToMessageImpl = null;
@@ -30,7 +32,6 @@ let showSwipeButtonsImpl = null;
 let showMoreMessagesImpl = null;
 let swipeLeftImpl = null;
 let swipeRightImpl = null;
-let updateChatMetadataImpl = null;
 
 export let chat = [];
 export let create_save = {};
@@ -77,7 +78,6 @@ function throwUnbound(name) {
  *   showMoreMessages: (...args: any[]) => Promise<any>,
  *   swipe_left: (...args: any[]) => Promise<any>,
  *   swipe_right: (...args: any[]) => Promise<any>,
- *   updateChatMetadata: (...args: any[]) => any,
  * }} impl Implementations to bind
  */
 export function bindChatOperationsCore(impl) {
@@ -113,7 +113,6 @@ export function bindChatOperationsCore(impl) {
     showMoreMessagesImpl = impl?.showMoreMessages ?? null;
     swipeLeftImpl = impl?.swipe_left ?? null;
     swipeRightImpl = impl?.swipe_right ?? null;
-    updateChatMetadataImpl = impl?.updateChatMetadata ?? null;
 }
 
 export function syncChat(value) {
@@ -296,7 +295,8 @@ export function swipe_right(...args) {
     return swipeRightImpl(...args);
 }
 
-export function updateChatMetadata(...args) {
-    if (!updateChatMetadataImpl) throwUnbound('updateChatMetadata');
-    return updateChatMetadataImpl(...args);
+export function updateChatMetadata(newValues, reset) {
+    const nextMetadata = reset ? { ...newValues } : { ...chat_metadata, ...newValues };
+    syncChatMetadata(nextMetadata);
+    return nextMetadata;
 }

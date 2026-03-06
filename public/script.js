@@ -265,7 +265,7 @@ import { syncClientVersion, syncConnectApiMap, syncMainApi, syncNaiSettings } fr
 import { bindBackendStatusCore, setAbortStatusCheck } from './scripts/backend-status-core.js';
 import { bindCharacterCore, syncCharacterGroupOverlay, syncCharacters, syncPrintCharactersDebounced } from './scripts/character-core.js';
 import { bindChatCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
-import { bindChatOperationsCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName } from './scripts/chat-operations-core.js';
+import { bindChatOperationsCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
 import { bindGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault } from './scripts/generation-core.js';
 import { bindMessageCore } from './scripts/message-core.js';
@@ -559,7 +559,6 @@ bindChatOperationsCore({
     showSwipeButtons,
     swipe_left,
     swipe_right,
-    updateChatMetadata,
 });
 bindUiCore({
     addCopyToCodeBlocks,
@@ -7893,8 +7892,9 @@ export function removeDepthPrompts() {
  * @param {boolean} reset Should a metadata be reset by this call.
  */
 export function updateChatMetadata(newValues, reset) {
-    chat_metadata = reset ? { ...newValues } : { ...chat_metadata, ...newValues };
+    chat_metadata = updateChatMetadataCore(newValues, reset);
     syncChatMetadata(chat_metadata);
+    return chat_metadata;
 }
 
 

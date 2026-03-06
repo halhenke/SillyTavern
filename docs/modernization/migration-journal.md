@@ -780,3 +780,22 @@
 ### Next
 1. Continue moving small concrete chat/session helpers out of `public/script.js` into core modules.
 2. Prioritize helpers that mutate mirrored state with minimal DOM or network coupling before tackling larger chat lifecycle flows.
+
+## 2026-03-07 - Monolith Reduction Wave 3 (Chat Metadata Move)
+
+### Completed
+- Moved `updateChatMetadata(...)` implementation out of `public/script.js` into `public/scripts/chat-operations-core.js`.
+- Updated `public/script.js` to keep a thin compatibility wrapper that delegates to `chat-operations-core` and mirrors local exported state.
+- Simplified `bindChatOperationsCore(...)` by removing `updateChatMetadata` from the bound implementation surface because the function now lives in the core directly.
+
+### Measurable Impact
+- `public/script.js` no longer owns the primary implementation of chat metadata merging/reset behavior.
+- Chat metadata mutation is now centered in the chat operations core instead of the monolith body.
+
+### Insights
+- Pure state-composition helpers are a productive middle step between trivial setters and larger orchestration flows.
+- The current pattern remains sound: move implementation into core, leave a thin wrapper in `script.js`, then remove the wrapper later once compatibility pressure drops.
+
+### Next
+1. Continue moving small pure chat/session helpers out of `public/script.js`.
+2. After a few more low-risk moves, begin carving out one higher-value chat lifecycle path end-to-end.

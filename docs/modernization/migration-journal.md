@@ -762,3 +762,21 @@
 ### Next
 1. Continue moving low-risk concrete implementations out of `public/script.js` into core modules.
 2. Target small chat/session helpers next, then larger chat lifecycle logic once state ownership is clearer.
+
+## 2026-03-07 - Monolith Reduction Wave 2 (Chat Setter Move)
+
+### Completed
+- Moved `setCharacterId(...)` and `setCharacterName(...)` implementations out of `public/script.js` into `public/scripts/chat-core.js`.
+- Updated `public/script.js` to keep thin compatibility export wrappers that delegate to `chat-core` and then synchronize local exported state mirrors.
+
+### Measurable Impact
+- `public/script.js` no longer owns the primary logic for two commonly used chat/session state mutators.
+- This continues the transition from bind/sync scaffolding to actual monolith code removal.
+
+### Insights
+- Small state mutators are good next-step candidates after adapter detachment because they reduce monolith write ownership without introducing new dependency pressure.
+- The current wrapper pattern is working: move implementation first, then remove the compatibility wrapper later once direct `script.js` consumers are no longer needed.
+
+### Next
+1. Continue moving small concrete chat/session helpers out of `public/script.js` into core modules.
+2. Prioritize helpers that mutate mirrored state with minimal DOM or network coupling before tackling larger chat lifecycle flows.

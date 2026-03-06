@@ -264,7 +264,7 @@ import { bindAppStateCore, syncDefaultPrintTimeout, syncEntitiesFilter, syncIsCh
 import { syncClientVersion, syncConnectApiMap, syncMainApi, syncNaiSettings } from './scripts/api-core.js';
 import { bindBackendStatusCore, setAbortStatusCheck } from './scripts/backend-status-core.js';
 import { bindCharacterCore, syncCharacterGroupOverlay, syncCharacters, syncPrintCharactersDebounced } from './scripts/character-core.js';
-import { bindChatCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
+import { bindChatCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
 import { bindChatOperationsCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
 import { bindGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault } from './scripts/generation-core.js';
@@ -6227,33 +6227,15 @@ export function setExternalAbortController(controller) {
  * @param {number|string|undefined} value
  */
 export function setCharacterId(value) {
-    switch (typeof value) {
-        case 'bigint':
-        case 'number':
-            this_chid = String(value);
-            syncThisChid(this_chid);
-            break;
-        case 'string':
-            this_chid = !isNaN(parseInt(value)) ? value : undefined;
-            syncThisChid(this_chid);
-            break;
-        case 'object':
-            this_chid = characters.indexOf(value) !== -1 ? String(characters.indexOf(value)) : undefined;
-            syncThisChid(this_chid);
-            break;
-        case 'undefined':
-            this_chid = undefined;
-            syncThisChid(this_chid);
-            break;
-        default:
-            console.error('Invalid character ID type:', value);
-            break;
-    }
+    this_chid = setCharacterIdCore(value);
+    syncThisChid(this_chid);
+    return this_chid;
 }
 
 export function setCharacterName(value) {
-    name2 = value;
+    name2 = setCharacterNameCore(value);
     syncName2(name2);
+    return name2;
 }
 
 /**

@@ -87,6 +87,44 @@ export function getUserAvatar(...args) {
     return getUserAvatarImpl(...args);
 }
 
+/**
+ * Sets a character array index.
+ * @param {number|string|object|undefined} value
+ * @returns {string|undefined}
+ */
+export function setCharacterId(value) {
+    switch (typeof value) {
+        case 'bigint':
+        case 'number':
+            this_chid = String(value);
+            break;
+        case 'string':
+            this_chid = !isNaN(parseInt(value)) ? value : undefined;
+            break;
+        case 'object':
+            this_chid = value !== null && characters.indexOf(value) !== -1 ? String(characters.indexOf(value)) : undefined;
+            break;
+        case 'undefined':
+            this_chid = undefined;
+            break;
+        default:
+            console.error('Invalid character ID type:', value);
+            break;
+    }
+
+    return this_chid;
+}
+
+/**
+ * Sets the active character name.
+ * @param {string} value
+ * @returns {string}
+ */
+export function setCharacterName(value) {
+    name2 = value;
+    return name2;
+}
+
 export {
     characters,
 };

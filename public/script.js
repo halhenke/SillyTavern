@@ -263,7 +263,7 @@ import { bindCharacterCore, createOrEditCharacter as createOrEditCharacterCore, 
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
 import { addOneMessage as addOneMessageCore, bindChatOperationsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
-import { bindGenerationCore, buildCombinedPrompt as buildCombinedPromptCore, executeStreamingGenerationRequest as executeStreamingGenerationRequestCore, finalizeGenerationResponse as finalizeGenerationResponseCore, finalizeStreamingGeneration as finalizeStreamingGenerationCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, handleGenerationError as handleGenerationErrorCore, prepareContextPackingState as prepareContextPackingStateCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationData as prepareGenerationDataCore, prepareGenerationMessages as prepareGenerationMessagesCore, prepareMessageHistoryState as prepareMessageHistoryStateCore, preparePromptAssemblyState as preparePromptAssemblyStateCore, preparePromptAugmentationState as preparePromptAugmentationStateCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, recordGenerationPromptMetadata as recordGenerationPromptMetadataCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
+import { bindGenerationCore, buildCombinedPrompt as buildCombinedPromptCore, executeGenerationRequestFlow as executeGenerationRequestFlowCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, handleGenerationError as handleGenerationErrorCore, prepareContextPackingState as prepareContextPackingStateCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationData as prepareGenerationDataCore, prepareGenerationMessages as prepareGenerationMessagesCore, prepareMessageHistoryState as prepareMessageHistoryStateCore, preparePromptAssemblyState as preparePromptAssemblyStateCore, preparePromptAugmentationState as preparePromptAugmentationStateCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
 import { bindMessageCore, setEditedMessageId as setEditedMessageIdCore, updateMessageBlock as updateMessageBlockCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
@@ -529,12 +529,14 @@ bindGenerationCore({
     formatInstructModeStoryString,
     generateHorde,
     getAnimationDuration: () => animation_duration,
+    getAllExtensionPrompts,
     getAbortController: () => abortController,
     getAutoContinueConfig: () => power_user.auto_continue,
     getBeforePromptType: () => extension_prompt_types.BEFORE_PROMPT,
     getCharacterCardFields,
     getCfgPrompt,
     getCollapseNewlinesEnabled: () => power_user.collapse_newlines,
+    getConsoleLogPromptsEnabled: () => power_user.console_log_prompts,
     getCustomStoppingStrings,
     getDepthPromptId: () => inject_ids.DEPTH_PROMPT,
     getDepthPromptIndexId: (index) => inject_ids.DEPTH_PROMPT_INDEX(index),
@@ -557,6 +559,9 @@ bindGenerationCore({
     }),
     getInChatPromptType: () => extension_prompt_types.IN_CHAT,
     getInPromptPromptType: () => extension_prompt_types.IN_PROMPT,
+    getInstructionPrompt: (system) => main_api !== 'openai' && power_user.sysprompt.enabled
+        ? substituteParams(power_user.prefer_character_prompt && system ? system : power_user.sysprompt.content)
+        : '',
     getInstructWrap: () => power_user.instruct.wrap,
     getInstructStoppingSequences,
     getKoboldGenerationData,
@@ -583,6 +588,14 @@ bindGenerationCore({
     getOpenAiMaxTokens: () => oai_settings.openai_max_tokens,
     getOpenAiMessagesCount: () => openai_messages_count,
     getPinExamples: () => power_user.pin_examples,
+    getPromptMetadataExtras: () => ({
+        authorsNoteString: extension_prompts['2_floating_prompt']?.value || '',
+        chatVectorsString: extension_prompts['3_vectors']?.value || '',
+        dataBankVectorsString: extension_prompts['4_vectors_data_bank']?.value || '',
+        smartContextString: extension_prompts['chromadb']?.value || '',
+        summarizeString: extension_prompts['1_memory']?.value || '',
+    }),
+    getSelectedPresetName: () => getPresetManager()?.getSelectedPresetName() || '',
     getStoryStringConfig: () => ({
         position: power_user.context.story_string_position,
         depth: power_user.context.story_string_depth ?? 1,
@@ -605,6 +618,7 @@ bindGenerationCore({
     getTokenCountAsync,
     getTokenPadding: () => power_user.token_padding,
     getTextGenGenerationData,
+    getTokenizerName: () => getFriendlyTokenizerName(main_api).tokenizerName || '',
     getWiAnchorBefore: () => wi_anchor_position.before,
     getWorldInfoIncludeNames: () => world_info_include_names,
     getWorldInfoPrompt,
@@ -659,6 +673,7 @@ bindGenerationCore({
     shouldIncludePersonaInStoryString: () => power_user.persona_description_position == persona_description_positions.IN_PROMPT,
     shouldAutoSwipeResult: (message) => !abortController?.signal?.aborted && power_user.auto_swipe && generatedTextFiltered(message),
     showApiError: (message) => toastr.error(message, t`API Error`, { preventDuplicates: true }),
+    showStopButton,
     showToolCallError: (...args) => ToolManager.showToolCallError(...args),
     showTextGenerationError: (message) => toastr.error(message, t`Text generation error`, { timeOut: 10000, extendedTimeOut: 20000 }),
     swipeRight: () => swipe_right(),
@@ -3448,134 +3463,48 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
         return Promise.resolve();
     }
 
-    /**
-     * Saves itemized prompt bits and calls streaming or non-streaming generation API.
-     * @returns {Promise<void|*|Awaited<*>|String|{fromStream}|string|undefined|Object>}
-     * @throws {Error|object} Error with message text, or Error with response JSON (OAI/Horde), or the actual response JSON (novel|textgenerationwebui|kobold)
-     */
-    async function finishGenerating() {
-        if (power_user.console_log_prompts) {
-            console.log(generate_data.prompt);
-        }
+    const normalizedContinueMag = isContinue ? promptReasoning.removePrefix(continue_mag) : continue_mag;
 
-        console.debug('rungenerate calling API');
+    return executeGenerationRequestFlowCore({
+        arrMes,
+        beforeScenarioAnchor,
+        canPerformToolCalls,
+        continueMag: normalizedContinueMag,
+        countExmAdd: count_exm_add,
+        deleteLastMessage,
+        description,
+        finalPrompt,
+        generateData: generate_data,
+        generateOptions: { automatic_trigger, force_name2, quiet_prompt, quietToLoud, skipWIAN, force_chid, signal, quietImage, quietName, depth, itemizedPrompts, tokenPadding: power_user.token_padding },
+        generatedPromptCache,
+        generationStarted: generation_started,
+        injectedIndices,
+        isContinue,
+        isImpersonate,
+        jsonSchema,
+        mesExamplesArray,
+        mesExmString,
+        mesSend,
+        mesSendString,
+        oaiMessageExamples,
+        oaiMessages,
+        originalType,
+        persona,
+        personality,
+        pinExmString,
+        promptBias,
+        promptBits: thisPromptBits,
+        promptReasoning,
+        quietToLoud,
+        scenario,
+        storyString,
+        system,
+        thisMaxContext: this_max_context,
+        type,
+        worldInfoString,
+    }).then(onExecutionResult, onError);
 
-        showStopButton();
-
-        //set array object for prompt token itemization of this message
-        recordGenerationPromptMetadataCore({
-            allAnchors: await getAllExtensionPrompts(),
-            authorsNoteString: (extension_prompts['2_floating_prompt']?.value || ''),
-            beforeScenarioAnchor,
-            charDescription: description,
-            charPersonality: personality,
-            chatInjects: injectedIndices?.map(index => arrMes[arrMes.length - index - 1])?.join('') || '',
-            chatVectorsString: (extension_prompts['3_vectors']?.value || ''),
-            dataBankVectorsString: (extension_prompts['4_vectors_data_bank']?.value || ''),
-            examplesCount: main_api !== 'openai' ? (pinExmString ? mesExamplesArray.length : count_exm_add) : oaiMessageExamples.length,
-            examplesString: mesExmString,
-            finalPrompt,
-            generatedPromptCache,
-            instruction: main_api !== 'openai' && power_user.sysprompt.enabled ? substituteParams(power_user.prefer_character_prompt && system ? system : power_user.sysprompt.content) : '',
-            itemizedPrompts,
-            mainApi: main_api,
-            mesId: getNextMessageId(type),
-            mesSendString,
-            messagesCount: main_api !== 'openai' ? mesSend.length : oaiMessages.length,
-            padding: power_user.token_padding,
-            presetName: getPresetManager()?.getSelectedPresetName() || '',
-            promptBias,
-            promptBits: thisPromptBits,
-            rawPrompt: generate_data.prompt || generate_data.input,
-            scenarioText: scenario,
-            smartContextString: (extension_prompts['chromadb']?.value || ''),
-            storyString,
-            summarizeString: (extension_prompts['1_memory']?.value || ''),
-            thisMaxContext: this_max_context,
-            tokenizer: getFriendlyTokenizerName(main_api).tokenizerName || '',
-            userPersona: (power_user.persona_description_position == persona_description_positions.IN_PROMPT ? (persona || '') : ''),
-            worldInfoString,
-        });
-
-        console.debug(`pushed prompt bits to itemizedPrompts array. Length is now: ${itemizedPrompts.length}`);
-
-        if (isStreamingEnabled() && type !== 'quiet') {
-            continue_mag = promptReasoning.removePrefix(continue_mag);
-            let {
-                getMessage,
-                messageChunk,
-            } = await executeStreamingGenerationRequestCore({
-                continueMag: continue_mag,
-                forceName2: force_name2,
-                generateData: generate_data,
-                generationStarted: generation_started,
-                isContinue,
-                isImpersonate,
-                promptReasoning,
-                type,
-            });
-
-            const streamResult = await finalizeStreamingGenerationCore({
-                canPerformToolCalls,
-                deleteLastMessage,
-                dryRun,
-                generateOptions: { automatic_trigger, force_name2, quiet_prompt, quietToLoud, skipWIAN, force_chid, signal, quietImage, quietName, depth },
-                getMessage,
-                isImpersonate,
-                messageChunk,
-                type,
-            });
-
-            if (streamResult.status === 'stop') {
-                unblockGeneration(type);
-                return;
-            }
-
-            if (streamResult.status === 'recurse') {
-                depth = depth + 1;
-                await ToolManager.saveFunctionToolInvocations(streamResult.invocationResult.invocations);
-                return Generate('normal', { ...streamResult.generateOptions, depth }, dryRun);
-            }
-
-            if (streamResult.status === 'complete') {
-                return streamResult.value;
-            }
-        } else {
-            return await sendGenerationRequest(type, generate_data, { jsonSchema });
-        }
-    }
-
-    return finishGenerating().then(onSuccess, onError);
-
-    /**
-     * Handles the successful response from the generation API.
-     * @param data
-     * @returns {Promise<String|{fromStream}|*|string|string|void|Awaited<*>|undefined>}
-     * @throws {Error} Throws an error if the response data contains an error message
-     */
-    async function onSuccess(data) {
-        if (isContinue) {
-            continue_mag = promptReasoning.removePrefix(continue_mag);
-        }
-
-        const result = await finalizeGenerationResponseCore({
-            canPerformToolCalls,
-            continueMag: continue_mag,
-            data,
-            deleteLastMessage,
-            generateOptions: { automatic_trigger, force_name2, quiet_prompt, quietToLoud, skipWIAN, force_chid, signal, quietImage, quietName, depth },
-            isContinue,
-            isImpersonate,
-            jsonSchema,
-            originalType,
-            quietToLoud,
-            type,
-        });
-
-        if (result.status === 'stop') {
-            return;
-        }
-
+    async function onExecutionResult(result) {
         if (result.status === 'recurse') {
             depth = depth + 1;
             await ToolManager.saveFunctionToolInvocations(result.invocationResult.invocations);

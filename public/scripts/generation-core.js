@@ -22,7 +22,9 @@ let getNovelSettingsConfigImpl = null;
 let getOpenAiMaxTokensImpl = null;
 let getAnimationDurationImpl = null;
 let getAbortControllerImpl = null;
+let getAllExtensionPromptsImpl = null;
 let getAutoContinueConfigImpl = null;
+let getConsoleLogPromptsEnabledImpl = null;
 let getCustomStoppingStringsImpl = null;
 let getGeneratingApiConfigImpl = null;
 let getGenericSystemMessageTypeImpl = null;
@@ -43,15 +45,19 @@ let getForceOutputSequencesImpl = null;
 let getGenerationTriggerImpl = null;
 let getGuidanceScaleImpl = null;
 let getHordeAdjustConfigImpl = null;
+let getInstructionPromptImpl = null;
 let getMinLengthImpl = null;
 let getNamesAsStopStringsImpl = null;
 let getOaiSendIfEmptyImpl = null;
 let getOpenAiMessagesCountImpl = null;
+let getPromptMetadataExtrasImpl = null;
+let getSelectedPresetNameImpl = null;
 let getSyspromptConfigImpl = null;
 let getTextareaTextImpl = null;
 let getTokenCountImpl = null;
 let getTokenCountAsyncImpl = null;
 let getTextGenGenerationDataImpl = null;
+let getTokenizerNameImpl = null;
 let getUserAlignmentMessageImpl = null;
 let getPinExamplesImpl = null;
 let getStoryStringConfigImpl = null;
@@ -106,6 +112,7 @@ let setFloatingPromptImpl = null;
 let setQuietPromptImpl = null;
 let setStoryStringPromptImpl = null;
 let clearStoryStringPromptImpl = null;
+let showStopButtonImpl = null;
 let showToolCallErrorImpl = null;
 let trimToEndSentenceImpl = null;
 let triggerContinueImpl = null;
@@ -157,6 +164,7 @@ function throwUnbound(name) {
  *   createStreamingProcessor: (...args: any[]) => any,
  *   doChatInject: (...args: any[]) => Promise<number[]>,
  *   getAnimationDuration: () => number,
+ *   getAllExtensionPrompts: () => Promise<string>,
  *   getBeforePromptType: () => number,
  *   getCfgPrompt: (...args: any[]) => any,
  *   getCollapseNewlinesEnabled: () => boolean,
@@ -179,14 +187,18 @@ function throwUnbound(name) {
  *   getAutoContinueConfig: () => { enabled?: boolean, target_length?: number, allow_chat_completions?: boolean },
  *   getGenerateUrl: (...args: any[]) => string,
  *   getGroups: () => any[],
+ *   getConsoleLogPromptsEnabled: () => boolean,
  *   getGuidanceScale: () => any,
  *   getHordeAdjustConfig: () => { autoAdjustContextLength?: boolean, autoAdjustResponseLength?: boolean },
+ *   getInstructionPrompt: (system: string) => string,
  *   getInstructStoppingSequences: () => string[],
  *   getMaxContextSize: () => number,
  *   getMinLength: () => number,
  *   getNamesAsStopStrings: () => boolean,
  *   getOaiSendIfEmpty: () => string,
  *   getOpenAiMessagesCount: () => number,
+ *   getPromptMetadataExtras: () => { authorsNoteString?: string, chatVectorsString?: string, dataBankVectorsString?: string, smartContextString?: string, summarizeString?: string },
+ *   getSelectedPresetName: () => string,
  *   getSyspromptConfig: () => { enabled?: boolean, preferCharacterPrompt?: boolean, content?: string },
  *   getNovelGenerationData: (...args: any[]) => any,
  *   getNovelSettingsConfig: () => { naiSettings?: any, novelaiSettings?: any, novelaiSettingNames?: any },
@@ -196,9 +208,10 @@ function throwUnbound(name) {
  *   getGeneratingApiConfig: () => { mainApi?: string, openAiSource?: string, textgenType?: string, textgenOobaType?: string },
   *   getTextareaText: () => string,
   *   getTokenCount: (text: string) => number,
-  *   getTokenCountAsync: (...args: any[]) => Promise<number>,
+ *   getTokenCountAsync: (...args: any[]) => Promise<number>,
  *   getTokenPadding: () => number,
  *   getTextGenGenerationData: (...args: any[]) => Promise<any>,
+ *   getTokenizerName: () => string,
  *   getUserAlignmentMessage: () => string,
  *   getWiAnchorBefore: () => any,
  *   getWorldInfoIncludeNames: () => boolean,
@@ -255,6 +268,7 @@ function throwUnbound(name) {
  *   shouldIncludePersonaInStoryString: () => boolean,
  *   shouldAutoSwipeResult: (message: string) => boolean,
  *   showApiError: (message: string) => any,
+ *   showStopButton: () => any,
  *   showToolCallError: (...args: any[]) => any,
  *   showTextGenerationError: (message: string) => any,
  *   swipeRight: () => any,
@@ -282,6 +296,7 @@ export function bindGenerationCore(impl) {
     executeSlashCommandsOnChatInputImpl = impl?.executeSlashCommandsOnChatInput ?? null;
     deactivateSendButtonsImpl = impl?.deactivateSendButtons ?? null;
     getAnimationDurationImpl = impl?.getAnimationDuration ?? null;
+    getAllExtensionPromptsImpl = impl?.getAllExtensionPrompts ?? null;
     getAllowWIScanImpl = impl?.getAllowWIScan ?? null;
     getBeforePromptTypeImpl = impl?.getBeforePromptType ?? null;
     getCharacterCardFieldsImpl = impl?.getCharacterCardFields ?? null;
@@ -308,12 +323,16 @@ export function bindGenerationCore(impl) {
     getAutoContinueConfigImpl = impl?.getAutoContinueConfig ?? null;
     getGenerateUrlImpl = impl?.getGenerateUrl ?? null;
     getGroupsImpl = impl?.getGroups ?? null;
+    getConsoleLogPromptsEnabledImpl = impl?.getConsoleLogPromptsEnabled ?? null;
     getInstructStoppingSequencesImpl = impl?.getInstructStoppingSequences ?? null;
+    getInstructionPromptImpl = impl?.getInstructionPrompt ?? null;
     getMaxContextSizeImpl = impl?.getMaxContextSize ?? null;
     getMinLengthImpl = impl?.getMinLength ?? null;
     getNamesAsStopStringsImpl = impl?.getNamesAsStopStrings ?? null;
     getOaiSendIfEmptyImpl = impl?.getOaiSendIfEmpty ?? null;
     getOpenAiMessagesCountImpl = impl?.getOpenAiMessagesCount ?? null;
+    getPromptMetadataExtrasImpl = impl?.getPromptMetadataExtras ?? null;
+    getSelectedPresetNameImpl = impl?.getSelectedPresetName ?? null;
     getSyspromptConfigImpl = impl?.getSyspromptConfig ?? null;
     getNovelGenerationDataImpl = impl?.getNovelGenerationData ?? null;
     getNovelSettingsConfigImpl = impl?.getNovelSettingsConfig ?? null;
@@ -326,6 +345,7 @@ export function bindGenerationCore(impl) {
     getTokenCountAsyncImpl = impl?.getTokenCountAsync ?? null;
     getTokenPaddingImpl = impl?.getTokenPadding ?? null;
     getTextGenGenerationDataImpl = impl?.getTextGenGenerationData ?? null;
+    getTokenizerNameImpl = impl?.getTokenizerName ?? null;
     getUserAlignmentMessageImpl = impl?.getUserAlignmentMessage ?? null;
     getWiAnchorBeforeImpl = impl?.getWiAnchorBefore ?? null;
     getWorldInfoIncludeNamesImpl = impl?.getWorldInfoIncludeNames ?? null;
@@ -380,6 +400,7 @@ export function bindGenerationCore(impl) {
     shouldIncludePersonaInStoryStringImpl = impl?.shouldIncludePersonaInStoryString ?? null;
     shouldAutoSwipeResultImpl = impl?.shouldAutoSwipeResult ?? null;
     showApiErrorImpl = impl?.showApiError ?? null;
+    showStopButtonImpl = impl?.showStopButton ?? null;
     showToolCallErrorImpl = impl?.showToolCallError ?? null;
     showTextGenerationErrorImpl = impl?.showTextGenerationError ?? null;
     swipeRightImpl = impl?.swipeRight ?? null;
@@ -2154,6 +2175,185 @@ export async function finalizeStreamingGeneration({
     return {
         status: 'pending',
     };
+}
+
+export async function executeGenerationRequestFlow({
+    arrMes,
+    beforeScenarioAnchor,
+    canPerformToolCalls,
+    continueMag,
+    countExmAdd,
+    deleteLastMessage,
+    description,
+    finalPrompt,
+    generateData,
+    generateOptions,
+    generatedPromptCache,
+    generationStarted,
+    injectedIndices,
+    isContinue,
+    isImpersonate,
+    jsonSchema,
+    mesExamplesArray,
+    mesExmString,
+    mesSend,
+    mesSendString,
+    oaiMessageExamples,
+    oaiMessages,
+    originalType,
+    persona,
+    personality,
+    pinExmString,
+    promptBias,
+    promptBits,
+    promptReasoning,
+    quietToLoud,
+    scenario,
+    storyString,
+    system,
+    thisMaxContext,
+    type,
+    worldInfoString,
+}) {
+    if (!getConsoleLogPromptsEnabledImpl) {
+        throwUnbound('getConsoleLogPromptsEnabled');
+    }
+    if (!showStopButtonImpl) {
+        throwUnbound('showStopButton');
+    }
+    if (!getAllExtensionPromptsImpl) {
+        throwUnbound('getAllExtensionPrompts');
+    }
+    if (!getPromptMetadataExtrasImpl) {
+        throwUnbound('getPromptMetadataExtras');
+    }
+    if (!getInstructionPromptImpl) {
+        throwUnbound('getInstructionPrompt');
+    }
+    if (!getSelectedPresetNameImpl) {
+        throwUnbound('getSelectedPresetName');
+    }
+    if (!getTokenizerNameImpl) {
+        throwUnbound('getTokenizerName');
+    }
+    if (!shouldIncludePersonaInStoryStringImpl) {
+        throwUnbound('shouldIncludePersonaInStoryString');
+    }
+    if (!isStreamingEnabledImpl) {
+        throwUnbound('isStreamingEnabled');
+    }
+    if (!sendGenerationRequestImpl) {
+        throwUnbound('sendGenerationRequest');
+    }
+    if (!unblockGenerationImpl) {
+        throwUnbound('unblockGeneration');
+    }
+
+    if (getConsoleLogPromptsEnabledImpl()) {
+        console.log(generateData.prompt);
+    }
+
+    console.debug('rungenerate calling API');
+    showStopButtonImpl();
+
+    const promptMetadataExtras = getPromptMetadataExtrasImpl() ?? {};
+    recordGenerationPromptMetadata({
+        allAnchors: await getAllExtensionPromptsImpl(),
+        authorsNoteString: promptMetadataExtras.authorsNoteString ?? '',
+        beforeScenarioAnchor,
+        charDescription: description,
+        charPersonality: personality,
+        chatInjects: injectedIndices?.map((index) => arrMes[arrMes.length - index - 1])?.join('') || '',
+        chatVectorsString: promptMetadataExtras.chatVectorsString ?? '',
+        dataBankVectorsString: promptMetadataExtras.dataBankVectorsString ?? '',
+        examplesCount: main_api !== 'openai' ? (pinExmString ? mesExamplesArray.length : countExmAdd) : oaiMessageExamples.length,
+        examplesString: mesExmString,
+        finalPrompt,
+        generatedPromptCache,
+        instruction: getInstructionPromptImpl(system),
+        itemizedPrompts: generateOptions.itemizedPrompts,
+        mainApi: main_api,
+        mesId: getNextMessageId(type),
+        mesSendString,
+        messagesCount: main_api !== 'openai' ? mesSend.length : oaiMessages.length,
+        padding: generateOptions.tokenPadding,
+        presetName: getSelectedPresetNameImpl() || '',
+        promptBias,
+        promptBits,
+        rawPrompt: generateData.prompt || generateData.input,
+        scenarioText: scenario,
+        smartContextString: promptMetadataExtras.smartContextString ?? '',
+        storyString,
+        summarizeString: promptMetadataExtras.summarizeString ?? '',
+        thisMaxContext,
+        tokenizer: getTokenizerNameImpl() || '',
+        userPersona: shouldIncludePersonaInStoryStringImpl() ? (persona || '') : '',
+        worldInfoString,
+    });
+
+    console.debug(`pushed prompt bits to itemizedPrompts array. Length is now: ${generateOptions.itemizedPrompts.length}`);
+
+    if (isStreamingEnabledImpl() && type !== 'quiet') {
+        const { getMessage, messageChunk } = await executeStreamingGenerationRequest({
+            continueMag,
+            forceName2: generateOptions.force_name2,
+            generateData,
+            generationStarted,
+            isContinue,
+            isImpersonate,
+            promptReasoning,
+            type,
+        });
+
+        const streamResult = await finalizeStreamingGeneration({
+            canPerformToolCalls,
+            deleteLastMessage,
+            dryRun: false,
+            generateOptions,
+            getMessage,
+            isImpersonate,
+            messageChunk,
+            type,
+        });
+
+        if (streamResult.status === 'stop') {
+            unblockGenerationImpl(type);
+            return {
+                status: 'complete',
+                value: undefined,
+            };
+        }
+
+        if (streamResult.status !== 'complete') {
+            return streamResult;
+        }
+
+        return streamResult;
+    }
+
+    const data = await sendGenerationRequestImpl(type, generateData, { jsonSchema });
+    const result = await finalizeGenerationResponse({
+        canPerformToolCalls,
+        continueMag,
+        data,
+        deleteLastMessage,
+        generateOptions,
+        isContinue,
+        isImpersonate,
+        jsonSchema,
+        originalType,
+        quietToLoud,
+        type,
+    });
+
+    if (result.status === 'stop') {
+        return {
+            status: 'complete',
+            value: undefined,
+        };
+    }
+
+    return result;
 }
 
 export async function finalizeGenerationResponse({

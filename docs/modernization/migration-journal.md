@@ -1593,3 +1593,37 @@
 ### Next
 1. Reassess whether the next useful reduction is the remaining `finishGenerating()` request-execution shell or a pivot out of `Generate(...)` into an adjacent monolith-owned helper cluster.
 2. Keep the next move coherent; avoid mixing request dispatch, UI bootstrapping, and unrelated character/chat helpers in one wave.
+
+## 2026-03-08 - Monolith Reduction Wave 34 (Generate Request-Runner Shell)
+
+### Completed
+- Moved the remaining request-runner shell out of `public/script.js` into `public/scripts/generation-core.js` as `executeGenerationRequestFlow(...)`.
+- That extracted helper now owns:
+  - prompt logging and stop-button display
+  - prompt-metadata capture/recording before dispatch
+  - streaming vs non-streaming request branching
+  - streaming kickoff/finalization handoff
+  - non-streaming request dispatch handoff into `finalizeGenerationResponse(...)`
+  - normalization of stop/recurse/complete statuses so `script.js` only keeps explicit recursive re-entry
+- Updated `Generate(...)` in `public/script.js` to:
+  - compute normalized continuation prefix once
+  - delegate request execution to the new core helper
+  - keep only recurse handling plus `Generate(...)` re-entry local
+- Extended `bindGenerationCore(...)` with the small metadata/request-shell callbacks needed for:
+  - prompt logging preference
+  - extension-prompt aggregation
+  - selected preset/tokenizer metadata
+  - stop-button display
+  - prompt-metadata side-channel values
+
+### Measurable Impact
+- Another large orchestration block left the monolith.
+- `Generate(...)` is now primarily a pipeline assembler with explicit recurse boundaries instead of owning request execution details.
+
+### Insights
+- Once both streaming and non-streaming completion branches were core-owned, the remaining request shell became a clean extraction target; doing it earlier would have produced a helper with too many partially migrated branches.
+- Passing a compact `generateOptions` bag through the explicit recurse path is acceptable at this stage because extra fields are ignored by `Generate(...)`, while keeping the re-entry boundary visible and stable.
+
+### Next
+1. Reassess whether `Generate(...)` is now small enough to stop, or whether one more focused pass should lift its remaining orchestration shell into `generation-core`.
+2. If the remaining `Generate(...)` body is no longer a good extraction target, pivot to the next adjacent monolith-owned orchestration cluster instead of forcing another generation-side split.

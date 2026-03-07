@@ -1472,3 +1472,31 @@
 ### Next
 1. Reassess whether the next `Generate(...)` extraction should target the streaming/request-execution branch or pivot back to the earlier world-info/story-string augmentation block.
 2. Keep the next move focused on one remaining side-effect-heavy stage, rather than mixing request execution with prompt augmentation.
+
+## 2026-03-07 - Monolith Reduction Wave 30 (Generate Streaming Kickoff)
+
+### Completed
+- Moved the streaming request kickoff stage out of `public/script.js` into `public/scripts/generation-core.js` as `executeStreamingGenerationRequest(...)`.
+- That extracted block now owns:
+  - streaming processor creation through a bound factory
+  - processor registration/sync through a bound setter
+  - streaming request dispatch
+  - initial streamed message collection
+  - first-pass message chunk cleanup for the streamed result
+- Updated `finishGenerating()` in `public/script.js` to consume the returned streaming kickoff state while keeping tool-call recursion, finish handling, and unblock logic local.
+- Extended `bindGenerationCore(...)` with narrow callbacks for:
+  - streaming processor construction
+  - streaming processor assignment/sync
+  - swipe-button hiding during active streaming
+
+### Measurable Impact
+- Another side-effect-heavy subsection has left the monolith without yet hiding the more delicate tool-call recursion or stream-finalization behavior.
+- `finishGenerating()` is now more concentrated around post-stream branching rather than the initial processor setup.
+
+### Insights
+- The streaming path is safest to extract in layers: kickoff first, then tool-call recursion/finalization after the processor lifecycle is already behind a core boundary.
+- Using a bound setter for `streamingProcessor` preserves the legacy shared state model while still letting the orchestration body shrink.
+
+### Next
+1. Reassess whether the next `Generate(...)` extraction should target the remaining stream finalization/tool-call branch or pivot back to the earlier world-info/story-string augmentation block.
+2. Keep the next move focused on one remaining side-effect-heavy stage with explicit state handoff.

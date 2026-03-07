@@ -56,6 +56,7 @@ let getSelectedGroupImpl = null;
 let getMaxContextSizeImpl = null;
 let hasPendingFileAttachmentImpl = null;
 let hideStopButtonImpl = null;
+let hideSwipeButtonsImpl = null;
 let isStreamingEnabledImpl = null;
 let removeDepthPromptsImpl = null;
 let removeReasoningFromStringImpl = null;
@@ -70,6 +71,7 @@ let extractMultiSwipesImpl = null;
 let extractTitleFromDataImpl = null;
 let extractReasoningFromDataImpl = null;
 let normalizeReasoningTextImpl = null;
+let createStreamingProcessorImpl = null;
 let sendMessageAsUserImpl = null;
 let sendGenerationRequestImpl = null;
 let sendOpenAIRequestImpl = null;
@@ -81,6 +83,7 @@ let setGenerationParamsFromPresetImpl = null;
 let setGenerationProgressImpl = null;
 let setSendButtonStateImpl = null;
 let setInContextMessagesImpl = null;
+let setStreamingProcessorImpl = null;
 let setOpenAIMessageExamplesImpl = null;
 let setOpenAIMessagesImpl = null;
 let trimToEndSentenceImpl = null;
@@ -112,6 +115,7 @@ function throwUnbound(name) {
  *   generateHorde: (...args: any[]) => Promise<any>,
  *   adjustHordeGenerationParams: (...args: any[]) => Promise<any>,
  *   executeSlashCommandsOnChatInput: (...args: any[]) => Promise<any>,
+ *   createStreamingProcessor: (...args: any[]) => any,
  *   getAnimationDuration: () => number,
  *   getCfgPrompt: (...args: any[]) => any,
  *   getCollapseNewlinesEnabled: () => boolean,
@@ -154,6 +158,7 @@ function throwUnbound(name) {
  *   getSelectedGroup: () => string|null|undefined,
  *   hasPendingFileAttachment: () => boolean,
  *   hideStopButton: () => any,
+ *   hideSwipeButtons: () => any,
  *   isStreamingEnabled: (...args: any[]) => boolean,
  *   removeDepthPrompts: (...args: any[]) => any,
  *   removeReasoningFromString: (...args: any[]) => string,
@@ -175,9 +180,10 @@ function throwUnbound(name) {
   *   setExtensionPrompt: (...args: any[]) => any,
  *   setOpenAiMaxTokens: (value: number) => any,
  *   setGenerationParamsFromPreset: (...args: any[]) => void,
-  *   setGenerationProgress: (...args: any[]) => void,
- *   setInContextMessages: (...args: any[]) => any,
+ *   setGenerationProgress: (...args: any[]) => void,
+  *   setInContextMessages: (...args: any[]) => any,
  *   setSendButtonState: (...args: any[]) => any,
+ *   setStreamingProcessor: (...args: any[]) => any,
  *   setOpenAIMessageExamples: (...args: any[]) => any,
  *   setOpenAIMessages: (...args: any[]) => any,
  *   trimToEndSentence: (...args: any[]) => string,
@@ -194,6 +200,7 @@ export function bindGenerationCore(impl) {
     addChatsSeparatorImpl = impl?.addChatsSeparator ?? null;
     collapseNewlinesImpl = impl?.collapseNewlines ?? null;
     createRawPromptImpl = impl?.createRawPrompt ?? null;
+    createStreamingProcessorImpl = impl?.createStreamingProcessor ?? null;
     generateHordeImpl = impl?.generateHorde ?? null;
     executeSlashCommandsOnChatInputImpl = impl?.executeSlashCommandsOnChatInput ?? null;
     deactivateSendButtonsImpl = impl?.deactivateSendButtons ?? null;
@@ -241,6 +248,7 @@ export function bindGenerationCore(impl) {
     getSelectedGroupImpl = impl?.getSelectedGroup ?? null;
     hasPendingFileAttachmentImpl = impl?.hasPendingFileAttachment ?? null;
     hideStopButtonImpl = impl?.hideStopButton ?? null;
+    hideSwipeButtonsImpl = impl?.hideSwipeButtons ?? null;
     isStreamingEnabledImpl = impl?.isStreamingEnabled ?? null;
     removeDepthPromptsImpl = impl?.removeDepthPrompts ?? null;
     removeReasoningFromStringImpl = impl?.removeReasoningFromString ?? null;
@@ -263,6 +271,7 @@ export function bindGenerationCore(impl) {
     setGenerationProgressImpl = impl?.setGenerationProgress ?? null;
     setInContextMessagesImpl = impl?.setInContextMessages ?? null;
     setSendButtonStateImpl = impl?.setSendButtonState ?? null;
+    setStreamingProcessorImpl = impl?.setStreamingProcessor ?? null;
     setOpenAIMessageExamplesImpl = impl?.setOpenAIMessageExamples ?? null;
     setOpenAIMessagesImpl = impl?.setOpenAIMessages ?? null;
     trimToEndSentenceImpl = impl?.trimToEndSentence ?? null;
@@ -1667,6 +1676,59 @@ export function recordGenerationPromptMetadata({
     }
 
     return additionalPromptStuff;
+}
+
+export async function executeStreamingGenerationRequest({
+    continueMag,
+    forceName2,
+    generateData,
+    generationStarted,
+    isContinue,
+    isImpersonate,
+    promptReasoning,
+    type,
+}) {
+    if (!createStreamingProcessorImpl) {
+        throwUnbound('createStreamingProcessor');
+    }
+    if (!setStreamingProcessorImpl) {
+        throwUnbound('setStreamingProcessor');
+    }
+    if (!sendStreamingRequestImpl) {
+        throwUnbound('sendStreamingRequest');
+    }
+    if (!hideSwipeButtonsImpl) {
+        throwUnbound('hideSwipeButtons');
+    }
+
+    const processor = createStreamingProcessorImpl(type, forceName2, generationStarted, continueMag, promptReasoning);
+    setStreamingProcessorImpl(processor);
+
+    if (isContinue) {
+        processor.firstMessageText = '';
+    }
+
+    processor.generator = await sendStreamingRequestImpl(type, generateData);
+
+    hideSwipeButtonsImpl();
+    let getMessage = await processor.generate();
+    const messageChunk = cleanUpMessage({
+        getMessage,
+        isImpersonate,
+        isContinue,
+        displayIncompleteSentences: false,
+    });
+
+    if (isContinue) {
+        getMessage = continueMag + getMessage;
+    }
+
+    return {
+        getMessage,
+        isStreamFinished: processor && !processor.isStopped && processor.isFinished,
+        isStreamWithToolCalls: processor && Array.isArray(processor.toolCalls) && processor.toolCalls.length,
+        messageChunk,
+    };
 }
 
 export function isStreamingEnabled(...args) {

@@ -263,7 +263,7 @@ import { bindCharacterCore, createOrEditCharacter as createOrEditCharacterCore, 
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
 import { addOneMessage as addOneMessageCore, bindChatOperationsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
-import { bindGenerationCore, buildCombinedPrompt as buildCombinedPromptCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, prepareContextPackingState as prepareContextPackingStateCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationData as prepareGenerationDataCore, prepareGenerationMessages as prepareGenerationMessagesCore, prepareGenerationSuccessState as prepareGenerationSuccessStateCore, prepareMessageHistoryState as prepareMessageHistoryStateCore, preparePromptAssemblyState as preparePromptAssemblyStateCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, recordGenerationPromptMetadata as recordGenerationPromptMetadataCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
+import { bindGenerationCore, buildCombinedPrompt as buildCombinedPromptCore, executeStreamingGenerationRequest as executeStreamingGenerationRequestCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, prepareContextPackingState as prepareContextPackingStateCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationData as prepareGenerationDataCore, prepareGenerationMessages as prepareGenerationMessagesCore, prepareGenerationSuccessState as prepareGenerationSuccessStateCore, prepareMessageHistoryState as prepareMessageHistoryStateCore, preparePromptAssemblyState as preparePromptAssemblyStateCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, recordGenerationPromptMetadata as recordGenerationPromptMetadataCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
 import { bindMessageCore, setEditedMessageId as setEditedMessageIdCore, updateMessageBlock as updateMessageBlockCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
@@ -518,6 +518,7 @@ bindGenerationCore({
     addChatsSeparator,
     collapseNewlines,
     createRawPrompt,
+    createStreamingProcessor: (type, forceName2, generationStarted, continueMag, promptReasoning) => new StreamingProcessor(type, forceName2, generationStarted, continueMag, promptReasoning),
     deactivateSendButtons,
     executeSlashCommandsOnChatInput,
     generateHorde,
@@ -590,6 +591,7 @@ bindGenerationCore({
     getAllowWIScan: () => extension_settings.note.allowWIScan,
     hasPendingFileAttachment,
     hideStopButton,
+    hideSwipeButtons,
     isStreamingEnabled,
     extractImageFromData,
     extractMultiSwipes,
@@ -612,6 +614,10 @@ bindGenerationCore({
     setGenerationProgress,
     setInContextMessages,
     setSendButtonState,
+    setStreamingProcessor: (value) => {
+        streamingProcessor = value;
+        syncStreamingProcessor(streamingProcessor);
+    },
     setOpenAIMessageExamples,
     setOpenAIMessages,
     trimToEndSentence,
@@ -3554,30 +3560,22 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
 
         if (isStreamingEnabled() && type !== 'quiet') {
             continue_mag = promptReasoning.removePrefix(continue_mag);
-            streamingProcessor = new StreamingProcessor(type, force_name2, generation_started, continue_mag, promptReasoning);
-            syncStreamingProcessor(streamingProcessor);
-            if (isContinue) {
-                // Save reply does add cycle text to the prompt, so it's not needed here
-                streamingProcessor.firstMessageText = '';
-            }
-
-            streamingProcessor.generator = await sendStreamingRequest(type, generate_data);
-
-            hideSwipeButtons();
-            let getMessage = await streamingProcessor.generate();
-            let messageChunk = cleanUpMessage({
-                getMessage: getMessage,
-                isImpersonate: isImpersonate,
-                isContinue: isContinue,
-                displayIncompleteSentences: false,
+            let {
+                getMessage,
+                isStreamFinished,
+                isStreamWithToolCalls,
+                messageChunk,
+            } = await executeStreamingGenerationRequestCore({
+                continueMag: continue_mag,
+                forceName2: force_name2,
+                generateData: generate_data,
+                generationStarted: generation_started,
+                isContinue,
+                isImpersonate,
+                promptReasoning,
+                type,
             });
 
-            if (isContinue) {
-                getMessage = continue_mag + getMessage;
-            }
-
-            const isStreamFinished = streamingProcessor && !streamingProcessor.isStopped && streamingProcessor.isFinished;
-            const isStreamWithToolCalls = streamingProcessor && Array.isArray(streamingProcessor.toolCalls) && streamingProcessor.toolCalls.length;
             if (canPerformToolCalls && isStreamFinished && isStreamWithToolCalls) {
                 const lastMessage = chat[chat.length - 1];
                 const hasToolCalls = ToolManager.hasToolCalls(streamingProcessor.toolCalls);

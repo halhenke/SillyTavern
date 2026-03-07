@@ -1306,3 +1306,32 @@
 ### Next
 1. Reassess whether the next `Generate(...)` extraction should target prompt augmentation/story-string assembly or the token-fitting/context-packing block that follows history preparation.
 2. Keep the next move centered on a single pipeline stage to avoid mixing extension-prompt concerns with provider-dispatch concerns.
+
+## 2026-03-07 - Monolith Reduction Wave 24 (Generate Context Packing)
+
+### Completed
+- Moved the context-packing stage out of `public/script.js` into `public/scripts/generation-core.js` as `prepareContextPackingState(...)`.
+- That extracted block now owns:
+  - context-window message packing for injected and non-injected chat history
+  - optional user-alignment insertion into packed context
+  - injected-index normalization after packing
+  - in-context message count updates
+  - estimation of how many example messages fit into the remaining context window
+- Updated `Generate(...)` in `public/script.js` to consume the returned packing state instead of owning that inline block.
+- Extended `bindGenerationCore(...)` with narrow callbacks for:
+  - chat preamble/separator formatting
+  - token padding access
+  - pin-examples preference access
+  - in-context message count updates
+
+### Measurable Impact
+- Another full pipeline stage has left the monolith, further shrinking the middle of `Generate(...)`.
+- The remaining monolith-owned generation logic is now more concentrated around prompt-line mutation, final prompt assembly, provider dispatch, and response handling.
+
+### Insights
+- Context packing was a cleaner seam than the remaining world-info/story-string block because it is mostly deterministic once the earlier prompt-augmentation state is already prepared.
+- Returning packed arrays and normalized indices from `generation-core` keeps the migration incremental without leaking more mutable globals across the boundary.
+
+### Next
+1. Reassess whether the next `Generate(...)` extraction should target prompt-line sizing/final prompt assembly or the earlier world-info/story-string augmentation block.
+2. Keep the next move focused on one remaining pipeline stage rather than broadening both prompt augmentation and provider dispatch in the same commit.

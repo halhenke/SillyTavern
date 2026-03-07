@@ -263,7 +263,7 @@ import { bindCharacterCore, createOrEditCharacter as createOrEditCharacterCore, 
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
 import { addOneMessage as addOneMessageCore, bindChatOperationsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
-import { bindGenerationCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationMessages as prepareGenerationMessagesCore, prepareMessageHistoryState as prepareMessageHistoryStateCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
+import { bindGenerationCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, prepareContextPackingState as prepareContextPackingStateCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationMessages as prepareGenerationMessagesCore, prepareMessageHistoryState as prepareMessageHistoryStateCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
 import { bindMessageCore, setEditedMessageId as setEditedMessageIdCore, updateMessageBlock as updateMessageBlockCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
@@ -514,6 +514,8 @@ bindSessionCore({
 bindGenerationCore({
     adjustHordeGenerationParams,
     Generate,
+    addChatsPreamble,
+    addChatsSeparator,
     createRawPrompt,
     deactivateSendButtons,
     executeSlashCommandsOnChatInput,
@@ -563,6 +565,7 @@ bindGenerationCore({
         novelaiSettingNames: novelai_setting_names,
     }),
     getOpenAiMaxTokens: () => oai_settings.openai_max_tokens,
+    getPinExamples: () => power_user.pin_examples,
     getStoppingStrings,
     getOaiSendIfEmpty: () => oai_settings.send_if_empty,
     getSyspromptConfig: () => ({
@@ -575,6 +578,7 @@ bindGenerationCore({
     getMaxContextSize,
     getTokenCount,
     getTokenCountAsync,
+    getTokenPadding: () => power_user.token_padding,
     getTextGenGenerationData,
     getSelectedGroup: () => selected_group,
     getAllowWIScan: () => extension_settings.note.allowWIScan,
@@ -593,6 +597,7 @@ bindGenerationCore({
     setOpenAiMaxTokens: (value) => oai_settings.openai_max_tokens = value,
     setGenerationParamsFromPreset,
     setGenerationProgress,
+    setInContextMessages,
     setSendButtonState,
     setOpenAIMessageExamples,
     setOpenAIMessages,
@@ -3299,126 +3304,26 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
         mesExamplesArray,
     });
 
-    let examplesString = '';
-    let chatString = addChatsPreamble(addChatsSeparator(''));
-    let cyclePrompt = '';
-
-    async function getMessagesTokenCount() {
-        const encodeString = [
-            combinedStoryString,
-            examplesString,
-            userAlignmentMessage,
-            chatString,
-            modifyLastPromptLine(''),
-            cyclePrompt,
-        ].join('').replace(/\r/gm, '');
-        return getTokenCountAsync(encodeString, power_user.token_padding);
-    }
-
-    // Force pinned examples into the context
-    let pinExmString;
-    if (power_user.pin_examples) {
-        pinExmString = examplesString = mesExamplesArray.join('');
-    }
-
-    // Only add the chat in context if past the greeting message
-    if (isContinue && (chat2.length > 1 || main_api === 'openai')) {
-        cyclePrompt = chat2.shift();
-    }
-
-    // Collect enough messages to fill the context
-    let arrMes = new Array(chat2.length);
-    let tokenCount = await getMessagesTokenCount();
-    let lastAddedIndex = -1;
-
-    // Pre-allocate all injections first.
-    // If it doesn't fit - user shot himself in the foot
-    for (const index of injectedIndices) {
-        const item = chat2[index];
-
-        if (typeof item !== 'string') {
-            continue;
-        }
-
-        tokenCount += await getTokenCountAsync(item.replace(/\r/gm, ''));
-        if (tokenCount < this_max_context) {
-            chatString = chatString + item;
-            arrMes[index] = item;
-            lastAddedIndex = Math.max(lastAddedIndex, index);
-        } else {
-            break;
-        }
-    }
-
-    for (let i = 0; i < chat2.length; i++) {
-        // not needed for OAI prompting
-        if (main_api == 'openai') {
-            break;
-        }
-
-        // Skip already injected messages
-        if (arrMes[i] !== undefined) {
-            continue;
-        }
-
-        const item = chat2[i];
-
-        if (typeof item !== 'string') {
-            continue;
-        }
-
-        tokenCount += await getTokenCountAsync(item.replace(/\r/gm, ''));
-        if (tokenCount < this_max_context) {
-            chatString = chatString + item;
-            arrMes[i] = item;
-            lastAddedIndex = Math.max(lastAddedIndex, i);
-        } else {
-            break;
-        }
-    }
-
-    // Add user alignment message if last message is not a user message
-    const stoppedAtUser = userMessageIndices.includes(lastAddedIndex);
-    if (addUserAlignment && !stoppedAtUser) {
-        tokenCount += await getTokenCountAsync(userAlignmentMessage.replace(/\r/gm, ''));
-        chatString = userAlignmentMessage + chatString;
-        arrMes.push(userAlignmentMessage);
-        injectedIndices.push(arrMes.length - 1);
-    }
-
-    // Unsparse the array. Adjust injected indices
-    const newArrMes = [];
-    const newInjectedIndices = [];
-    for (let i = 0; i < arrMes.length; i++) {
-        if (arrMes[i] !== undefined) {
-            newArrMes.push(arrMes[i]);
-            if (injectedIndices.includes(i)) {
-                newInjectedIndices.push(newArrMes.length - 1);
-            }
-        }
-    }
-
-    arrMes = newArrMes;
-    injectedIndices = newInjectedIndices;
-
-    if (main_api !== 'openai') {
-        setInContextMessages(arrMes.length - injectedIndices.length, type);
-    }
-
-    // Estimate how many unpinned example messages fit in the context
-    tokenCount = await getMessagesTokenCount();
-    let count_exm_add = 0;
-    if (!power_user.pin_examples) {
-        for (let example of mesExamplesArray) {
-            tokenCount += await getTokenCountAsync(example.replace(/\r/gm, ''));
-            examplesString += example;
-            if (tokenCount < this_max_context) {
-                count_exm_add++;
-            } else {
-                break;
-            }
-        }
-    }
+    let {
+        arrMes,
+        countExmAdd: count_exm_add,
+        cyclePrompt,
+        injectedIndices: packedInjectedIndices,
+        pinExmString,
+    } = await prepareContextPackingStateCore({
+        addUserAlignment,
+        chat2,
+        combinedStoryString,
+        injectedIndices,
+        isContinue,
+        mesExamplesArray,
+        modifyLastPromptLine,
+        thisMaxContext: this_max_context,
+        type,
+        userAlignmentMessage,
+        userMessageIndices,
+    });
+    injectedIndices = packedInjectedIndices;
 
     let mesSend = [];
     console.debug('calling runGenerate');
@@ -3440,7 +3345,6 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
     let generatedPromptCache = cyclePrompt || '';
     if (generatedPromptCache.length == 0 || type === 'continue') {
         console.debug('generating prompt');
-        chatString = '';
         arrMes = arrMes.reverse();
         arrMes.forEach(function (item, i, arr) {
             // OAI doesn't need all of this
@@ -3804,7 +3708,7 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
             storyString: storyString,
             beforeScenarioAnchor: beforeScenarioAnchor,
             afterScenarioAnchor: afterScenarioAnchor,
-            examplesString: examplesString,
+            examplesString: mesExmString,
             mesSendString: mesSendString,
             generatedPromptCache: generatedPromptCache,
             promptBias: promptBias,

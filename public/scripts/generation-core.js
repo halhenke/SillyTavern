@@ -8,6 +8,8 @@ import { baseChatReplace, extractJsonFromData, extractMessageFromData, getBiasSt
 import { chat } from './chat-operations-core.js';
 
 let generateImpl = null;
+let addChatsPreambleImpl = null;
+let addChatsSeparatorImpl = null;
 let createRawPromptImpl = null;
 let generateHordeImpl = null;
 let getKoboldGenerationDataImpl = null;
@@ -41,6 +43,8 @@ let getTokenCountImpl = null;
 let getTokenCountAsyncImpl = null;
 let getTextGenGenerationDataImpl = null;
 let getUserAlignmentMessageImpl = null;
+let getPinExamplesImpl = null;
+let getTokenPaddingImpl = null;
 let executeSlashCommandsOnChatInputImpl = null;
 let getSelectedGroupImpl = null;
 let getMaxContextSizeImpl = null;
@@ -63,6 +67,7 @@ let setOpenAiMaxTokensImpl = null;
 let setGenerationParamsFromPresetImpl = null;
 let setGenerationProgressImpl = null;
 let setSendButtonStateImpl = null;
+let setInContextMessagesImpl = null;
 let setOpenAIMessageExamplesImpl = null;
 let setOpenAIMessagesImpl = null;
 let trimToEndSentenceImpl = null;
@@ -86,6 +91,8 @@ function throwUnbound(name) {
  * Binds legacy generation implementations to standalone wrappers.
  * @param {{
  *   Generate: (...args: any[]) => Promise<any>,
+ *   addChatsPreamble: (...args: any[]) => string,
+ *   addChatsSeparator: (...args: any[]) => string,
  *   createRawPrompt: (...args: any[]) => string|object[],
  *   generateHorde: (...args: any[]) => Promise<any>,
  *   adjustHordeGenerationParams: (...args: any[]) => Promise<any>,
@@ -116,10 +123,12 @@ function throwUnbound(name) {
  *   getNovelGenerationData: (...args: any[]) => any,
  *   getNovelSettingsConfig: () => { naiSettings?: any, novelaiSettings?: any, novelaiSettingNames?: any },
  *   getOpenAiMaxTokens: () => number,
+ *   getPinExamples: () => boolean,
  *   getGeneratingApiConfig: () => { mainApi?: string, openAiSource?: string, textgenType?: string, textgenOobaType?: string },
- *   getTextareaText: () => string,
- *   getTokenCount: (text: string) => number,
- *   getTokenCountAsync: (...args: any[]) => Promise<number>,
+  *   getTextareaText: () => string,
+  *   getTokenCount: (text: string) => number,
+  *   getTokenCountAsync: (...args: any[]) => Promise<number>,
+ *   getTokenPadding: () => number,
  *   getTextGenGenerationData: (...args: any[]) => Promise<any>,
  *   getUserAlignmentMessage: () => string,
  *   getSelectedGroup: () => string|null|undefined,
@@ -140,7 +149,8 @@ function throwUnbound(name) {
   *   setExtensionPrompt: (...args: any[]) => any,
  *   setOpenAiMaxTokens: (value: number) => any,
  *   setGenerationParamsFromPreset: (...args: any[]) => void,
- *   setGenerationProgress: (...args: any[]) => void,
+  *   setGenerationProgress: (...args: any[]) => void,
+ *   setInContextMessages: (...args: any[]) => any,
  *   setSendButtonState: (...args: any[]) => any,
  *   setOpenAIMessageExamples: (...args: any[]) => any,
  *   setOpenAIMessages: (...args: any[]) => any,
@@ -152,6 +162,8 @@ function throwUnbound(name) {
 export function bindGenerationCore(impl) {
     adjustHordeGenerationParamsImpl = impl?.adjustHordeGenerationParams ?? null;
     generateImpl = impl?.Generate ?? null;
+    addChatsPreambleImpl = impl?.addChatsPreamble ?? null;
+    addChatsSeparatorImpl = impl?.addChatsSeparator ?? null;
     createRawPromptImpl = impl?.createRawPrompt ?? null;
     generateHordeImpl = impl?.generateHorde ?? null;
     executeSlashCommandsOnChatInputImpl = impl?.executeSlashCommandsOnChatInput ?? null;
@@ -184,10 +196,12 @@ export function bindGenerationCore(impl) {
     getNovelGenerationDataImpl = impl?.getNovelGenerationData ?? null;
     getNovelSettingsConfigImpl = impl?.getNovelSettingsConfig ?? null;
     getOpenAiMaxTokensImpl = impl?.getOpenAiMaxTokens ?? null;
+    getPinExamplesImpl = impl?.getPinExamples ?? null;
     getGeneratingApiConfigImpl = impl?.getGeneratingApiConfig ?? null;
     getTextareaTextImpl = impl?.getTextareaText ?? null;
     getTokenCountImpl = impl?.getTokenCount ?? null;
     getTokenCountAsyncImpl = impl?.getTokenCountAsync ?? null;
+    getTokenPaddingImpl = impl?.getTokenPadding ?? null;
     getTextGenGenerationDataImpl = impl?.getTextGenGenerationData ?? null;
     getUserAlignmentMessageImpl = impl?.getUserAlignmentMessage ?? null;
     getSelectedGroupImpl = impl?.getSelectedGroup ?? null;
@@ -206,6 +220,7 @@ export function bindGenerationCore(impl) {
     setOpenAiMaxTokensImpl = impl?.setOpenAiMaxTokens ?? null;
     setGenerationParamsFromPresetImpl = impl?.setGenerationParamsFromPreset ?? null;
     setGenerationProgressImpl = impl?.setGenerationProgress ?? null;
+    setInContextMessagesImpl = impl?.setInContextMessages ?? null;
     setSendButtonStateImpl = impl?.setSendButtonState ?? null;
     setOpenAIMessageExamplesImpl = impl?.setOpenAIMessageExamples ?? null;
     setOpenAIMessagesImpl = impl?.setOpenAIMessages ?? null;
@@ -824,6 +839,158 @@ export function prepareMessageHistoryState({ coreChat, isContinue, isInstruct, m
         oaiMessages,
         userAlignmentMessage,
         userMessageIndices,
+    };
+}
+
+export async function prepareContextPackingState({
+    addUserAlignment,
+    chat2,
+    combinedStoryString,
+    injectedIndices,
+    isContinue,
+    mesExamplesArray,
+    modifyLastPromptLine,
+    thisMaxContext,
+    type,
+    userAlignmentMessage,
+    userMessageIndices,
+}) {
+    if (!addChatsPreambleImpl) {
+        throwUnbound('addChatsPreamble');
+    }
+    if (!addChatsSeparatorImpl) {
+        throwUnbound('addChatsSeparator');
+    }
+    if (!getPinExamplesImpl) {
+        throwUnbound('getPinExamples');
+    }
+    if (!getTokenCountAsyncImpl) {
+        throwUnbound('getTokenCountAsync');
+    }
+    if (!getTokenPaddingImpl) {
+        throwUnbound('getTokenPadding');
+    }
+    if (!setInContextMessagesImpl) {
+        throwUnbound('setInContextMessages');
+    }
+
+    let examplesString = '';
+    let chatString = addChatsPreambleImpl(addChatsSeparatorImpl(''));
+    let cyclePrompt = '';
+
+    const getMessagesTokenCount = async () => {
+        const encodeString = [
+            combinedStoryString,
+            examplesString,
+            userAlignmentMessage,
+            chatString,
+            modifyLastPromptLine(''),
+            cyclePrompt,
+        ].join('').replace(/\r/gm, '');
+        return getTokenCountAsyncImpl(encodeString, getTokenPaddingImpl());
+    };
+
+    let pinExmString;
+    if (getPinExamplesImpl()) {
+        pinExmString = examplesString = mesExamplesArray.join('');
+    }
+
+    if (isContinue && (chat2.length > 1 || main_api === 'openai')) {
+        cyclePrompt = chat2.shift();
+    }
+
+    let arrMes = new Array(chat2.length);
+    let tokenCount = await getMessagesTokenCount();
+    let lastAddedIndex = -1;
+
+    for (const index of injectedIndices) {
+        const item = chat2[index];
+
+        if (typeof item !== 'string') {
+            continue;
+        }
+
+        tokenCount += await getTokenCountAsyncImpl(item.replace(/\r/gm, ''));
+        if (tokenCount < thisMaxContext) {
+            chatString = chatString + item;
+            arrMes[index] = item;
+            lastAddedIndex = Math.max(lastAddedIndex, index);
+        } else {
+            break;
+        }
+    }
+
+    for (let i = 0; i < chat2.length; i++) {
+        if (main_api === 'openai') {
+            break;
+        }
+
+        if (arrMes[i] !== undefined) {
+            continue;
+        }
+
+        const item = chat2[i];
+
+        if (typeof item !== 'string') {
+            continue;
+        }
+
+        tokenCount += await getTokenCountAsyncImpl(item.replace(/\r/gm, ''));
+        if (tokenCount < thisMaxContext) {
+            chatString = chatString + item;
+            arrMes[i] = item;
+            lastAddedIndex = Math.max(lastAddedIndex, i);
+        } else {
+            break;
+        }
+    }
+
+    const stoppedAtUser = userMessageIndices.includes(lastAddedIndex);
+    if (addUserAlignment && !stoppedAtUser) {
+        tokenCount += await getTokenCountAsyncImpl(userAlignmentMessage.replace(/\r/gm, ''));
+        chatString = userAlignmentMessage + chatString;
+        arrMes.push(userAlignmentMessage);
+        injectedIndices.push(arrMes.length - 1);
+    }
+
+    const newArrMes = [];
+    const newInjectedIndices = [];
+    for (let i = 0; i < arrMes.length; i++) {
+        if (arrMes[i] !== undefined) {
+            newArrMes.push(arrMes[i]);
+            if (injectedIndices.includes(i)) {
+                newInjectedIndices.push(newArrMes.length - 1);
+            }
+        }
+    }
+
+    arrMes = newArrMes;
+    injectedIndices = newInjectedIndices;
+
+    if (main_api !== 'openai') {
+        setInContextMessagesImpl(arrMes.length - injectedIndices.length, type);
+    }
+
+    tokenCount = await getMessagesTokenCount();
+    let countExmAdd = 0;
+    if (!getPinExamplesImpl()) {
+        for (const example of mesExamplesArray) {
+            tokenCount += await getTokenCountAsyncImpl(example.replace(/\r/gm, ''));
+            examplesString += example;
+            if (tokenCount < thisMaxContext) {
+                countExmAdd++;
+            } else {
+                break;
+            }
+        }
+    }
+
+    return {
+        arrMes,
+        countExmAdd,
+        cyclePrompt,
+        injectedIndices,
+        pinExmString,
     };
 }
 

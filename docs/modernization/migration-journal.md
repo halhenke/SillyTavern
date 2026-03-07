@@ -1500,3 +1500,35 @@
 ### Next
 1. Reassess whether the next `Generate(...)` extraction should target the remaining stream finalization/tool-call branch or pivot back to the earlier world-info/story-string augmentation block.
 2. Keep the next move focused on one remaining side-effect-heavy stage with explicit state handoff.
+
+## 2026-03-07 - Monolith Reduction Wave 31 (Generate Stream Finalization Branch)
+
+### Completed
+- Moved the post-stream decision tree out of `public/script.js` into `public/scripts/generation-core.js` as `finalizeStreamingGeneration(...)`.
+- That extracted block now owns:
+  - streamed tool-call detection
+  - optional deletion of placeholder streamed messages before tool execution
+  - tool invocation dispatch and stop/recurse decision shaping
+  - streamed completion handoff via `onFinishStreaming(...)`
+  - auto-continue trigger for completed streamed generations
+- Updated `finishGenerating()` in `public/script.js` to consume returned branch status and keep only the remaining local side effects:
+  - unblock on stop
+  - `saveFunctionToolInvocations(...)`
+  - recursive `Generate(...)` re-entry
+- Extended `bindGenerationCore(...)` with narrow callbacks for:
+  - tool-call detection
+  - tool invocation dispatch
+  - tool-call error display
+  - auto-continue triggering
+
+### Measurable Impact
+- Another major side-effect-heavy subsection has left the monolith.
+- The remaining `Generate(...)` body is now much smaller and more concentrated around the earlier prompt augmentation block plus non-streaming success/error flow.
+
+### Insights
+- The streaming path only became safe to extract after kickoff and metadata handling were already outside the monolith; trying to move this branch earlier would have made the boundary too broad.
+- Returning explicit branch statuses (`stop`, `recurse`, `complete`, `pending`) is a better migration pattern than hiding recursive `Generate(...)` calls inside the core layer.
+
+### Next
+1. Reassess whether the next `Generate(...)` extraction should target the earlier world-info/story-string augmentation block or the remaining non-streaming success/error flow.
+2. Keep the next move focused on one remaining pipeline stage with clear side-effect boundaries.

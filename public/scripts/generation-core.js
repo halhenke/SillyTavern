@@ -70,6 +70,8 @@ let extractImageFromDataImpl = null;
 let extractMultiSwipesImpl = null;
 let extractTitleFromDataImpl = null;
 let extractReasoningFromDataImpl = null;
+let hasToolCallsImpl = null;
+let invokeFunctionToolsImpl = null;
 let normalizeReasoningTextImpl = null;
 let createStreamingProcessorImpl = null;
 let sendMessageAsUserImpl = null;
@@ -86,8 +88,10 @@ let setInContextMessagesImpl = null;
 let setStreamingProcessorImpl = null;
 let setOpenAIMessageExamplesImpl = null;
 let setOpenAIMessagesImpl = null;
+let showToolCallErrorImpl = null;
 let trimToEndSentenceImpl = null;
 let triggerContinueImpl = null;
+let triggerAutoContinueImpl = null;
 let adjustHordeGenerationParamsImpl = null;
 let prepareOpenAIMessagesImpl = null;
 let runGenerationInterceptorsImpl = null;
@@ -167,6 +171,8 @@ function throwUnbound(name) {
  *   extractMultiSwipes: (...args: any[]) => any,
  *   extractReasoningFromData: (...args: any[]) => any,
  *   extractTitleFromData: (...args: any[]) => any,
+ *   hasToolCalls: (...args: any[]) => boolean,
+ *   invokeFunctionTools: (...args: any[]) => Promise<any>,
  *   formatMessageHistoryItem: (...args: any[]) => string,
  *   formatInstructModeChat: (...args: any[]) => string,
  *   formatInstructModePrompt: (...args: any[]) => string,
@@ -186,8 +192,10 @@ function throwUnbound(name) {
  *   setStreamingProcessor: (...args: any[]) => any,
  *   setOpenAIMessageExamples: (...args: any[]) => any,
  *   setOpenAIMessages: (...args: any[]) => any,
+ *   showToolCallError: (...args: any[]) => any,
  *   trimToEndSentence: (...args: any[]) => string,
  *   triggerContinue: () => any,
+ *   triggerAutoContinue: (...args: any[]) => any,
  *   normalizeReasoningText: (...args: any[]) => string,
  *   prepareOpenAIMessages: (...args: any[]) => Promise<any>,
  *   runGenerationInterceptors: (...args: any[]) => Promise<boolean>,
@@ -256,6 +264,8 @@ export function bindGenerationCore(impl) {
     extractMultiSwipesImpl = impl?.extractMultiSwipes ?? null;
     extractReasoningFromDataImpl = impl?.extractReasoningFromData ?? null;
     extractTitleFromDataImpl = impl?.extractTitleFromData ?? null;
+    hasToolCallsImpl = impl?.hasToolCalls ?? null;
+    invokeFunctionToolsImpl = impl?.invokeFunctionTools ?? null;
     formatMessageHistoryItemImpl = impl?.formatMessageHistoryItem ?? null;
     formatInstructModeChatImpl = impl?.formatInstructModeChat ?? null;
     formatInstructModePromptImpl = impl?.formatInstructModePrompt ?? null;
@@ -274,8 +284,10 @@ export function bindGenerationCore(impl) {
     setStreamingProcessorImpl = impl?.setStreamingProcessor ?? null;
     setOpenAIMessageExamplesImpl = impl?.setOpenAIMessageExamples ?? null;
     setOpenAIMessagesImpl = impl?.setOpenAIMessages ?? null;
+    showToolCallErrorImpl = impl?.showToolCallError ?? null;
     trimToEndSentenceImpl = impl?.trimToEndSentence ?? null;
     triggerContinueImpl = impl?.triggerContinue ?? null;
+    triggerAutoContinueImpl = impl?.triggerAutoContinue ?? null;
     prepareOpenAIMessagesImpl = impl?.prepareOpenAIMessages ?? null;
     runGenerationInterceptorsImpl = impl?.runGenerationInterceptors ?? null;
 }
@@ -1728,6 +1740,90 @@ export async function executeStreamingGenerationRequest({
         isStreamFinished: processor && !processor.isStopped && processor.isFinished,
         isStreamWithToolCalls: processor && Array.isArray(processor.toolCalls) && processor.toolCalls.length,
         messageChunk,
+    };
+}
+
+export async function finalizeStreamingGeneration({
+    canPerformToolCalls,
+    deleteLastMessage,
+    dryRun,
+    generateOptions,
+    getMessage,
+    isImpersonate,
+    messageChunk,
+    type,
+}) {
+    if (!setStreamingProcessorImpl) {
+        throwUnbound('setStreamingProcessor');
+    }
+    if (!hasToolCallsImpl) {
+        throwUnbound('hasToolCalls');
+    }
+    if (!invokeFunctionToolsImpl) {
+        throwUnbound('invokeFunctionTools');
+    }
+    if (!showToolCallErrorImpl) {
+        throwUnbound('showToolCallError');
+    }
+    if (!triggerAutoContinueImpl) {
+        throwUnbound('triggerAutoContinue');
+    }
+
+    const processor = streamingProcessor;
+    const isStreamFinished = processor && !processor.isStopped && processor.isFinished;
+    const isStreamWithToolCalls = processor && Array.isArray(processor.toolCalls) && processor.toolCalls.length;
+
+    if (canPerformToolCalls && isStreamFinished && isStreamWithToolCalls) {
+        const lastMessage = chat[chat.length - 1];
+        const hasToolCalls = hasToolCallsImpl(processor.toolCalls);
+        const shouldDeleteMessage = type !== 'swipe'
+            && ['', '...'].includes(lastMessage?.mes)
+            && !lastMessage?.extra?.reasoning
+            && ['', '...'].includes(processor?.result);
+
+        if (hasToolCalls && shouldDeleteMessage) {
+            await deleteLastMessage();
+        }
+
+        const invocationResult = await invokeFunctionToolsImpl(processor.toolCalls);
+        const shouldStopGeneration = (!invocationResult.invocations.length && shouldDeleteMessage) || invocationResult.stealthCalls.length;
+
+        if (hasToolCalls) {
+            if (shouldStopGeneration) {
+                if (Array.isArray(invocationResult.errors) && invocationResult.errors.length) {
+                    showToolCallErrorImpl(invocationResult.errors);
+                }
+
+                setStreamingProcessorImpl(null);
+                return {
+                    status: 'stop',
+                };
+            }
+
+            setStreamingProcessorImpl(null);
+            return {
+                generateOptions,
+                invocationResult,
+                status: 'recurse',
+            };
+        }
+    }
+
+    if (isStreamFinished) {
+        await processor.onFinishStreaming(processor.messageId, getMessage);
+        setStreamingProcessorImpl(null);
+        triggerAutoContinueImpl(messageChunk, isImpersonate);
+        return {
+            status: 'complete',
+            value: Object.defineProperties(new String(getMessage), {
+                'messageChunk': { value: messageChunk },
+                'fromStream': { value: true },
+            }),
+        };
+    }
+
+    return {
+        status: 'pending',
     };
 }
 

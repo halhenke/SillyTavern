@@ -263,7 +263,7 @@ import { bindCharacterCore, createOrEditCharacter as createOrEditCharacterCore, 
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
 import { addOneMessage as addOneMessageCore, bindChatOperationsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
-import { bindGenerationCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, prepareContextPackingState as prepareContextPackingStateCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationMessages as prepareGenerationMessagesCore, prepareMessageHistoryState as prepareMessageHistoryStateCore, preparePromptAssemblyState as preparePromptAssemblyStateCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
+import { bindGenerationCore, buildCombinedPrompt as buildCombinedPromptCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, prepareContextPackingState as prepareContextPackingStateCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationMessages as prepareGenerationMessagesCore, prepareMessageHistoryState as prepareMessageHistoryStateCore, preparePromptAssemblyState as preparePromptAssemblyStateCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
 import { bindMessageCore, setEditedMessageId as setEditedMessageIdCore, updateMessageBlock as updateMessageBlockCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
@@ -516,6 +516,7 @@ bindGenerationCore({
     Generate,
     addChatsPreamble,
     addChatsSeparator,
+    collapseNewlines,
     createRawPrompt,
     deactivateSendButtons,
     executeSlashCommandsOnChatInput,
@@ -525,6 +526,7 @@ bindGenerationCore({
     getAutoContinueConfig: () => power_user.auto_continue,
     getCharacterCardFields,
     getCfgPrompt,
+    getCollapseNewlinesEnabled: () => power_user.collapse_newlines,
     getCustomStoppingStrings,
     getDepthPromptId: () => inject_ids.DEPTH_PROMPT,
     getDepthPromptIndexId: (index) => inject_ids.DEPTH_PROMPT_INDEX(index),
@@ -3135,7 +3137,9 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
     let {
         aborted: contextWindowAborted,
         adjustedParams,
+        cfgGuidanceScale,
         thisMaxContext: this_max_context,
+        useCfgPrompt,
     } = await prepareGenerationContextWindowCore({
         coreChat,
         dryRun,
@@ -3379,116 +3383,34 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
 
     // For prompt bit itemization
     let mesSendString = '';
-
-    async function getCombinedPrompt(isNegative) {
-        // Only return if the guidance scale doesn't exist or the value is 1
-        // Also don't return if constructing the neutral prompt
-        if (isNegative && !useCfgPrompt) {
-            return;
-        }
-
-        // OAI has its own prompt manager. No need to do anything here
-        if (main_api === 'openai') {
-            return '';
-        }
-
-        // Deep clone
-        let finalMesSend = structuredClone(mesSend);
-
-        if (useCfgPrompt) {
-            const cfgPrompt = getCfgPrompt(cfgGuidanceScale, isNegative);
-            if (cfgPrompt.value) {
-                if (cfgPrompt.depth === 0) {
-                    finalMesSend[finalMesSend.length - 1].message +=
-                        /\s/.test(finalMesSend[finalMesSend.length - 1].message.slice(-1))
-                            ? cfgPrompt.value
-                            : ` ${cfgPrompt.value}`;
-                } else {
-                    // TODO: Make all extension prompts use an array/splice method
-                    const lengthDiff = mesSend.length - cfgPrompt.depth;
-                    const cfgDepth = lengthDiff >= 0 ? lengthDiff : 0;
-                    const cfgMessage = finalMesSend[cfgDepth];
-                    if (cfgMessage) {
-                        if (!Array.isArray(finalMesSend[cfgDepth].extensionPrompts)) {
-                            finalMesSend[cfgDepth].extensionPrompts = [];
-                        }
-                        finalMesSend[cfgDepth].extensionPrompts.push(`${cfgPrompt.value}\n`);
-                    }
-                }
-            }
-        }
-
-        // Add prompt bias after everything else
-        // Always run with continue
-        if (!isInstruct && !isImpersonate) {
-            if (promptBias.trim().length !== 0) {
-                finalMesSend[finalMesSend.length - 1].message +=
-                    /\s/.test(finalMesSend[finalMesSend.length - 1].message.slice(-1))
-                        ? promptBias.trimStart()
-                        : ` ${promptBias.trimStart()}`;
-            }
-        }
-
-        // Flattens the multiple prompt objects to a string.
-        const combine = () => {
-            // Right now, everything is suffixed with a newline
-            mesSendString = finalMesSend.map((e) => `${e.extensionPrompts.join('')}${e.message}`).join('');
-
-            // add a custom dingus (if defined)
-            mesSendString = addChatsSeparator(mesSendString);
-
-            // add chat preamble
-            mesSendString = addChatsPreamble(mesSendString);
-
-            let combinedPrompt = [
-                combinedStoryString,
-                mesExmString,
-                mesSendString,
-                generatedPromptCache,
-            ].join('').replace(/\r/gm, '');
-
-            if (power_user.collapse_newlines) {
-                combinedPrompt = collapseNewlines(combinedPrompt);
-            }
-
-            return combinedPrompt;
-        };
-
-        finalMesSend.forEach((item, i) => {
-            item.injected = injectedIndices.includes(finalMesSend.length - i - 1);
-        });
-
-        let data = {
-            api: main_api,
-            combinedPrompt: null,
-            description,
-            personality,
-            persona,
-            scenario,
-            char: name2,
-            user: name1,
-            worldInfoBefore,
-            worldInfoAfter,
-            beforeScenarioAnchor,
-            afterScenarioAnchor,
-            storyString,
-            mesExmString,
-            mesSendString,
-            finalMesSend,
-            generatedPromptCache,
-            main: system,
-            jailbreak,
-            naiPreamble: nai_settings.preamble,
-        };
-
-        // Before returning the combined prompt, give available context related information to all subscribers.
-        await eventSource.emit(event_types.GENERATE_BEFORE_COMBINE_PROMPTS, data);
-
-        // If one or multiple subscribers return a value, forfeit the responsibillity of flattening the context.
-        return !data.combinedPrompt ? combine() : data.combinedPrompt;
-    }
-
-    let finalPrompt = await getCombinedPrompt(false);
+    let { combinedPrompt: finalPrompt, mesSendString: builtMesSendString } = await buildCombinedPromptCore({
+        afterScenarioAnchor,
+        beforeScenarioAnchor,
+        cfgGuidanceScale,
+        combinedStoryString,
+        description,
+        generatedPromptCache,
+        injectedIndices,
+        isImpersonate,
+        isInstruct,
+        isNegative: false,
+        jailbreak,
+        mesExmString,
+        mesSend,
+        name: name2,
+        naiPreamble: nai_settings.preamble,
+        persona,
+        personality,
+        promptBias,
+        scenario,
+        storyString,
+        system,
+        useCfgPrompt,
+        user: name1,
+        worldInfoAfter,
+        worldInfoBefore,
+    });
+    mesSendString = builtMesSendString;
 
     const eventData = { prompt: finalPrompt, dryRun: dryRun };
     await eventSource.emit(event_types.GENERATE_AFTER_COMBINE_PROMPTS, eventData);
@@ -3522,7 +3444,38 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
             }
             break;
         case 'textgenerationwebui': {
-            const cfgValues = useCfgPrompt ? { guidanceScale: cfgGuidanceScale, negativePrompt: await getCombinedPrompt(true) } : null;
+            const cfgValues = useCfgPrompt
+                ? {
+                    guidanceScale: cfgGuidanceScale,
+                    negativePrompt: (await buildCombinedPromptCore({
+                        afterScenarioAnchor,
+                        beforeScenarioAnchor,
+                        cfgGuidanceScale,
+                        combinedStoryString,
+                        description,
+                        generatedPromptCache,
+                        injectedIndices,
+                        isImpersonate,
+                        isInstruct,
+                        isNegative: true,
+                        jailbreak,
+                        mesExmString,
+                        mesSend,
+                        name: name2,
+                        naiPreamble: nai_settings.preamble,
+                        persona,
+                        personality,
+                        promptBias,
+                        scenario,
+                        storyString,
+                        system,
+                        useCfgPrompt,
+                        user: name1,
+                        worldInfoAfter,
+                        worldInfoBefore,
+                    })).combinedPrompt,
+                }
+                : null;
             generate_data = await getTextGenGenerationData(finalPrompt, maxLength, isImpersonate, isContinue, cfgValues, type);
             break;
         }

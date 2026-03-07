@@ -10,6 +10,7 @@ import { chat } from './chat-operations-core.js';
 let generateImpl = null;
 let addChatsPreambleImpl = null;
 let addChatsSeparatorImpl = null;
+let collapseNewlinesImpl = null;
 let createRawPromptImpl = null;
 let generateHordeImpl = null;
 let getKoboldGenerationDataImpl = null;
@@ -27,6 +28,7 @@ let getGeneratingApiConfigImpl = null;
 let getGenericSystemMessageTypeImpl = null;
 let getCharacterCardFieldsImpl = null;
 let getCfgPromptImpl = null;
+let getCollapseNewlinesEnabledImpl = null;
 let getDepthPromptIdImpl = null;
 let getDepthPromptIndexIdImpl = null;
 let getExtensionPromptRoleByNameImpl = null;
@@ -96,12 +98,14 @@ function throwUnbound(name) {
  *   Generate: (...args: any[]) => Promise<any>,
  *   addChatsPreamble: (...args: any[]) => string,
  *   addChatsSeparator: (...args: any[]) => string,
+ *   collapseNewlines: (...args: any[]) => string,
  *   createRawPrompt: (...args: any[]) => string|object[],
  *   generateHorde: (...args: any[]) => Promise<any>,
  *   adjustHordeGenerationParams: (...args: any[]) => Promise<any>,
  *   executeSlashCommandsOnChatInput: (...args: any[]) => Promise<any>,
  *   getAnimationDuration: () => number,
  *   getCfgPrompt: (...args: any[]) => any,
+ *   getCollapseNewlinesEnabled: () => boolean,
  *   getCustomStoppingStrings: () => string[],
  *   getCharacterCardFields: (...args: any[]) => any,
  *   getDepthPromptId: () => any,
@@ -170,6 +174,7 @@ export function bindGenerationCore(impl) {
     generateImpl = impl?.Generate ?? null;
     addChatsPreambleImpl = impl?.addChatsPreamble ?? null;
     addChatsSeparatorImpl = impl?.addChatsSeparator ?? null;
+    collapseNewlinesImpl = impl?.collapseNewlines ?? null;
     createRawPromptImpl = impl?.createRawPrompt ?? null;
     generateHordeImpl = impl?.generateHorde ?? null;
     executeSlashCommandsOnChatInputImpl = impl?.executeSlashCommandsOnChatInput ?? null;
@@ -178,6 +183,7 @@ export function bindGenerationCore(impl) {
     getAllowWIScanImpl = impl?.getAllowWIScan ?? null;
     getCharacterCardFieldsImpl = impl?.getCharacterCardFields ?? null;
     getCfgPromptImpl = impl?.getCfgPrompt ?? null;
+    getCollapseNewlinesEnabledImpl = impl?.getCollapseNewlinesEnabled ?? null;
     getCustomStoppingStringsImpl = impl?.getCustomStoppingStrings ?? null;
     getDepthPromptIdImpl = impl?.getDepthPromptId ?? null;
     getDepthPromptIndexIdImpl = impl?.getDepthPromptIndexId ?? null;
@@ -748,7 +754,9 @@ export async function prepareGenerationContextWindow({ coreChat, dryRun, type })
     return {
         aborted: false,
         adjustedParams,
+        cfgGuidanceScale,
         thisMaxContext,
+        useCfgPrompt,
     };
 }
 
@@ -1214,6 +1222,149 @@ export async function preparePromptAssemblyState({
         countExmAdd,
         mesExmString,
         mesSend,
+    };
+}
+
+export async function buildCombinedPrompt({
+    afterScenarioAnchor,
+    beforeScenarioAnchor,
+    combinedStoryString,
+    description,
+    generatedPromptCache,
+    injectedIndices,
+    isImpersonate,
+    isInstruct,
+    jailbreak,
+    mesExmString,
+    mesSend,
+    name,
+    naiPreamble,
+    persona,
+    personality,
+    promptBias,
+    scenario,
+    storyString,
+    system,
+    useCfgPrompt,
+    user,
+    worldInfoAfter,
+    worldInfoBefore,
+    cfgGuidanceScale,
+    isNegative = false,
+}) {
+    if (!getCfgPromptImpl) {
+        throwUnbound('getCfgPrompt');
+    }
+    if (!addChatsSeparatorImpl) {
+        throwUnbound('addChatsSeparator');
+    }
+    if (!addChatsPreambleImpl) {
+        throwUnbound('addChatsPreamble');
+    }
+    if (!getCollapseNewlinesEnabledImpl) {
+        throwUnbound('getCollapseNewlinesEnabled');
+    }
+    if (!collapseNewlinesImpl) {
+        throwUnbound('collapseNewlines');
+    }
+
+    if (isNegative && !useCfgPrompt) {
+        return {
+            combinedPrompt: undefined,
+            mesSendString: '',
+        };
+    }
+
+    if (main_api === 'openai') {
+        return {
+            combinedPrompt: '',
+            mesSendString: '',
+        };
+    }
+
+    let finalMesSend = structuredClone(mesSend);
+
+    if (useCfgPrompt) {
+        const cfgPrompt = getCfgPromptImpl(cfgGuidanceScale, isNegative);
+        if (cfgPrompt.value) {
+            if (cfgPrompt.depth === 0) {
+                finalMesSend[finalMesSend.length - 1].message +=
+                    /\s/.test(finalMesSend[finalMesSend.length - 1].message.slice(-1))
+                        ? cfgPrompt.value
+                        : ` ${cfgPrompt.value}`;
+            } else {
+                const lengthDiff = mesSend.length - cfgPrompt.depth;
+                const cfgDepth = lengthDiff >= 0 ? lengthDiff : 0;
+                const cfgMessage = finalMesSend[cfgDepth];
+                if (cfgMessage) {
+                    if (!Array.isArray(finalMesSend[cfgDepth].extensionPrompts)) {
+                        finalMesSend[cfgDepth].extensionPrompts = [];
+                    }
+                    finalMesSend[cfgDepth].extensionPrompts.push(`${cfgPrompt.value}\n`);
+                }
+            }
+        }
+    }
+
+    if (!isInstruct && !isImpersonate && promptBias.trim().length !== 0) {
+        finalMesSend[finalMesSend.length - 1].message +=
+            /\s/.test(finalMesSend[finalMesSend.length - 1].message.slice(-1))
+                ? promptBias.trimStart()
+                : ` ${promptBias.trimStart()}`;
+    }
+
+    finalMesSend.forEach((item, i) => {
+        item.injected = injectedIndices.includes(finalMesSend.length - i - 1);
+    });
+
+    let mesSendString = finalMesSend.map((e) => `${e.extensionPrompts.join('')}${e.message}`).join('');
+    let data = {
+        afterScenarioAnchor,
+        api: main_api,
+        beforeScenarioAnchor,
+        char: name,
+        combinedPrompt: null,
+        description,
+        finalMesSend,
+        generatedPromptCache,
+        jailbreak,
+        main: system,
+        mesExmString,
+        mesSendString,
+        naiPreamble,
+        persona,
+        personality,
+        scenario,
+        storyString,
+        user,
+        worldInfoAfter,
+        worldInfoBefore,
+    };
+
+    await eventSource.emit(event_types.GENERATE_BEFORE_COMBINE_PROMPTS, data);
+
+    if (!data.combinedPrompt) {
+        mesSendString = finalMesSend.map((e) => `${e.extensionPrompts.join('')}${e.message}`).join('');
+        mesSendString = addChatsSeparatorImpl(mesSendString);
+        mesSendString = addChatsPreambleImpl(mesSendString);
+
+        let combinedPrompt = [
+            combinedStoryString,
+            mesExmString,
+            mesSendString,
+            generatedPromptCache,
+        ].join('').replace(/\r/gm, '');
+
+        if (getCollapseNewlinesEnabledImpl()) {
+            combinedPrompt = collapseNewlinesImpl(combinedPrompt);
+        }
+
+        data.combinedPrompt = combinedPrompt;
+    }
+
+    return {
+        combinedPrompt: data.combinedPrompt,
+        mesSendString,
     };
 }
 

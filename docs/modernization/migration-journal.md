@@ -1362,3 +1362,31 @@
 ### Next
 1. Reassess whether the next `Generate(...)` extraction should target the combined-prompt builder/provider-data setup or pivot back to the earlier world-info/story-string augmentation block.
 2. Keep the next move centered on one remaining pipeline stage with explicit inputs/outputs, rather than widening the callback surface across multiple stages at once.
+
+## 2026-03-07 - Monolith Reduction Wave 26 (Generate Combined-Prompt Builder)
+
+### Completed
+- Moved the combined-prompt flattening stage out of `public/script.js` into `public/scripts/generation-core.js` as `buildCombinedPrompt(...)`.
+- That extracted block now owns:
+  - CFG prompt injection into the assembled prompt payload
+  - prompt-bias application for non-instruct/non-impersonate paths
+  - flattening `mesSend` into a final combined prompt string
+  - `GENERATE_BEFORE_COMBINE_PROMPTS` event emission and prompt override handling
+  - collapse-newlines post-processing for the final flattened prompt
+- Updated `Generate(...)` in `public/script.js` to use the core builder for both the main prompt and the TextGen negative CFG prompt path.
+- Fixed a latent regression from the earlier context-window extraction by restoring `cfgGuidanceScale` and `useCfgPrompt` as explicit returned state from `prepareGenerationContextWindow(...)`.
+- Extended `bindGenerationCore(...)` with narrow callbacks for:
+  - newline collapsing
+  - collapse-newlines preference access
+
+### Measurable Impact
+- Another full `Generate(...)` pipeline stage has left the monolith.
+- The remaining monolith-owned generation logic is now more concentrated around provider payload setup and response handling.
+
+### Insights
+- The combined-prompt builder was a stable seam because it already behaved like a pure transformation with one event-driven override point.
+- Surfacing `cfgGuidanceScale` and `useCfgPrompt` from the earlier helper made the generation pipeline state explicit and avoided relying on hidden locals across extraction boundaries.
+
+### Next
+1. Reassess whether the next `Generate(...)` extraction should target provider payload setup or pivot back to the earlier world-info/story-string augmentation block.
+2. Keep the next move focused on one remaining pipeline stage, with special care around payload builders that still have provider-specific side effects.

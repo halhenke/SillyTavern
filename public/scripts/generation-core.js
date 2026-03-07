@@ -1,10 +1,10 @@
 import { main_api } from './api-core.js';
 import { characters } from './character-core.js';
-import { name1, name2 } from './chat-core.js';
+import { name1, name2, this_chid } from './chat-core.js';
 import { event_types, eventSource } from './events.js';
 import { cleanUpMessage } from './message-core.js';
 import { getRequestHeaders } from './network-core.js';
-import { extractJsonFromData, extractMessageFromData, getBiasStrings, removeMacros } from './parser-core.js';
+import { baseChatReplace, extractJsonFromData, extractMessageFromData, getBiasStrings, removeMacros, substituteParams } from './parser-core.js';
 import { chat } from './chat-operations-core.js';
 
 let generateImpl = null;
@@ -23,9 +23,15 @@ let getAutoContinueConfigImpl = null;
 let getCustomStoppingStringsImpl = null;
 let getGeneratingApiConfigImpl = null;
 let getGenericSystemMessageTypeImpl = null;
+let getCharacterCardFieldsImpl = null;
+let getDepthPromptIdImpl = null;
+let getDepthPromptIndexIdImpl = null;
+let getExtensionPromptRoleByNameImpl = null;
+let getInChatPromptTypeImpl = null;
 let getInstructStoppingSequencesImpl = null;
 let getNamesAsStopStringsImpl = null;
 let getOaiSendIfEmptyImpl = null;
+let getSyspromptConfigImpl = null;
 let getTextareaTextImpl = null;
 let getTokenCountImpl = null;
 let getTextGenGenerationDataImpl = null;
@@ -34,13 +40,17 @@ let getSelectedGroupImpl = null;
 let hasPendingFileAttachmentImpl = null;
 let hideStopButtonImpl = null;
 let isStreamingEnabledImpl = null;
+let removeDepthPromptsImpl = null;
 let removeReasoningFromStringImpl = null;
 let deactivateSendButtonsImpl = null;
+let getGroupDepthPromptsImpl = null;
+let getAllowWIScanImpl = null;
 let sendMessageAsUserImpl = null;
 let sendGenerationRequestImpl = null;
 let sendOpenAIRequestImpl = null;
 let sendSystemMessageImpl = null;
 let sendStreamingRequestImpl = null;
+let setExtensionPromptImpl = null;
 let setOpenAiMaxTokensImpl = null;
 let setGenerationParamsFromPresetImpl = null;
 let setGenerationProgressImpl = null;
@@ -69,6 +79,11 @@ function throwUnbound(name) {
  *   executeSlashCommandsOnChatInput: (...args: any[]) => Promise<any>,
  *   getAnimationDuration: () => number,
  *   getCustomStoppingStrings: () => string[],
+ *   getCharacterCardFields: (...args: any[]) => any,
+ *   getDepthPromptId: () => any,
+ *   getDepthPromptIndexId: (index: number) => any,
+ *   getExtensionPromptRoleByName: (...args: any[]) => any,
+ *   getInChatPromptType: () => number,
  *   getGenericSystemMessageType: () => any,
  *   getKoboldGenerationData: (...args: any[]) => any,
  *   getKoboldSettingsConfig: () => { kaiSettings?: any, kaiFlags?: any, koboldaiSettings?: any, koboldaiSettingNames?: any },
@@ -79,6 +94,7 @@ function throwUnbound(name) {
  *   getInstructStoppingSequences: () => string[],
  *   getNamesAsStopStrings: () => boolean,
  *   getOaiSendIfEmpty: () => string,
+ *   getSyspromptConfig: () => { enabled?: boolean, preferCharacterPrompt?: boolean, content?: string },
  *   getNovelGenerationData: (...args: any[]) => any,
  *   getNovelSettingsConfig: () => { naiSettings?: any, novelaiSettings?: any, novelaiSettingNames?: any },
  *   getOpenAiMaxTokens: () => number,
@@ -90,13 +106,17 @@ function throwUnbound(name) {
  *   hasPendingFileAttachment: () => boolean,
  *   hideStopButton: () => any,
  *   isStreamingEnabled: (...args: any[]) => boolean,
+ *   removeDepthPrompts: (...args: any[]) => any,
  *   removeReasoningFromString: (...args: any[]) => string,
  *   deactivateSendButtons: () => any,
+ *   getGroupDepthPrompts: (...args: any[]) => any[],
+ *   getAllowWIScan: () => boolean,
  *   sendMessageAsUser: (...args: any[]) => Promise<any>,
  *   sendGenerationRequest: (...args: any[]) => Promise<any>,
  *   sendOpenAIRequest: (...args: any[]) => Promise<any>,
  *   sendSystemMessage: (...args: any[]) => any,
  *   sendStreamingRequest: (...args: any[]) => Promise<any>,
+ *   setExtensionPrompt: (...args: any[]) => any,
  *   setOpenAiMaxTokens: (value: number) => any,
  *   setGenerationParamsFromPreset: (...args: any[]) => void,
  *   setGenerationProgress: (...args: any[]) => void,
@@ -112,8 +132,15 @@ export function bindGenerationCore(impl) {
     executeSlashCommandsOnChatInputImpl = impl?.executeSlashCommandsOnChatInput ?? null;
     deactivateSendButtonsImpl = impl?.deactivateSendButtons ?? null;
     getAnimationDurationImpl = impl?.getAnimationDuration ?? null;
+    getAllowWIScanImpl = impl?.getAllowWIScan ?? null;
+    getCharacterCardFieldsImpl = impl?.getCharacterCardFields ?? null;
     getCustomStoppingStringsImpl = impl?.getCustomStoppingStrings ?? null;
+    getDepthPromptIdImpl = impl?.getDepthPromptId ?? null;
+    getDepthPromptIndexIdImpl = impl?.getDepthPromptIndexId ?? null;
+    getExtensionPromptRoleByNameImpl = impl?.getExtensionPromptRoleByName ?? null;
+    getInChatPromptTypeImpl = impl?.getInChatPromptType ?? null;
     getGenericSystemMessageTypeImpl = impl?.getGenericSystemMessageType ?? null;
+    getGroupDepthPromptsImpl = impl?.getGroupDepthPrompts ?? null;
     getKoboldGenerationDataImpl = impl?.getKoboldGenerationData ?? null;
     getKoboldSettingsConfigImpl = impl?.getKoboldSettingsConfig ?? null;
     getAbortControllerImpl = impl?.getAbortController ?? null;
@@ -123,6 +150,7 @@ export function bindGenerationCore(impl) {
     getInstructStoppingSequencesImpl = impl?.getInstructStoppingSequences ?? null;
     getNamesAsStopStringsImpl = impl?.getNamesAsStopStrings ?? null;
     getOaiSendIfEmptyImpl = impl?.getOaiSendIfEmpty ?? null;
+    getSyspromptConfigImpl = impl?.getSyspromptConfig ?? null;
     getNovelGenerationDataImpl = impl?.getNovelGenerationData ?? null;
     getNovelSettingsConfigImpl = impl?.getNovelSettingsConfig ?? null;
     getOpenAiMaxTokensImpl = impl?.getOpenAiMaxTokens ?? null;
@@ -134,12 +162,14 @@ export function bindGenerationCore(impl) {
     hasPendingFileAttachmentImpl = impl?.hasPendingFileAttachment ?? null;
     hideStopButtonImpl = impl?.hideStopButton ?? null;
     isStreamingEnabledImpl = impl?.isStreamingEnabled ?? null;
+    removeDepthPromptsImpl = impl?.removeDepthPrompts ?? null;
     removeReasoningFromStringImpl = impl?.removeReasoningFromString ?? null;
     sendMessageAsUserImpl = impl?.sendMessageAsUser ?? null;
     sendGenerationRequestImpl = impl?.sendGenerationRequest ?? null;
     sendOpenAIRequestImpl = impl?.sendOpenAIRequest ?? null;
     sendSystemMessageImpl = impl?.sendSystemMessage ?? null;
     sendStreamingRequestImpl = impl?.sendStreamingRequest ?? null;
+    setExtensionPromptImpl = impl?.setExtensionPrompt ?? null;
     setOpenAiMaxTokensImpl = impl?.setOpenAiMaxTokens ?? null;
     setGenerationParamsFromPresetImpl = impl?.setGenerationParamsFromPreset ?? null;
     setGenerationProgressImpl = impl?.setGenerationProgress ?? null;
@@ -490,6 +520,99 @@ export async function prepareGenerationMessages({ type, dryRun, isImpersonate, a
         messageBias,
         promptBias,
         textareaText,
+    };
+}
+
+export function preparePromptContextState({ isInstruct }) {
+    if (!getCharacterCardFieldsImpl) {
+        throwUnbound('getCharacterCardFields');
+    }
+    if (!getSyspromptConfigImpl) {
+        throwUnbound('getSyspromptConfig');
+    }
+    if (!removeDepthPromptsImpl) {
+        throwUnbound('removeDepthPrompts');
+    }
+    if (!getGroupDepthPromptsImpl) {
+        throwUnbound('getGroupDepthPrompts');
+    }
+    if (!getExtensionPromptRoleByNameImpl) {
+        throwUnbound('getExtensionPromptRoleByName');
+    }
+    if (!setExtensionPromptImpl) {
+        throwUnbound('setExtensionPrompt');
+    }
+    if (!getDepthPromptIdImpl) {
+        throwUnbound('getDepthPromptId');
+    }
+    if (!getDepthPromptIndexIdImpl) {
+        throwUnbound('getDepthPromptIndexId');
+    }
+    if (!getAllowWIScanImpl) {
+        throwUnbound('getAllowWIScan');
+    }
+    if (!getSelectedGroupImpl) {
+        throwUnbound('getSelectedGroup');
+    }
+    if (!getInChatPromptTypeImpl) {
+        throwUnbound('getInChatPromptType');
+    }
+
+    let {
+        description,
+        personality,
+        persona,
+        scenario,
+        mesExamples,
+        system,
+        jailbreak,
+        charDepthPrompt,
+        creatorNotes,
+    } = getCharacterCardFieldsImpl();
+
+    if (main_api !== 'openai') {
+        const sysprompt = getSyspromptConfigImpl() ?? {};
+        if (sysprompt.enabled) {
+            system = sysprompt.preferCharacterPrompt && system
+                ? substituteParams(system, name1, name2, (sysprompt.content ?? ''))
+                : baseChatReplace(sysprompt.content, name1, name2);
+            system = isInstruct ? substituteParams(system, name1, name2, sysprompt.content) : system;
+        } else {
+            system = '';
+        }
+    }
+
+    removeDepthPromptsImpl();
+    const selectedGroup = getSelectedGroupImpl();
+    const groupDepthPrompts = getGroupDepthPromptsImpl(selectedGroup, Number(this_chid));
+    const inChatPromptType = getInChatPromptTypeImpl();
+
+    if (selectedGroup && Array.isArray(groupDepthPrompts) && groupDepthPrompts.length > 0) {
+        groupDepthPrompts.forEach((value, index) => {
+            const role = getExtensionPromptRoleByNameImpl(value.role);
+            setExtensionPromptImpl(getDepthPromptIndexIdImpl(index), value.text, inChatPromptType, value.depth, getAllowWIScanImpl(), role);
+        });
+    } else {
+        const depthPromptText = charDepthPrompt || '';
+        const depthPromptDepth = characters[this_chid]?.data?.extensions?.depth_prompt?.depth ?? depth_prompt_depth_default;
+        const depthPromptRole = getExtensionPromptRoleByNameImpl(characters[this_chid]?.data?.extensions?.depth_prompt?.role ?? depth_prompt_role_default);
+        setExtensionPromptImpl(getDepthPromptIdImpl(), depthPromptText, inChatPromptType, depthPromptDepth, getAllowWIScanImpl(), depthPromptRole);
+    }
+
+    if (chat.length) {
+        chat[0].mes = substituteParams(chat[0].mes);
+    }
+
+    return {
+        charDepthPrompt,
+        creatorNotes,
+        description,
+        jailbreak,
+        mesExamples,
+        personality,
+        persona,
+        scenario,
+        system,
     };
 }
 

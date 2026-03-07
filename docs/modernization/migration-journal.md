@@ -1220,3 +1220,32 @@
 ### Next
 1. Reassess whether the next `Generate(...)` move should target prompt-assembly setup or provider-response handling.
 2. Keep the next wave centered on one coherent orchestration segment rather than another set of tiny helpers.
+
+## 2026-03-07 - Monolith Reduction Wave 21 (Generate Prompt-Context Setup)
+
+### Completed
+- Moved the prompt-context setup segment out of `public/script.js` into `public/scripts/generation-core.js` as `preparePromptContextState(...)`.
+- That extracted block now owns:
+  - character-card field capture for generation
+  - sysprompt shaping for non-OpenAI generation
+  - depth-prompt reset and reinjection
+  - first-message parameter substitution refresh for fresh 1-on-1 chats
+- Updated `Generate(...)` in `public/script.js` to consume the returned prompt-context state instead of owning that inline block.
+- Extended `bindGenerationCore(...)` with narrow callbacks for:
+  - sysprompt config access
+  - depth-prompt id/type helpers
+  - extension-prompt injection
+  - group depth prompt lookup
+  - world-info scan flag access
+
+### Measurable Impact
+- Another coherent orchestration segment has left the monolith, further shrinking the setup phase at the start of `Generate(...)`.
+- Prompt-context preparation is now core-owned, leaving the remaining `Generate(...)` body more focused on prompt assembly, provider dispatch, and response handling.
+
+### Insights
+- Prompt assembly is still too coupled to move wholesale, but the prompt-context setup at its front edge is a good extraction seam because it can return a compact state bundle while keeping the legacy runtime behind callback bindings.
+- Extension-prompt interactions are safest to migrate by passing typed ids/config through bindings instead of importing more UI/runtime constants directly into the core layer.
+
+### Next
+1. Reassess whether the next `Generate(...)` move should target prompt-assembly construction or provider-response handling.
+2. Keep generation extraction centered on contiguous orchestration segments rather than broad partially-owned moves.

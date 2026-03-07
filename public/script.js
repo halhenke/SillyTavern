@@ -263,7 +263,7 @@ import { bindCharacterCore, createOrEditCharacter as createOrEditCharacterCore, 
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
 import { addOneMessage as addOneMessageCore, bindChatOperationsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
-import { bindGenerationCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, prepareGenerationMessages as prepareGenerationMessagesCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
+import { bindGenerationCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, prepareGenerationMessages as prepareGenerationMessagesCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
 import { bindMessageCore, setEditedMessageId as setEditedMessageIdCore, updateMessageBlock as updateMessageBlockCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
@@ -520,10 +520,16 @@ bindGenerationCore({
     getAnimationDuration: () => animation_duration,
     getAbortController: () => abortController,
     getAutoContinueConfig: () => power_user.auto_continue,
+    getCharacterCardFields,
     getCustomStoppingStrings,
+    getDepthPromptId: () => inject_ids.DEPTH_PROMPT,
+    getDepthPromptIndexId: (index) => inject_ids.DEPTH_PROMPT_INDEX(index),
+    getExtensionPromptRoleByName,
     getGenericSystemMessageType: () => system_message_types.GENERIC,
     getGenerateUrl,
     getGroups: () => groups,
+    getGroupDepthPrompts,
+    getInChatPromptType: () => extension_prompt_types.IN_CHAT,
     getInstructStoppingSequences,
     getKoboldGenerationData,
     getKoboldSettingsConfig: () => ({
@@ -548,19 +554,27 @@ bindGenerationCore({
     getOpenAiMaxTokens: () => oai_settings.openai_max_tokens,
     getStoppingStrings,
     getOaiSendIfEmpty: () => oai_settings.send_if_empty,
+    getSyspromptConfig: () => ({
+        enabled: power_user.sysprompt.enabled,
+        preferCharacterPrompt: power_user.prefer_character_prompt,
+        content: power_user.sysprompt.content ?? '',
+    }),
     getTextareaText: () => String($('#send_textarea').val()),
     getTokenCount,
     getTextGenGenerationData,
     getSelectedGroup: () => selected_group,
+    getAllowWIScan: () => extension_settings.note.allowWIScan,
     hasPendingFileAttachment,
     hideStopButton,
     isStreamingEnabled,
+    removeDepthPrompts,
     removeReasoningFromString,
     sendMessageAsUser,
     sendGenerationRequest,
     sendOpenAIRequest,
     sendSystemMessage,
     sendStreamingRequest,
+    setExtensionPrompt,
     setOpenAiMaxTokens: (value) => oai_settings.openai_max_tokens = value,
     setGenerationParamsFromPreset,
     setGenerationProgress,
@@ -3041,40 +3055,7 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
         jailbreak,
         charDepthPrompt,
         creatorNotes,
-    } = getCharacterCardFields();
-
-    if (main_api !== 'openai') {
-        if (power_user.sysprompt.enabled) {
-            system = power_user.prefer_character_prompt && system
-                ? substituteParams(system, name1, name2, (power_user.sysprompt.content ?? ''))
-                : baseChatReplace(power_user.sysprompt.content, name1, name2);
-            system = isInstruct ? substituteParams(system, name1, name2, power_user.sysprompt.content) : system;
-        } else {
-            // Nullify if it's not enabled
-            system = '';
-        }
-    }
-
-    // Depth prompt (character-specific A/N)
-    removeDepthPrompts();
-    const groupDepthPrompts = getGroupDepthPrompts(selected_group, Number(this_chid));
-
-    if (selected_group && Array.isArray(groupDepthPrompts) && groupDepthPrompts.length > 0) {
-        groupDepthPrompts.forEach((value, index) => {
-            const role = getExtensionPromptRoleByName(value.role);
-            setExtensionPrompt(inject_ids.DEPTH_PROMPT_INDEX(index), value.text, extension_prompt_types.IN_CHAT, value.depth, extension_settings.note.allowWIScan, role);
-        });
-    } else {
-        const depthPromptText = charDepthPrompt || '';
-        const depthPromptDepth = characters[this_chid]?.data?.extensions?.depth_prompt?.depth ?? depth_prompt_depth_default;
-        const depthPromptRole = getExtensionPromptRoleByName(characters[this_chid]?.data?.extensions?.depth_prompt?.role ?? depth_prompt_role_default);
-        setExtensionPrompt(inject_ids.DEPTH_PROMPT, depthPromptText, extension_prompt_types.IN_CHAT, depthPromptDepth, extension_settings.note.allowWIScan, depthPromptRole);
-    }
-
-    // First message in fresh 1-on-1 chat reacts to user/character settings changes
-    if (chat.length) {
-        chat[0].mes = substituteParams(chat[0].mes);
-    }
+    } = preparePromptContextStateCore({ isInstruct });
 
     // Collect messages with usable content
     const canUseTools = ToolManager.isToolCallingSupported();

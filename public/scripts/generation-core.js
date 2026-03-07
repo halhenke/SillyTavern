@@ -1592,6 +1592,83 @@ export function prepareGenerationSuccessState({
     };
 }
 
+export function recordGenerationPromptMetadata({
+    allAnchors,
+    authorsNoteString = '',
+    beforeScenarioAnchor = '',
+    charDescription = '',
+    charPersonality = '',
+    chatInjects = '',
+    chatVectorsString = '',
+    dataBankVectorsString = '',
+    examplesCount = 0,
+    examplesString = '',
+    finalPrompt = '',
+    generatedPromptCache = '',
+    instruction = '',
+    itemizedPrompts,
+    mainApi = '',
+    mesId,
+    mesSendString = '',
+    messagesCount = 0,
+    padding = 0,
+    presetName = '',
+    promptBias = '',
+    promptBits = [],
+    rawPrompt = '',
+    scenarioText = '',
+    smartContextString = '',
+    storyString = '',
+    summarizeString = '',
+    thisMaxContext = 0,
+    tokenizer = '',
+    userPersona = '',
+    worldInfoString = '',
+}) {
+    const currentArrayEntry = Number(promptBits.length - 1);
+    const additionalPromptStuff = {
+        ...promptBits[currentArrayEntry],
+        allAnchors,
+        authorsNoteString,
+        beforeScenarioAnchor,
+        charDescription,
+        charPersonality,
+        chatInjects,
+        chatVectorsString,
+        dataBankVectorsString,
+        examplesCount,
+        examplesString,
+        finalPrompt,
+        generatedPromptCache,
+        instruction,
+        main_api: mainApi,
+        mesId,
+        mesSendString,
+        messagesCount,
+        padding,
+        presetName,
+        promptBias,
+        rawPrompt,
+        scenarioText,
+        smartContextString,
+        storyString,
+        summarizeString,
+        this_max_context: thisMaxContext,
+        tokenizer,
+        userPersona,
+        worldInfoString,
+    };
+
+    const itemizedIndex = itemizedPrompts.findIndex((item) => item.mesId === additionalPromptStuff.mesId);
+    if (itemizedIndex !== -1) {
+        itemizedPrompts[itemizedIndex] = additionalPromptStuff;
+    } else {
+        itemizedPrompts.push(additionalPromptStuff);
+    }
+
+    return additionalPromptStuff;
+}
+
 export function isStreamingEnabled(...args) {
     if (!isStreamingEnabledImpl) {
         throwUnbound('isStreamingEnabled');

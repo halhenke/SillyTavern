@@ -1451,3 +1451,24 @@
 ### Next
 1. Reassess whether the next `Generate(...)` extraction should target the streaming/request-finalization branch or pivot back to the earlier world-info/story-string augmentation block.
 2. Keep the next move focused on one remaining pipeline stage, with special care around side-effect-heavy branches.
+
+## 2026-03-07 - Monolith Reduction Wave 29 (Generate Request Metadata Recording)
+
+### Completed
+- Moved the deterministic prompt-metadata recording step out of `public/script.js` into `public/scripts/generation-core.js` as `recordGenerationPromptMetadata(...)`.
+- That extracted block now owns:
+  - prompt metadata object construction for itemized prompt inspection
+  - replacement/append behavior for the target prompt-metadata entry by `mesId`
+- Updated `finishGenerating()` in `public/script.js` to delegate metadata construction/recording while keeping request execution and UI side effects local.
+
+### Measurable Impact
+- Another deterministic slice has left the monolith from the request-finalization path.
+- The remaining `finishGenerating()` logic is now more concentrated around request execution, streaming orchestration, and tool-call branching.
+
+### Insights
+- The request-finalization branch still has several heavy side effects, so it continues to make sense to peel off deterministic metadata/state preparation before attempting a broader execution move.
+- Keeping itemized prompt recording in `generation-core` is useful even though the slice is smaller, because it reduces monolith-local bookkeeping without introducing more runtime coupling.
+
+### Next
+1. Reassess whether the next `Generate(...)` extraction should target the streaming/request-execution branch or pivot back to the earlier world-info/story-string augmentation block.
+2. Keep the next move focused on one remaining side-effect-heavy stage, rather than mixing request execution with prompt augmentation.

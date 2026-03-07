@@ -32,6 +32,7 @@ let getCollapseNewlinesEnabledImpl = null;
 let getDepthPromptIdImpl = null;
 let getDepthPromptIndexIdImpl = null;
 let getExtensionPromptRoleByNameImpl = null;
+let getTrimSpacesEnabledImpl = null;
 let getInChatPromptTypeImpl = null;
 let getInstructStoppingSequencesImpl = null;
 let getInstructWrapImpl = null;
@@ -64,6 +65,11 @@ let formatInstructModeChatImpl = null;
 let formatInstructModePromptImpl = null;
 let getGroupDepthPromptsImpl = null;
 let getAllowWIScanImpl = null;
+let extractImageFromDataImpl = null;
+let extractMultiSwipesImpl = null;
+let extractTitleFromDataImpl = null;
+let extractReasoningFromDataImpl = null;
+let normalizeReasoningTextImpl = null;
 let sendMessageAsUserImpl = null;
 let sendGenerationRequestImpl = null;
 let sendOpenAIRequestImpl = null;
@@ -115,7 +121,8 @@ function throwUnbound(name) {
  *   getDepthPromptIndexId: (index: number) => any,
  *   getExtensionPromptRoleByName: (...args: any[]) => any,
  *   getForceOutputSequences: () => { first?: any, last?: any },
-  *   getInChatPromptType: () => number,
+ *   getTrimSpacesEnabled: () => boolean,
+ *   getInChatPromptType: () => number,
  *   getInstructWrap: () => boolean,
  *   getGenericSystemMessageType: () => any,
  *   getKoboldGenerationData: (...args: any[]) => any,
@@ -151,6 +158,10 @@ function throwUnbound(name) {
  *   removeDepthPrompts: (...args: any[]) => any,
  *   removeReasoningFromString: (...args: any[]) => string,
  *   deactivateSendButtons: () => any,
+ *   extractImageFromData: (...args: any[]) => any,
+ *   extractMultiSwipes: (...args: any[]) => any,
+ *   extractReasoningFromData: (...args: any[]) => any,
+ *   extractTitleFromData: (...args: any[]) => any,
  *   formatMessageHistoryItem: (...args: any[]) => string,
  *   formatInstructModeChat: (...args: any[]) => string,
  *   formatInstructModePrompt: (...args: any[]) => string,
@@ -171,6 +182,7 @@ function throwUnbound(name) {
  *   setOpenAIMessages: (...args: any[]) => any,
  *   trimToEndSentence: (...args: any[]) => string,
  *   triggerContinue: () => any,
+ *   normalizeReasoningText: (...args: any[]) => string,
  *   prepareOpenAIMessages: (...args: any[]) => Promise<any>,
  *   runGenerationInterceptors: (...args: any[]) => Promise<boolean>,
  * }} impl Implementations to bind
@@ -195,6 +207,7 @@ export function bindGenerationCore(impl) {
     getDepthPromptIndexIdImpl = impl?.getDepthPromptIndexId ?? null;
     getExtensionPromptRoleByNameImpl = impl?.getExtensionPromptRoleByName ?? null;
     getForceOutputSequencesImpl = impl?.getForceOutputSequences ?? null;
+    getTrimSpacesEnabledImpl = impl?.getTrimSpacesEnabled ?? null;
     getInChatPromptTypeImpl = impl?.getInChatPromptType ?? null;
     getInstructWrapImpl = impl?.getInstructWrap ?? null;
     getGenericSystemMessageTypeImpl = impl?.getGenericSystemMessageType ?? null;
@@ -231,9 +244,14 @@ export function bindGenerationCore(impl) {
     isStreamingEnabledImpl = impl?.isStreamingEnabled ?? null;
     removeDepthPromptsImpl = impl?.removeDepthPrompts ?? null;
     removeReasoningFromStringImpl = impl?.removeReasoningFromString ?? null;
+    extractImageFromDataImpl = impl?.extractImageFromData ?? null;
+    extractMultiSwipesImpl = impl?.extractMultiSwipes ?? null;
+    extractReasoningFromDataImpl = impl?.extractReasoningFromData ?? null;
+    extractTitleFromDataImpl = impl?.extractTitleFromData ?? null;
     formatMessageHistoryItemImpl = impl?.formatMessageHistoryItem ?? null;
     formatInstructModeChatImpl = impl?.formatInstructModeChat ?? null;
     formatInstructModePromptImpl = impl?.formatInstructModePrompt ?? null;
+    normalizeReasoningTextImpl = impl?.normalizeReasoningText ?? null;
     sendMessageAsUserImpl = impl?.sendMessageAsUser ?? null;
     sendGenerationRequestImpl = impl?.sendGenerationRequest ?? null;
     sendOpenAIRequestImpl = impl?.sendOpenAIRequest ?? null;
@@ -1504,6 +1522,73 @@ export async function prepareGenerationData({
         maxLength,
         openAiCounts,
         openAiMessageCount,
+    };
+}
+
+export function prepareGenerationSuccessState({
+    continuePrefix = '',
+    data,
+    isContinue,
+    isImpersonate,
+    quietToLoud,
+    type,
+}) {
+    if (!extractTitleFromDataImpl) {
+        throwUnbound('extractTitleFromData');
+    }
+    if (!extractReasoningFromDataImpl) {
+        throwUnbound('extractReasoningFromData');
+    }
+    if (!extractImageFromDataImpl) {
+        throwUnbound('extractImageFromData');
+    }
+    if (!extractMultiSwipesImpl) {
+        throwUnbound('extractMultiSwipes');
+    }
+    if (!normalizeReasoningTextImpl) {
+        throwUnbound('normalizeReasoningText');
+    }
+    if (!getTrimSpacesEnabledImpl) {
+        throwUnbound('getTrimSpacesEnabled');
+    }
+
+    let getMessage = extractMessageFromData(data);
+    const title = extractTitleFromDataImpl(data);
+    let reasoning = extractReasoningFromDataImpl(data);
+    const imageUrl = extractImageFromDataImpl(data);
+    const swipes = extractMultiSwipesImpl(data, type);
+
+    const messageChunk = cleanUpMessage({
+        getMessage,
+        isImpersonate,
+        isContinue,
+        displayIncompleteSentences: false,
+    });
+
+    reasoning = normalizeReasoningTextImpl(reasoning);
+    if (getTrimSpacesEnabledImpl()) {
+        reasoning = reasoning.trim();
+    }
+
+    if (isContinue) {
+        getMessage = continuePrefix + getMessage;
+    }
+
+    const displayIncomplete = type === 'quiet' && !quietToLoud;
+    getMessage = cleanUpMessage({
+        getMessage,
+        isImpersonate,
+        isContinue,
+        displayIncompleteSentences: displayIncomplete,
+    });
+
+    return {
+        getMessage,
+        imageUrl,
+        messageChunk,
+        reasoning,
+        swipes,
+        title,
     };
 }
 

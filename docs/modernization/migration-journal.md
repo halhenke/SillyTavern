@@ -1420,3 +1420,34 @@
 ### Next
 1. Reassess whether the next `Generate(...)` extraction should target the earlier world-info/story-string augmentation block or the later response-handling path.
 2. Keep the next move focused on one remaining pipeline stage, with special care around extension prompt mutations and streaming/non-streaming branching.
+
+## 2026-03-07 - Monolith Reduction Wave 28 (Generate Success-State Preparation)
+
+### Completed
+- Moved the parsed-response success-state preparation stage out of `public/script.js` into `public/scripts/generation-core.js` as `prepareGenerationSuccessState(...)`.
+- That extracted block now owns:
+  - response field extraction for title/reasoning/image/swipes
+  - primary message cleanup for chunk detection
+  - reasoning normalization and trim handling
+  - continuation-prefix application to the returned message
+  - final quiet/non-quiet display cleanup
+- Updated `onSuccess(...)` in `public/script.js` to consume the returned success state while keeping save/tool/UI side effects local:
+  - `saveReply(...)`
+  - tool-call invocation and recursion
+  - sound, auto-swipe, chat save, and unblock logic
+- Extended `bindGenerationCore(...)` with narrow callbacks for:
+  - title/image/reasoning/swipe extraction
+  - trim-spaces preference access
+  - reasoning text normalization
+
+### Measurable Impact
+- Another response-side stage has left the monolith.
+- The remaining monolith-owned generation logic is now increasingly concentrated around streaming/finalization branching and the earlier world-info/story-string augmentation block.
+
+### Insights
+- The success-state parser was a better next seam than `finishGenerating()` because it isolates deterministic response normalization from the heavier UI, tool-call, and persistence side effects.
+- Keeping continuation-prefix cleanup explicit in `script.js` before calling the core helper made the extracted function simpler and preserved the existing logprob/save interactions.
+
+### Next
+1. Reassess whether the next `Generate(...)` extraction should target the streaming/request-finalization branch or pivot back to the earlier world-info/story-string augmentation block.
+2. Keep the next move focused on one remaining pipeline stage, with special care around side-effect-heavy branches.

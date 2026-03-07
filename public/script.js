@@ -263,7 +263,7 @@ import { bindCharacterCore, createOrEditCharacter as createOrEditCharacterCore, 
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
 import { addOneMessage as addOneMessageCore, bindChatOperationsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
-import { bindGenerationCore, buildCombinedPrompt as buildCombinedPromptCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, prepareContextPackingState as prepareContextPackingStateCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationData as prepareGenerationDataCore, prepareGenerationMessages as prepareGenerationMessagesCore, prepareMessageHistoryState as prepareMessageHistoryStateCore, preparePromptAssemblyState as preparePromptAssemblyStateCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
+import { bindGenerationCore, buildCombinedPrompt as buildCombinedPromptCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, prepareContextPackingState as prepareContextPackingStateCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationData as prepareGenerationDataCore, prepareGenerationMessages as prepareGenerationMessagesCore, prepareGenerationSuccessState as prepareGenerationSuccessStateCore, prepareMessageHistoryState as prepareMessageHistoryStateCore, preparePromptAssemblyState as preparePromptAssemblyStateCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
 import { bindMessageCore, setEditedMessageId as setEditedMessageIdCore, updateMessageBlock as updateMessageBlockCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
@@ -535,6 +535,7 @@ bindGenerationCore({
         first: force_output_sequence.FIRST,
         last: force_output_sequence.LAST,
     }),
+    getTrimSpacesEnabled: () => power_user.trim_spaces,
     getGenericSystemMessageType: () => system_message_types.GENERIC,
     getGenerateUrl,
     getGroups: () => groups,
@@ -590,9 +591,14 @@ bindGenerationCore({
     hasPendingFileAttachment,
     hideStopButton,
     isStreamingEnabled,
+    extractImageFromData,
+    extractMultiSwipes,
+    extractReasoningFromData,
+    extractTitleFromData,
     formatMessageHistoryItem,
     formatInstructModeChat,
     formatInstructModePrompt,
+    normalizeReasoningText: (reasoning) => getRegexedString(reasoning, regex_placement.REASONING),
     removeDepthPrompts,
     removeReasoningFromString,
     sendMessageAsUser,
@@ -3656,42 +3662,27 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
             return extractJsonFromData(data);
         }
 
-        //const getData = await response.json();
-        let getMessage = extractMessageFromData(data);
-        let title = extractTitleFromData(data);
-        let reasoning = extractReasoningFromData(data);
-        let imageUrl = extractImageFromData(data);
-        kobold_horde_model = title;
-
-        const swipes = extractMultiSwipes(data, type);
-
-        messageChunk = cleanUpMessage({
-            getMessage: getMessage,
-            isImpersonate: isImpersonate,
-            isContinue: isContinue,
-            displayIncompleteSentences: false,
-        });
-
-
-        reasoning = getRegexedString(reasoning, regex_placement.REASONING);
-
-        if (power_user.trim_spaces) {
-            reasoning = reasoning.trim();
-        }
-
         if (isContinue) {
             continue_mag = promptReasoning.removePrefix(continue_mag);
-            getMessage = continue_mag + getMessage;
         }
 
-        //Formating
-        const displayIncomplete = type === 'quiet' && !quietToLoud;
-        getMessage = cleanUpMessage({
-            getMessage: getMessage,
-            isImpersonate: isImpersonate,
-            isContinue: isContinue,
-            displayIncompleteSentences: displayIncomplete,
+        let {
+            getMessage,
+            title,
+            reasoning,
+            imageUrl,
+            swipes,
+            messageChunk: preparedMessageChunk,
+        } = prepareGenerationSuccessStateCore({
+            continuePrefix: continue_mag,
+            data,
+            isContinue,
+            isImpersonate,
+            quietToLoud,
+            type,
         });
+        kobold_horde_model = title;
+        messageChunk = preparedMessageChunk;
 
         if (isImpersonate) {
             $('#send_textarea').val(getMessage)[0].dispatchEvent(new Event('input', { bubbles: true }));

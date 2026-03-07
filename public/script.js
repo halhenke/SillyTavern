@@ -263,7 +263,7 @@ import { bindCharacterCore, createOrEditCharacter as createOrEditCharacterCore, 
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
 import { addOneMessage as addOneMessageCore, bindChatOperationsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
-import { bindGenerationCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, prepareGenerationMessages as prepareGenerationMessagesCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
+import { bindGenerationCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationMessages as prepareGenerationMessagesCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
 import { bindMessageCore, setEditedMessageId as setEditedMessageIdCore, updateMessageBlock as updateMessageBlockCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
@@ -512,6 +512,7 @@ bindSessionCore({
     unshallowCharacter,
 });
 bindGenerationCore({
+    adjustHordeGenerationParams,
     Generate,
     createRawPrompt,
     deactivateSendButtons,
@@ -521,6 +522,7 @@ bindGenerationCore({
     getAbortController: () => abortController,
     getAutoContinueConfig: () => power_user.auto_continue,
     getCharacterCardFields,
+    getCfgPrompt,
     getCustomStoppingStrings,
     getDepthPromptId: () => inject_ids.DEPTH_PROMPT,
     getDepthPromptIndexId: (index) => inject_ids.DEPTH_PROMPT_INDEX(index),
@@ -529,6 +531,11 @@ bindGenerationCore({
     getGenerateUrl,
     getGroups: () => groups,
     getGroupDepthPrompts,
+    getGuidanceScale,
+    getHordeAdjustConfig: () => ({
+        autoAdjustContextLength: horde_settings.auto_adjust_context_length,
+        autoAdjustResponseLength: horde_settings.auto_adjust_response_length,
+    }),
     getInChatPromptType: () => extension_prompt_types.IN_CHAT,
     getInstructStoppingSequences,
     getKoboldGenerationData,
@@ -560,7 +567,9 @@ bindGenerationCore({
         content: power_user.sysprompt.content ?? '',
     }),
     getTextareaText: () => String($('#send_textarea').val()),
+    getMaxContextSize,
     getTokenCount,
+    getTokenCountAsync,
     getTextGenGenerationData,
     getSelectedGroup: () => selected_group,
     getAllowWIScan: () => extension_settings.note.allowWIScan,
@@ -581,6 +590,7 @@ bindGenerationCore({
     setSendButtonState,
     trimToEndSentence,
     triggerContinue: () => $('#option_continue').trigger('click'),
+    runGenerationInterceptors,
 });
 bindChatOperationsCore({
     activateSendButtons,
@@ -3106,52 +3116,19 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
         }
     }
 
-    // Determine token limit
-    let this_max_context = getMaxContextSize();
+    let {
+        aborted: contextWindowAborted,
+        adjustedParams,
+        thisMaxContext: this_max_context,
+    } = await prepareGenerationContextWindowCore({
+        coreChat,
+        dryRun,
+        type,
+    });
 
-    if (!dryRun) {
-        console.debug('Running extension interceptors');
-        const aborted = await runGenerationInterceptors(coreChat, this_max_context, type);
-
-        if (aborted) {
-            console.debug('Generation aborted by extension interceptors');
-            unblockGeneration(type);
-            return Promise.resolve();
-        }
-    } else {
-        console.debug('Skipping extension interceptors for dry run');
-    }
-
-    // Adjust token limit for Horde
-    let adjustedParams;
-    if (main_api == 'koboldhorde' && (horde_settings.auto_adjust_context_length || horde_settings.auto_adjust_response_length)) {
-        try {
-            adjustedParams = await adjustHordeGenerationParams(max_context, amount_gen);
-        }
-        catch {
-            unblockGeneration(type);
-            return Promise.resolve();
-        }
-        if (horde_settings.auto_adjust_context_length) {
-            this_max_context = (adjustedParams.maxContextLength - adjustedParams.maxLength);
-        }
-    }
-
-    // Fetches the combined prompt for both negative and positive prompts
-    const cfgGuidanceScale = getGuidanceScale();
-    const useCfgPrompt = cfgGuidanceScale && cfgGuidanceScale.value !== 1;
-
-    // Adjust max context based on CFG prompt to prevent overfitting
-    if (useCfgPrompt) {
-        const negativePrompt = getCfgPrompt(cfgGuidanceScale, true, true)?.value || '';
-        const positivePrompt = getCfgPrompt(cfgGuidanceScale, false, true)?.value || '';
-        if (negativePrompt || positivePrompt) {
-            const previousMaxContext = this_max_context;
-            const [negativePromptTokenCount, positivePromptTokenCount] = await Promise.all([getTokenCountAsync(negativePrompt), getTokenCountAsync(positivePrompt)]);
-            const decrement = Math.max(negativePromptTokenCount, positivePromptTokenCount);
-            this_max_context -= decrement;
-            console.log(`Max context reduced by ${decrement} tokens of CFG prompt (${previousMaxContext} -> ${this_max_context})`);
-        }
+    if (contextWindowAborted) {
+        unblockGeneration(type);
+        return Promise.resolve();
     }
 
     console.log(`Core/all messages: ${coreChat.length}/${chat.length}`);

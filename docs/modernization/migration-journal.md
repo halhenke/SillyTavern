@@ -1249,3 +1249,31 @@
 ### Next
 1. Reassess whether the next `Generate(...)` move should target prompt-assembly construction or provider-response handling.
 2. Keep generation extraction centered on contiguous orchestration segments rather than broad partially-owned moves.
+
+## 2026-03-07 - Monolith Reduction Wave 22 (Generate Context-Window Preparation)
+
+### Completed
+- Moved the context-window preparation segment out of `public/script.js` into `public/scripts/generation-core.js` as `prepareGenerationContextWindow(...)`.
+- That extracted block now owns:
+  - extension interceptor execution for generation
+  - Horde auto-adjust context/response-length preparation
+  - CFG prompt token accounting and context-limit reduction
+- Updated `Generate(...)` in `public/script.js` to consume the returned context-window state instead of owning that inline block.
+- Extended `bindGenerationCore(...)` with narrow callbacks for:
+  - context size calculation
+  - interceptor execution
+  - Horde adjustment config/helpers
+  - CFG prompt lookup
+  - async token counting
+
+### Measurable Impact
+- Another contiguous orchestration block has left the monolith, shrinking the non-provider middle section of `Generate(...)`.
+- `Generate(...)` is now more concentrated around prompt augmentation, history assembly, provider dispatch, and response handling.
+
+### Insights
+- The safest remaining `Generate(...)` work is still structured around medium-sized orchestration seams, not line-by-line helper peeling.
+- Passing config snapshots and service callbacks into `generation-core` continues to avoid recreating legacy dependency cycles while still letting the monolith shrink meaningfully.
+
+### Next
+1. Reassess whether the next useful `Generate(...)` extraction is prompt augmentation/story-string assembly or the later history-building/provider-response segments.
+2. Keep the next move focused on one medium-sized orchestration seam with explicit returned state rather than widening the helper API too aggressively.

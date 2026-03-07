@@ -24,19 +24,24 @@ let getCustomStoppingStringsImpl = null;
 let getGeneratingApiConfigImpl = null;
 let getGenericSystemMessageTypeImpl = null;
 let getCharacterCardFieldsImpl = null;
+let getCfgPromptImpl = null;
 let getDepthPromptIdImpl = null;
 let getDepthPromptIndexIdImpl = null;
 let getExtensionPromptRoleByNameImpl = null;
 let getInChatPromptTypeImpl = null;
 let getInstructStoppingSequencesImpl = null;
+let getGuidanceScaleImpl = null;
+let getHordeAdjustConfigImpl = null;
 let getNamesAsStopStringsImpl = null;
 let getOaiSendIfEmptyImpl = null;
 let getSyspromptConfigImpl = null;
 let getTextareaTextImpl = null;
 let getTokenCountImpl = null;
+let getTokenCountAsyncImpl = null;
 let getTextGenGenerationDataImpl = null;
 let executeSlashCommandsOnChatInputImpl = null;
 let getSelectedGroupImpl = null;
+let getMaxContextSizeImpl = null;
 let hasPendingFileAttachmentImpl = null;
 let hideStopButtonImpl = null;
 let isStreamingEnabledImpl = null;
@@ -57,6 +62,8 @@ let setGenerationProgressImpl = null;
 let setSendButtonStateImpl = null;
 let trimToEndSentenceImpl = null;
 let triggerContinueImpl = null;
+let adjustHordeGenerationParamsImpl = null;
+let runGenerationInterceptorsImpl = null;
 
 export let amount_gen = 0;
 export let depth_prompt_depth_default = 0;
@@ -76,8 +83,10 @@ function throwUnbound(name) {
  *   Generate: (...args: any[]) => Promise<any>,
  *   createRawPrompt: (...args: any[]) => string|object[],
  *   generateHorde: (...args: any[]) => Promise<any>,
+ *   adjustHordeGenerationParams: (...args: any[]) => Promise<any>,
  *   executeSlashCommandsOnChatInput: (...args: any[]) => Promise<any>,
  *   getAnimationDuration: () => number,
+ *   getCfgPrompt: (...args: any[]) => any,
  *   getCustomStoppingStrings: () => string[],
  *   getCharacterCardFields: (...args: any[]) => any,
  *   getDepthPromptId: () => any,
@@ -91,7 +100,10 @@ function throwUnbound(name) {
  *   getAutoContinueConfig: () => { enabled?: boolean, target_length?: number, allow_chat_completions?: boolean },
  *   getGenerateUrl: (...args: any[]) => string,
  *   getGroups: () => any[],
+ *   getGuidanceScale: () => any,
+ *   getHordeAdjustConfig: () => { autoAdjustContextLength?: boolean, autoAdjustResponseLength?: boolean },
  *   getInstructStoppingSequences: () => string[],
+ *   getMaxContextSize: () => number,
  *   getNamesAsStopStrings: () => boolean,
  *   getOaiSendIfEmpty: () => string,
  *   getSyspromptConfig: () => { enabled?: boolean, preferCharacterPrompt?: boolean, content?: string },
@@ -101,6 +113,7 @@ function throwUnbound(name) {
  *   getGeneratingApiConfig: () => { mainApi?: string, openAiSource?: string, textgenType?: string, textgenOobaType?: string },
  *   getTextareaText: () => string,
  *   getTokenCount: (text: string) => number,
+ *   getTokenCountAsync: (...args: any[]) => Promise<number>,
  *   getTextGenGenerationData: (...args: any[]) => Promise<any>,
  *   getSelectedGroup: () => string|null|undefined,
  *   hasPendingFileAttachment: () => boolean,
@@ -116,16 +129,18 @@ function throwUnbound(name) {
  *   sendOpenAIRequest: (...args: any[]) => Promise<any>,
  *   sendSystemMessage: (...args: any[]) => any,
  *   sendStreamingRequest: (...args: any[]) => Promise<any>,
- *   setExtensionPrompt: (...args: any[]) => any,
+  *   setExtensionPrompt: (...args: any[]) => any,
  *   setOpenAiMaxTokens: (value: number) => any,
  *   setGenerationParamsFromPreset: (...args: any[]) => void,
  *   setGenerationProgress: (...args: any[]) => void,
  *   setSendButtonState: (...args: any[]) => any,
  *   trimToEndSentence: (...args: any[]) => string,
  *   triggerContinue: () => any,
+ *   runGenerationInterceptors: (...args: any[]) => Promise<boolean>,
  * }} impl Implementations to bind
  */
 export function bindGenerationCore(impl) {
+    adjustHordeGenerationParamsImpl = impl?.adjustHordeGenerationParams ?? null;
     generateImpl = impl?.Generate ?? null;
     createRawPromptImpl = impl?.createRawPrompt ?? null;
     generateHordeImpl = impl?.generateHorde ?? null;
@@ -134,13 +149,16 @@ export function bindGenerationCore(impl) {
     getAnimationDurationImpl = impl?.getAnimationDuration ?? null;
     getAllowWIScanImpl = impl?.getAllowWIScan ?? null;
     getCharacterCardFieldsImpl = impl?.getCharacterCardFields ?? null;
+    getCfgPromptImpl = impl?.getCfgPrompt ?? null;
     getCustomStoppingStringsImpl = impl?.getCustomStoppingStrings ?? null;
     getDepthPromptIdImpl = impl?.getDepthPromptId ?? null;
     getDepthPromptIndexIdImpl = impl?.getDepthPromptIndexId ?? null;
     getExtensionPromptRoleByNameImpl = impl?.getExtensionPromptRoleByName ?? null;
     getInChatPromptTypeImpl = impl?.getInChatPromptType ?? null;
     getGenericSystemMessageTypeImpl = impl?.getGenericSystemMessageType ?? null;
+    getGuidanceScaleImpl = impl?.getGuidanceScale ?? null;
     getGroupDepthPromptsImpl = impl?.getGroupDepthPrompts ?? null;
+    getHordeAdjustConfigImpl = impl?.getHordeAdjustConfig ?? null;
     getKoboldGenerationDataImpl = impl?.getKoboldGenerationData ?? null;
     getKoboldSettingsConfigImpl = impl?.getKoboldSettingsConfig ?? null;
     getAbortControllerImpl = impl?.getAbortController ?? null;
@@ -148,6 +166,7 @@ export function bindGenerationCore(impl) {
     getGenerateUrlImpl = impl?.getGenerateUrl ?? null;
     getGroupsImpl = impl?.getGroups ?? null;
     getInstructStoppingSequencesImpl = impl?.getInstructStoppingSequences ?? null;
+    getMaxContextSizeImpl = impl?.getMaxContextSize ?? null;
     getNamesAsStopStringsImpl = impl?.getNamesAsStopStrings ?? null;
     getOaiSendIfEmptyImpl = impl?.getOaiSendIfEmpty ?? null;
     getSyspromptConfigImpl = impl?.getSyspromptConfig ?? null;
@@ -157,6 +176,7 @@ export function bindGenerationCore(impl) {
     getGeneratingApiConfigImpl = impl?.getGeneratingApiConfig ?? null;
     getTextareaTextImpl = impl?.getTextareaText ?? null;
     getTokenCountImpl = impl?.getTokenCount ?? null;
+    getTokenCountAsyncImpl = impl?.getTokenCountAsync ?? null;
     getTextGenGenerationDataImpl = impl?.getTextGenGenerationData ?? null;
     getSelectedGroupImpl = impl?.getSelectedGroup ?? null;
     hasPendingFileAttachmentImpl = impl?.hasPendingFileAttachment ?? null;
@@ -176,6 +196,7 @@ export function bindGenerationCore(impl) {
     setSendButtonStateImpl = impl?.setSendButtonState ?? null;
     trimToEndSentenceImpl = impl?.trimToEndSentence ?? null;
     triggerContinueImpl = impl?.triggerContinue ?? null;
+    runGenerationInterceptorsImpl = impl?.runGenerationInterceptors ?? null;
 }
 
 export function syncAmountGen(value) {
@@ -613,6 +634,82 @@ export function preparePromptContextState({ isInstruct }) {
         persona,
         scenario,
         system,
+    };
+}
+
+export async function prepareGenerationContextWindow({ coreChat, dryRun, type }) {
+    if (!getMaxContextSizeImpl) {
+        throwUnbound('getMaxContextSize');
+    }
+    if (!runGenerationInterceptorsImpl) {
+        throwUnbound('runGenerationInterceptors');
+    }
+    if (!getHordeAdjustConfigImpl) {
+        throwUnbound('getHordeAdjustConfig');
+    }
+    if (!adjustHordeGenerationParamsImpl) {
+        throwUnbound('adjustHordeGenerationParams');
+    }
+    if (!getGuidanceScaleImpl) {
+        throwUnbound('getGuidanceScale');
+    }
+    if (!getCfgPromptImpl) {
+        throwUnbound('getCfgPrompt');
+    }
+    if (!getTokenCountAsyncImpl) {
+        throwUnbound('getTokenCountAsync');
+    }
+
+    let thisMaxContext = getMaxContextSizeImpl();
+
+    if (!dryRun) {
+        console.debug('Running extension interceptors');
+        const aborted = await runGenerationInterceptorsImpl(coreChat, thisMaxContext, type);
+
+        if (aborted) {
+            console.debug('Generation aborted by extension interceptors');
+            return { aborted: true, adjustedParams: undefined, thisMaxContext };
+        }
+    } else {
+        console.debug('Skipping extension interceptors for dry run');
+    }
+
+    let adjustedParams;
+    const hordeAdjustConfig = getHordeAdjustConfigImpl() ?? {};
+    if (main_api === 'koboldhorde' && (hordeAdjustConfig.autoAdjustContextLength || hordeAdjustConfig.autoAdjustResponseLength)) {
+        try {
+            adjustedParams = await adjustHordeGenerationParamsImpl(max_context, amount_gen);
+        } catch {
+            return { aborted: true, adjustedParams: undefined, thisMaxContext };
+        }
+
+        if (hordeAdjustConfig.autoAdjustContextLength) {
+            thisMaxContext = adjustedParams.maxContextLength - adjustedParams.maxLength;
+        }
+    }
+
+    const cfgGuidanceScale = getGuidanceScaleImpl();
+    const useCfgPrompt = cfgGuidanceScale && cfgGuidanceScale.value !== 1;
+
+    if (useCfgPrompt) {
+        const negativePrompt = getCfgPromptImpl(cfgGuidanceScale, true, true)?.value || '';
+        const positivePrompt = getCfgPromptImpl(cfgGuidanceScale, false, true)?.value || '';
+        if (negativePrompt || positivePrompt) {
+            const previousMaxContext = thisMaxContext;
+            const [negativePromptTokenCount, positivePromptTokenCount] = await Promise.all([
+                getTokenCountAsyncImpl(negativePrompt),
+                getTokenCountAsyncImpl(positivePrompt),
+            ]);
+            const decrement = Math.max(negativePromptTokenCount, positivePromptTokenCount);
+            thisMaxContext -= decrement;
+            console.log(`Max context reduced by ${decrement} tokens of CFG prompt (${previousMaxContext} -> ${thisMaxContext})`);
+        }
+    }
+
+    return {
+        aborted: false,
+        adjustedParams,
+        thisMaxContext,
     };
 }
 

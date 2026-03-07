@@ -70,6 +70,7 @@ let removeReasoningFromStringImpl = null;
 let deactivateSendButtonsImpl = null;
 let addPersonaDescriptionExtensionPromptImpl = null;
 let doChatInjectImpl = null;
+let emitImpersonateReadyImpl = null;
 let formatMessageHistoryItemImpl = null;
 let formatInstructModeExamplesImpl = null;
 let formatInstructModeChatImpl = null;
@@ -111,11 +112,22 @@ let triggerContinueImpl = null;
 let triggerAutoContinueImpl = null;
 let adjustHordeGenerationParamsImpl = null;
 let parseMesExamplesImpl = null;
+let parseAndSaveLogprobsImpl = null;
+let playMessageSoundImpl = null;
 let prepareOpenAIMessagesImpl = null;
 let renderStoryStringImpl = null;
 let runGenerationInterceptorsImpl = null;
+let saveChatConditionalImpl = null;
+let saveReplyImpl = null;
+let setGeneratedTitleImpl = null;
 let getWorldInfoPromptImpl = null;
 let shouldIncludePersonaInStoryStringImpl = null;
+let setImpersonationTextImpl = null;
+let showApiErrorImpl = null;
+let showTextGenerationErrorImpl = null;
+let shouldAutoSwipeResultImpl = null;
+let swipeRightImpl = null;
+let unblockGenerationImpl = null;
 
 export let amount_gen = 0;
 export let depth_prompt_depth_default = 0;
@@ -140,6 +152,7 @@ function throwUnbound(name) {
  *   generateHorde: (...args: any[]) => Promise<any>,
  *   adjustHordeGenerationParams: (...args: any[]) => Promise<any>,
  *   addPersonaDescriptionExtensionPrompt: () => any,
+ *   emitImpersonateReady: (message: string) => Promise<any>,
  *   executeSlashCommandsOnChatInput: (...args: any[]) => Promise<any>,
  *   createStreamingProcessor: (...args: any[]) => any,
  *   doChatInject: (...args: any[]) => Promise<number[]>,
@@ -213,7 +226,11 @@ function throwUnbound(name) {
  *   getGroupDepthPrompts: (...args: any[]) => any[],
  *   getAllowWIScan: () => boolean,
  *   parseMesExamples: (...args: any[]) => string[],
+ *   parseAndSaveLogprobs: (...args: any[]) => any,
+ *   playMessageSound: () => any,
  *   renderStoryString: (...args: any[]) => string,
+ *   saveChatConditional: () => Promise<any>,
+ *   saveReply: (...args: any[]) => Promise<any>,
  *   sendMessageAsUser: (...args: any[]) => Promise<any>,
  *   sendGenerationRequest: (...args: any[]) => Promise<any>,
  *   sendOpenAIRequest: (...args: any[]) => Promise<any>,
@@ -225,6 +242,8 @@ function throwUnbound(name) {
  *   setGenerationParamsFromPreset: (...args: any[]) => void,
  *   setGenerationProgress: (...args: any[]) => void,
   *   setInContextMessages: (...args: any[]) => any,
+ *   setGeneratedTitle: (value: string) => any,
+ *   setImpersonationText: (message: string) => any,
  *   setQuietPrompt: (value: string) => any,
  *   setSendButtonState: (...args: any[]) => any,
  *   setFloatingPrompt: () => any,
@@ -234,10 +253,15 @@ function throwUnbound(name) {
  *   setStoryStringPrompt: (value: string, depth: number, role: any) => any,
  *   clearStoryStringPrompt: () => any,
  *   shouldIncludePersonaInStoryString: () => boolean,
+ *   shouldAutoSwipeResult: (message: string) => boolean,
+ *   showApiError: (message: string) => any,
  *   showToolCallError: (...args: any[]) => any,
+ *   showTextGenerationError: (message: string) => any,
+ *   swipeRight: () => any,
  *   trimToEndSentence: (...args: any[]) => string,
  *   triggerContinue: () => any,
  *   triggerAutoContinue: (...args: any[]) => any,
+ *   unblockGeneration: (type?: string) => any,
  *   normalizeReasoningText: (...args: any[]) => string,
  *   prepareOpenAIMessages: (...args: any[]) => Promise<any>,
  *   runGenerationInterceptors: (...args: any[]) => Promise<boolean>,
@@ -246,6 +270,7 @@ function throwUnbound(name) {
 export function bindGenerationCore(impl) {
     adjustHordeGenerationParamsImpl = impl?.adjustHordeGenerationParams ?? null;
     addPersonaDescriptionExtensionPromptImpl = impl?.addPersonaDescriptionExtensionPrompt ?? null;
+    emitImpersonateReadyImpl = impl?.emitImpersonateReady ?? null;
     generateImpl = impl?.Generate ?? null;
     addChatsPreambleImpl = impl?.addChatsPreamble ?? null;
     addChatsSeparatorImpl = impl?.addChatsSeparator ?? null;
@@ -326,14 +351,20 @@ export function bindGenerationCore(impl) {
     formatInstructModeStoryStringImpl = impl?.formatInstructModeStoryString ?? null;
     normalizeReasoningTextImpl = impl?.normalizeReasoningText ?? null;
     parseMesExamplesImpl = impl?.parseMesExamples ?? null;
+    parseAndSaveLogprobsImpl = impl?.parseAndSaveLogprobs ?? null;
+    playMessageSoundImpl = impl?.playMessageSound ?? null;
     renderStoryStringImpl = impl?.renderStoryString ?? null;
     sendMessageAsUserImpl = impl?.sendMessageAsUser ?? null;
     sendGenerationRequestImpl = impl?.sendGenerationRequest ?? null;
     sendOpenAIRequestImpl = impl?.sendOpenAIRequest ?? null;
     sendSystemMessageImpl = impl?.sendSystemMessage ?? null;
     sendStreamingRequestImpl = impl?.sendStreamingRequest ?? null;
+    saveChatConditionalImpl = impl?.saveChatConditional ?? null;
+    saveReplyImpl = impl?.saveReply ?? null;
     setCustomWorldInfoDepthPromptImpl = impl?.setCustomWorldInfoDepthPrompt ?? null;
     setExtensionPromptImpl = impl?.setExtensionPrompt ?? null;
+    setGeneratedTitleImpl = impl?.setGeneratedTitle ?? null;
+    setImpersonationTextImpl = impl?.setImpersonationText ?? null;
     setOpenAiMaxTokensImpl = impl?.setOpenAiMaxTokens ?? null;
     setGenerationParamsFromPresetImpl = impl?.setGenerationParamsFromPreset ?? null;
     setGenerationProgressImpl = impl?.setGenerationProgress ?? null;
@@ -347,10 +378,15 @@ export function bindGenerationCore(impl) {
     setStoryStringPromptImpl = impl?.setStoryStringPrompt ?? null;
     clearStoryStringPromptImpl = impl?.clearStoryStringPrompt ?? null;
     shouldIncludePersonaInStoryStringImpl = impl?.shouldIncludePersonaInStoryString ?? null;
+    shouldAutoSwipeResultImpl = impl?.shouldAutoSwipeResult ?? null;
+    showApiErrorImpl = impl?.showApiError ?? null;
     showToolCallErrorImpl = impl?.showToolCallError ?? null;
+    showTextGenerationErrorImpl = impl?.showTextGenerationError ?? null;
+    swipeRightImpl = impl?.swipeRight ?? null;
     trimToEndSentenceImpl = impl?.trimToEndSentence ?? null;
     triggerContinueImpl = impl?.triggerContinue ?? null;
     triggerAutoContinueImpl = impl?.triggerAutoContinue ?? null;
+    unblockGenerationImpl = impl?.unblockGeneration ?? null;
     prepareOpenAIMessagesImpl = impl?.prepareOpenAIMessages ?? null;
     runGenerationInterceptorsImpl = impl?.runGenerationInterceptors ?? null;
 }
@@ -2118,6 +2154,211 @@ export async function finalizeStreamingGeneration({
     return {
         status: 'pending',
     };
+}
+
+export async function finalizeGenerationResponse({
+    canPerformToolCalls,
+    continueMag,
+    data,
+    deleteLastMessage,
+    generateOptions,
+    isContinue,
+    isImpersonate,
+    jsonSchema,
+    originalType,
+    quietToLoud,
+    type,
+}) {
+    if (!unblockGenerationImpl) {
+        throwUnbound('unblockGeneration');
+    }
+    if (!showApiErrorImpl) {
+        throwUnbound('showApiError');
+    }
+    if (!setGeneratedTitleImpl) {
+        throwUnbound('setGeneratedTitle');
+    }
+    if (!setImpersonationTextImpl) {
+        throwUnbound('setImpersonationText');
+    }
+    if (!emitImpersonateReadyImpl) {
+        throwUnbound('emitImpersonateReady');
+    }
+    if (!saveReplyImpl) {
+        throwUnbound('saveReply');
+    }
+    if (!parseAndSaveLogprobsImpl) {
+        throwUnbound('parseAndSaveLogprobs');
+    }
+    if (!setSendButtonStateImpl) {
+        throwUnbound('setSendButtonState');
+    }
+    if (!saveChatConditionalImpl) {
+        throwUnbound('saveChatConditional');
+    }
+    if (!setStreamingProcessorImpl) {
+        throwUnbound('setStreamingProcessor');
+    }
+    if (!triggerAutoContinueImpl) {
+        throwUnbound('triggerAutoContinue');
+    }
+    if (!playMessageSoundImpl) {
+        throwUnbound('playMessageSound');
+    }
+    if (!shouldAutoSwipeResultImpl) {
+        throwUnbound('shouldAutoSwipeResult');
+    }
+    if (!swipeRightImpl) {
+        throwUnbound('swipeRight');
+    }
+    if (!hasToolCallsImpl) {
+        throwUnbound('hasToolCalls');
+    }
+    if (!invokeFunctionToolsImpl) {
+        throwUnbound('invokeFunctionTools');
+    }
+    if (!showToolCallErrorImpl) {
+        throwUnbound('showToolCallError');
+    }
+
+    if (!data) {
+        return {
+            status: 'complete',
+            value: undefined,
+        };
+    }
+
+    if (data?.fromStream) {
+        return {
+            status: 'complete',
+            value: data,
+        };
+    }
+
+    if (data.error) {
+        unblockGenerationImpl(type);
+        if (data?.response) {
+            showApiErrorImpl(data.response);
+        }
+        throw new Error(data?.response);
+    }
+
+    if (jsonSchema) {
+        unblockGenerationImpl(type);
+        return {
+            status: 'complete',
+            value: extractJsonFromData(data),
+        };
+    }
+
+    let {
+        getMessage,
+        title,
+        reasoning,
+        imageUrl,
+        swipes,
+        messageChunk,
+    } = prepareGenerationSuccessState({
+        continuePrefix: continueMag,
+        data,
+        isContinue,
+        isImpersonate,
+        quietToLoud,
+        type,
+    });
+    setGeneratedTitleImpl(title);
+
+    if (isImpersonate) {
+        setImpersonationTextImpl(getMessage);
+        await emitImpersonateReadyImpl(getMessage);
+    } else if (type === 'quiet') {
+        unblockGenerationImpl(type);
+        return {
+            status: 'complete',
+            value: getMessage,
+        };
+    } else if (originalType !== 'continue') {
+        ({ type, getMessage } = await saveReplyImpl({ type, getMessage, title, swipes, reasoning, imageUrl }));
+        parseAndSaveLogprobsImpl(data, continueMag);
+    } else {
+        ({ type, getMessage } = await saveReplyImpl({ type: 'appendFinal', getMessage, title, swipes, reasoning, imageUrl }));
+        parseAndSaveLogprobsImpl(data, continueMag);
+    }
+
+    if (canPerformToolCalls) {
+        const hasToolCalls = hasToolCallsImpl(data);
+        const shouldDeleteMessage = type !== 'swipe' && ['', '...'].includes(getMessage) && !reasoning;
+        if (hasToolCalls && shouldDeleteMessage) {
+            await deleteLastMessage();
+        }
+
+        const invocationResult = await invokeFunctionToolsImpl(data);
+        const shouldStopGeneration = (!invocationResult.invocations.length && shouldDeleteMessage) || invocationResult.stealthCalls.length;
+        if (hasToolCalls) {
+            if (shouldStopGeneration) {
+                if (Array.isArray(invocationResult.errors) && invocationResult.errors.length) {
+                    showToolCallErrorImpl(invocationResult.errors);
+                }
+
+                unblockGenerationImpl(type);
+                return {
+                    status: 'stop',
+                };
+            }
+
+            return {
+                generateOptions,
+                invocationResult,
+                status: 'recurse',
+            };
+        }
+    }
+
+    if (type !== 'quiet') {
+        playMessageSoundImpl();
+    }
+
+    if (shouldAutoSwipeResultImpl(getMessage)) {
+        setSendButtonStateImpl(false);
+        return {
+            status: 'complete',
+            value: await swipeRightImpl(),
+        };
+    }
+
+    await saveChatConditionalImpl();
+    unblockGenerationImpl(type);
+    setStreamingProcessorImpl(null);
+
+    if (type !== 'quiet') {
+        triggerAutoContinueImpl(messageChunk, isImpersonate);
+    }
+
+    return {
+        status: 'complete',
+        value: Object.defineProperty(new String(getMessage), 'messageChunk', { value: messageChunk }),
+    };
+}
+
+export function handleGenerationError({ exception, type }) {
+    if (!showTextGenerationErrorImpl) {
+        throwUnbound('showTextGenerationError');
+    }
+    if (!unblockGenerationImpl) {
+        throwUnbound('unblockGeneration');
+    }
+    if (!setStreamingProcessorImpl) {
+        throwUnbound('setStreamingProcessor');
+    }
+
+    if (typeof exception?.error?.message === 'string') {
+        showTextGenerationErrorImpl(exception.error.message);
+    }
+
+    unblockGenerationImpl(type);
+    console.log(exception);
+    setStreamingProcessorImpl(null);
+    throw exception;
 }
 
 export function isStreamingEnabled(...args) {

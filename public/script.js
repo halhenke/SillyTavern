@@ -263,7 +263,7 @@ import { bindCharacterCore, createOrEditCharacter as createOrEditCharacterCore, 
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
 import { addOneMessage as addOneMessageCore, bindChatOperationsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
-import { bindGenerationCore, buildCombinedPrompt as buildCombinedPromptCore, executeStreamingGenerationRequest as executeStreamingGenerationRequestCore, finalizeStreamingGeneration as finalizeStreamingGenerationCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, prepareContextPackingState as prepareContextPackingStateCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationData as prepareGenerationDataCore, prepareGenerationMessages as prepareGenerationMessagesCore, prepareGenerationSuccessState as prepareGenerationSuccessStateCore, prepareMessageHistoryState as prepareMessageHistoryStateCore, preparePromptAssemblyState as preparePromptAssemblyStateCore, preparePromptAugmentationState as preparePromptAugmentationStateCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, recordGenerationPromptMetadata as recordGenerationPromptMetadataCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
+import { bindGenerationCore, buildCombinedPrompt as buildCombinedPromptCore, executeStreamingGenerationRequest as executeStreamingGenerationRequestCore, finalizeGenerationResponse as finalizeGenerationResponseCore, finalizeStreamingGeneration as finalizeStreamingGenerationCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, handleGenerationError as handleGenerationErrorCore, prepareContextPackingState as prepareContextPackingStateCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationData as prepareGenerationDataCore, prepareGenerationMessages as prepareGenerationMessagesCore, prepareMessageHistoryState as prepareMessageHistoryStateCore, preparePromptAssemblyState as preparePromptAssemblyStateCore, preparePromptAugmentationState as preparePromptAugmentationStateCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, recordGenerationPromptMetadata as recordGenerationPromptMetadataCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
 import { bindMessageCore, setEditedMessageId as setEditedMessageIdCore, updateMessageBlock as updateMessageBlockCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
@@ -514,6 +514,7 @@ bindSessionCore({
 bindGenerationCore({
     adjustHordeGenerationParams,
     addPersonaDescriptionExtensionPrompt,
+    emitImpersonateReady: (message) => eventSource.emit(event_types.IMPERSONATE_READY, message),
     Generate,
     addChatsPreamble,
     addChatsSeparator,
@@ -624,9 +625,13 @@ bindGenerationCore({
     formatInstructModePrompt,
     normalizeReasoningText: (reasoning) => getRegexedString(reasoning, regex_placement.REASONING),
     parseMesExamples,
+    parseAndSaveLogprobs,
+    playMessageSound,
     removeDepthPrompts,
     removeReasoningFromString,
     renderStoryString,
+    saveChatConditional,
+    saveReply,
     sendMessageAsUser,
     sendGenerationRequest,
     sendOpenAIRequest,
@@ -634,6 +639,8 @@ bindGenerationCore({
     sendStreamingRequest,
     setCustomWorldInfoDepthPrompt: (depth, role, value) => setExtensionPrompt(inject_ids.CUSTOM_WI_DEPTH_ROLE(depth, role), value, extension_prompt_types.IN_CHAT, depth, false, role),
     setExtensionPrompt,
+    setGeneratedTitle: (value) => kobold_horde_model = value,
+    setImpersonationText: (message) => $('#send_textarea').val(message)[0].dispatchEvent(new Event('input', { bubbles: true })),
     setOpenAiMaxTokens: (value) => oai_settings.openai_max_tokens = value,
     setGenerationParamsFromPreset,
     setGenerationProgress,
@@ -650,10 +657,15 @@ bindGenerationCore({
     setStoryStringPrompt: (value, depth, role) => setExtensionPrompt(inject_ids.STORY_STRING, value, extension_prompt_types.IN_CHAT, depth, false, role),
     clearStoryStringPrompt: () => setExtensionPrompt(inject_ids.STORY_STRING, '', extension_prompt_types.IN_CHAT, 0),
     shouldIncludePersonaInStoryString: () => power_user.persona_description_position == persona_description_positions.IN_PROMPT,
+    shouldAutoSwipeResult: (message) => !abortController?.signal?.aborted && power_user.auto_swipe && generatedTextFiltered(message),
+    showApiError: (message) => toastr.error(message, t`API Error`, { preventDuplicates: true }),
     showToolCallError: (...args) => ToolManager.showToolCallError(...args),
+    showTextGenerationError: (message) => toastr.error(message, t`Text generation error`, { timeOut: 10000, extendedTimeOut: 20000 }),
+    swipeRight: () => swipe_right(),
     trimToEndSentence,
     triggerContinue: () => $('#option_continue').trigger('click'),
     triggerAutoContinue,
+    unblockGeneration,
     prepareOpenAIMessages,
     runGenerationInterceptors,
 });
@@ -3542,115 +3554,35 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
      * @throws {Error} Throws an error if the response data contains an error message
      */
     async function onSuccess(data) {
-        if (!data) return;
-
-        if (data?.fromStream) {
-            return data;
-        }
-
-        let messageChunk = '';
-
-        // if an error was returned in data (textgenwebui), show it and throw it
-        if (data.error) {
-            unblockGeneration(type);
-
-            if (data?.response) {
-                toastr.error(data.response, t`API Error`, { preventDuplicates: true });
-            }
-            throw new Error(data?.response);
-        }
-
-        if (jsonSchema) {
-            unblockGeneration(type);
-            return extractJsonFromData(data);
-        }
-
         if (isContinue) {
             continue_mag = promptReasoning.removePrefix(continue_mag);
         }
 
-        let {
-            getMessage,
-            title,
-            reasoning,
-            imageUrl,
-            swipes,
-            messageChunk: preparedMessageChunk,
-        } = prepareGenerationSuccessStateCore({
-            continuePrefix: continue_mag,
+        const result = await finalizeGenerationResponseCore({
+            canPerformToolCalls,
+            continueMag: continue_mag,
             data,
+            deleteLastMessage,
+            generateOptions: { automatic_trigger, force_name2, quiet_prompt, quietToLoud, skipWIAN, force_chid, signal, quietImage, quietName, depth },
             isContinue,
             isImpersonate,
+            jsonSchema,
+            originalType,
             quietToLoud,
             type,
         });
-        kobold_horde_model = title;
-        messageChunk = preparedMessageChunk;
 
-        if (isImpersonate) {
-            $('#send_textarea').val(getMessage)[0].dispatchEvent(new Event('input', { bubbles: true }));
-            await eventSource.emit(event_types.IMPERSONATE_READY, getMessage);
-        }
-        else if (type == 'quiet') {
-            unblockGeneration(type);
-            return getMessage;
-        }
-        else {
-            // Without streaming we'll be having a full message on continuation. Treat it as a last chunk.
-            if (originalType !== 'continue') {
-                ({ type, getMessage } = await saveReply({ type, getMessage, title, swipes, reasoning, imageUrl }));
-            }
-            else {
-                ({ type, getMessage } = await saveReply({ type: 'appendFinal', getMessage, title, swipes, reasoning, imageUrl }));
-            }
-
-            // This relies on `saveReply` having been called to add the message to the chat, so it must be last.
-            parseAndSaveLogprobs(data, continue_mag);
+        if (result.status === 'stop') {
+            return;
         }
 
-        if (canPerformToolCalls) {
-            const hasToolCalls = ToolManager.hasToolCalls(data);
-            const shouldDeleteMessage = type !== 'swipe' && ['', '...'].includes(getMessage) && !reasoning;
-            hasToolCalls && shouldDeleteMessage && await deleteLastMessage();
-            const invocationResult = await ToolManager.invokeFunctionTools(data);
-            const shouldStopGeneration = (!invocationResult.invocations.length && shouldDeleteMessage) || invocationResult.stealthCalls.length;
-            if (hasToolCalls) {
-                if (shouldStopGeneration) {
-                    if (Array.isArray(invocationResult.errors) && invocationResult.errors.length) {
-                        ToolManager.showToolCallError(invocationResult.errors);
-                    }
-                    unblockGeneration(type);
-                    return;
-                }
-
-                depth = depth + 1;
-                await ToolManager.saveFunctionToolInvocations(invocationResult.invocations);
-                return Generate('normal', { automatic_trigger, force_name2, quiet_prompt, quietToLoud, skipWIAN, force_chid, signal, quietImage, quietName, depth }, dryRun);
-            }
+        if (result.status === 'recurse') {
+            depth = depth + 1;
+            await ToolManager.saveFunctionToolInvocations(result.invocationResult.invocations);
+            return Generate('normal', { ...result.generateOptions, depth }, dryRun);
         }
 
-        if (type !== 'quiet') {
-            playMessageSound();
-        }
-
-        const isAborted = abortController && abortController.signal.aborted;
-        if (!isAborted && power_user.auto_swipe && generatedTextFiltered(getMessage)) {
-            setSendButtonState(false);
-            return swipe_right();
-        }
-
-        console.debug('/api/chats/save called by /Generate');
-        await saveChatConditional();
-        unblockGeneration(type);
-        streamingProcessor = null;
-        syncStreamingProcessor(streamingProcessor);
-
-        if (type !== 'quiet') {
-            triggerAutoContinue(messageChunk, isImpersonate);
-        }
-
-        // Don't break the API chain that expects a single string in return
-        return Object.defineProperty(new String(getMessage), 'messageChunk', { value: messageChunk });
+        return result.value;
     }
 
     /**
@@ -3659,16 +3591,7 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
      * @throws {Error|object} Re-throws the exception
      */
     function onError(exception) {
-        // if the response JSON was thrown (novel|textgenerationwebui|kobold), show the error message
-        if (typeof exception?.error?.message === 'string') {
-            toastr.error(exception.error.message, t`Text generation error`, { timeOut: 10000, extendedTimeOut: 20000 });
-        }
-
-        unblockGeneration(type);
-        console.log(exception);
-        streamingProcessor = null;
-        syncStreamingProcessor(streamingProcessor);
-        throw exception;
+        return handleGenerationErrorCore({ exception, type });
     }
 }
 //MARK: Generate() ends

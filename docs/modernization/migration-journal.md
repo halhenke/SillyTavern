@@ -1562,3 +1562,34 @@
 ### Next
 1. Reassess the remaining `Generate(...)` body for the next coherent reduction, likely the smaller non-streaming success/error glue that still lives in `finishGenerating()`.
 2. Keep avoiding mixed migrations that combine prompt preparation with request execution or UI unblock logic in the same wave.
+
+## 2026-03-08 - Monolith Reduction Wave 33 (Generate Non-Streaming Success and Error Handling)
+
+### Completed
+- Moved the non-streaming success/error branch out of `public/script.js` into `public/scripts/generation-core.js` as:
+  - `finalizeGenerationResponse(...)`
+  - `handleGenerationError(...)`
+- That extracted logic now owns:
+  - non-streaming response error detection
+  - JSON-schema extraction early return handling
+  - parsed success-state preparation handoff
+  - impersonation textarea/event handling
+  - quiet-generation completion handling
+  - non-streaming reply persistence and logprob recording
+  - non-streaming tool-call stop/recurse decision shaping
+  - post-success sound, auto-swipe, chat save, streaming cleanup, and auto-continue handoff
+  - centralized non-streaming error cleanup and reporting
+- Updated `Generate(...)` in `public/script.js` to consume explicit status returns from the new helpers and keep only the recursive re-entry and tool-invocation persistence local.
+- Extended `bindGenerationCore(...)` with the narrow callbacks needed for success/error side effects without reintroducing direct `script.js` imports.
+
+### Measurable Impact
+- Another large late-stage `Generate(...)` branch has left the monolith.
+- The remaining `Generate(...)` body is now more concentrated around pipeline setup and explicit recurse boundaries rather than response-handling details.
+
+### Insights
+- The non-streaming and streaming finalization paths now share the same migration pattern: core-owned orchestration returning explicit statuses, with recursive `Generate(...)` re-entry kept visible in `script.js`.
+- Moving cleanup through the existing `setStreamingProcessor(...)` binding is safer than direct shared-state mutation because it preserves the current sync side effects while shrinking monolith ownership.
+
+### Next
+1. Reassess whether the next useful reduction is the remaining `finishGenerating()` request-execution shell or a pivot out of `Generate(...)` into an adjacent monolith-owned helper cluster.
+2. Keep the next move coherent; avoid mixing request dispatch, UI bootstrapping, and unrelated character/chat helpers in one wave.

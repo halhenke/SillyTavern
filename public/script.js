@@ -263,7 +263,7 @@ import { bindCharacterCore, createOrEditCharacter as createOrEditCharacterCore, 
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
 import { addOneMessage as addOneMessageCore, bindChatOperationsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
-import { bindGenerationCore, buildCombinedPrompt as buildCombinedPromptCore, executeStreamingGenerationRequest as executeStreamingGenerationRequestCore, finalizeStreamingGeneration as finalizeStreamingGenerationCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, prepareContextPackingState as prepareContextPackingStateCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationData as prepareGenerationDataCore, prepareGenerationMessages as prepareGenerationMessagesCore, prepareGenerationSuccessState as prepareGenerationSuccessStateCore, prepareMessageHistoryState as prepareMessageHistoryStateCore, preparePromptAssemblyState as preparePromptAssemblyStateCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, recordGenerationPromptMetadata as recordGenerationPromptMetadataCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
+import { bindGenerationCore, buildCombinedPrompt as buildCombinedPromptCore, executeStreamingGenerationRequest as executeStreamingGenerationRequestCore, finalizeStreamingGeneration as finalizeStreamingGenerationCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, prepareContextPackingState as prepareContextPackingStateCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationData as prepareGenerationDataCore, prepareGenerationMessages as prepareGenerationMessagesCore, prepareGenerationSuccessState as prepareGenerationSuccessStateCore, prepareMessageHistoryState as prepareMessageHistoryStateCore, preparePromptAssemblyState as preparePromptAssemblyStateCore, preparePromptAugmentationState as preparePromptAugmentationStateCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, recordGenerationPromptMetadata as recordGenerationPromptMetadataCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
 import { bindMessageCore, setEditedMessageId as setEditedMessageIdCore, updateMessageBlock as updateMessageBlockCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
@@ -513,6 +513,7 @@ bindSessionCore({
 });
 bindGenerationCore({
     adjustHordeGenerationParams,
+    addPersonaDescriptionExtensionPrompt,
     Generate,
     addChatsPreamble,
     addChatsSeparator,
@@ -520,22 +521,29 @@ bindGenerationCore({
     createRawPrompt,
     createStreamingProcessor: (type, forceName2, generationStarted, continueMag, promptReasoning) => new StreamingProcessor(type, forceName2, generationStarted, continueMag, promptReasoning),
     deactivateSendButtons,
+    doChatInject,
     executeSlashCommandsOnChatInput,
+    flushWIDepthInjections,
+    formatInstructModeExamples,
+    formatInstructModeStoryString,
     generateHorde,
     getAnimationDuration: () => animation_duration,
     getAbortController: () => abortController,
     getAutoContinueConfig: () => power_user.auto_continue,
+    getBeforePromptType: () => extension_prompt_types.BEFORE_PROMPT,
     getCharacterCardFields,
     getCfgPrompt,
     getCollapseNewlinesEnabled: () => power_user.collapse_newlines,
     getCustomStoppingStrings,
     getDepthPromptId: () => inject_ids.DEPTH_PROMPT,
     getDepthPromptIndexId: (index) => inject_ids.DEPTH_PROMPT_INDEX(index),
+    getExtensionPrompt,
     getExtensionPromptRoleByName,
     getForceOutputSequences: () => ({
         first: force_output_sequence.FIRST,
         last: force_output_sequence.LAST,
     }),
+    getGenerationTrigger: (type) => GENERATION_TYPE_TRIGGERS.includes(type) ? type : 'normal',
     getTrimSpacesEnabled: () => power_user.trim_spaces,
     getGenericSystemMessageType: () => system_message_types.GENERIC,
     getGenerateUrl,
@@ -547,6 +555,7 @@ bindGenerationCore({
         autoAdjustResponseLength: horde_settings.auto_adjust_response_length,
     }),
     getInChatPromptType: () => extension_prompt_types.IN_CHAT,
+    getInPromptPromptType: () => extension_prompt_types.IN_PROMPT,
     getInstructWrap: () => power_user.instruct.wrap,
     getInstructStoppingSequences,
     getKoboldGenerationData,
@@ -573,12 +582,20 @@ bindGenerationCore({
     getOpenAiMaxTokens: () => oai_settings.openai_max_tokens,
     getOpenAiMessagesCount: () => openai_messages_count,
     getPinExamples: () => power_user.pin_examples,
+    getStoryStringConfig: () => ({
+        position: power_user.context.story_string_position,
+        depth: power_user.context.story_string_depth ?? 1,
+        role: power_user.context.story_string_role ?? extension_prompt_roles.SYSTEM,
+        stripExamples: power_user.strip_examples,
+    }),
     getStoppingStrings,
     getOaiSendIfEmpty: () => oai_settings.send_if_empty,
     getSyspromptConfig: () => ({
         enabled: power_user.sysprompt.enabled,
         preferCharacterPrompt: power_user.prefer_character_prompt,
         content: power_user.sysprompt.content ?? '',
+        preferCharacterJailbreak: power_user.prefer_character_jailbreak,
+        postHistory: power_user.sysprompt.post_history ?? '',
     }),
     getTextareaText: () => String($('#send_textarea').val()),
     getUserAlignmentMessage: () => power_user.instruct.user_alignment_message,
@@ -587,6 +604,9 @@ bindGenerationCore({
     getTokenCountAsync,
     getTokenPadding: () => power_user.token_padding,
     getTextGenGenerationData,
+    getWiAnchorBefore: () => wi_anchor_position.before,
+    getWorldInfoIncludeNames: () => world_info_include_names,
+    getWorldInfoPrompt,
     getSelectedGroup: () => selected_group,
     getAllowWIScan: () => extension_settings.note.allowWIScan,
     hasPendingFileAttachment,
@@ -603,25 +623,33 @@ bindGenerationCore({
     formatInstructModeChat,
     formatInstructModePrompt,
     normalizeReasoningText: (reasoning) => getRegexedString(reasoning, regex_placement.REASONING),
+    parseMesExamples,
     removeDepthPrompts,
     removeReasoningFromString,
+    renderStoryString,
     sendMessageAsUser,
     sendGenerationRequest,
     sendOpenAIRequest,
     sendSystemMessage,
     sendStreamingRequest,
+    setCustomWorldInfoDepthPrompt: (depth, role, value) => setExtensionPrompt(inject_ids.CUSTOM_WI_DEPTH_ROLE(depth, role), value, extension_prompt_types.IN_CHAT, depth, false, role),
     setExtensionPrompt,
     setOpenAiMaxTokens: (value) => oai_settings.openai_max_tokens = value,
     setGenerationParamsFromPreset,
     setGenerationProgress,
     setInContextMessages,
+    setQuietPrompt: (value) => setExtensionPrompt(inject_ids.QUIET_PROMPT, value, extension_prompt_types.IN_PROMPT, 0, true),
     setSendButtonState,
+    setFloatingPrompt,
     setStreamingProcessor: (value) => {
         streamingProcessor = value;
         syncStreamingProcessor(streamingProcessor);
     },
     setOpenAIMessageExamples,
     setOpenAIMessages,
+    setStoryStringPrompt: (value, depth, role) => setExtensionPrompt(inject_ids.STORY_STRING, value, extension_prompt_types.IN_CHAT, depth, false, role),
+    clearStoryStringPrompt: () => setExtensionPrompt(inject_ids.STORY_STRING, '', extension_prompt_types.IN_CHAT, 0),
+    shouldIncludePersonaInStoryString: () => power_user.persona_description_position == persona_description_positions.IN_PROMPT,
     showToolCallError: (...args) => ToolManager.showToolCallError(...args),
     trimToEndSentence,
     triggerContinue: () => $('#option_continue').trigger('click'),
@@ -3180,140 +3208,37 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
         force_name2 = false;
     }
 
-    let mesExamplesArray = parseMesExamples(mesExamples, isInstruct);
-
-    //////////////////////////////////
-    // Extension added strings
-    // Set non-WI AN
-    setFloatingPrompt();
-    // Add persona description to prompt
-    addPersonaDescriptionExtensionPrompt();
-
-    // Add WI to prompt (and also inject WI to AN value via hijack)
-    // Make quiet prompt available for WIAN
-    setExtensionPrompt(inject_ids.QUIET_PROMPT, quiet_prompt || '', extension_prompt_types.IN_PROMPT, 0, true);
-    const chatForWI = coreChat.map(x => world_info_include_names ? `${x.name}: ${x.mes}` : x.mes).reverse();
-    /** @type {import('./scripts/world-info.js').WIGlobalScanData} */
-    const globalScanData = {
-        personaDescription: persona,
-        characterDescription: description,
-        characterPersonality: personality,
-        characterDepthPrompt: charDepthPrompt,
-        scenario: scenario,
-        creatorNotes: creatorNotes,
-        trigger: GENERATION_TYPE_TRIGGERS.includes(type) ? type : 'normal',
-    };
-    const { worldInfoString, worldInfoBefore, worldInfoAfter, worldInfoExamples, worldInfoDepth } = await getWorldInfoPrompt(chatForWI, this_max_context, dryRun, globalScanData);
-    setExtensionPrompt(inject_ids.QUIET_PROMPT, '', extension_prompt_types.IN_PROMPT, 0, true);
-
-    // Add message example WI
-    for (const example of worldInfoExamples) {
-        const exampleMessage = example.content;
-
-        if (exampleMessage.length === 0) {
-            continue;
-        }
-
-        const formattedExample = baseChatReplace(exampleMessage, name1, name2);
-        const cleanedExample = parseMesExamples(formattedExample, isInstruct);
-
-        // Insert depending on before or after position
-        if (example.position === wi_anchor_position.before) {
-            mesExamplesArray.unshift(...cleanedExample);
-        } else {
-            mesExamplesArray.push(...cleanedExample);
-        }
-    }
-
-    // At this point, the raw message examples can be created
-    const mesExamplesRawArray = [...mesExamplesArray];
-
-    if (mesExamplesArray && isInstruct) {
-        mesExamplesArray = formatInstructModeExamples(mesExamplesArray, name1, name2);
-    }
-
-    if (skipWIAN !== true) {
-        console.log('skipWIAN not active, adding WIAN');
-        // Add all depth WI entries to prompt
-        flushWIDepthInjections();
-        if (Array.isArray(worldInfoDepth)) {
-            worldInfoDepth.forEach((e) => {
-                const joinedEntries = e.entries.join('\n');
-                setExtensionPrompt(inject_ids.CUSTOM_WI_DEPTH_ROLE(e.depth, e.role), joinedEntries, extension_prompt_types.IN_CHAT, e.depth, false, e.role);
-            });
-        }
-    } else {
-        console.log('skipping WIAN');
-    }
-
-    // Collect before / after story string injections
-    const beforeScenarioAnchor = await getExtensionPrompt(extension_prompt_types.BEFORE_PROMPT);
-    const afterScenarioAnchor = await getExtensionPrompt(extension_prompt_types.IN_PROMPT);
-
-    const storyStringParams = {
-        description: description,
-        personality: personality,
-        persona: power_user.persona_description_position == persona_description_positions.IN_PROMPT ? persona : '',
-        scenario: scenario,
-        system: system,
-        char: name2,
-        user: name1,
-        wiBefore: worldInfoBefore,
-        wiAfter: worldInfoAfter,
-        loreBefore: worldInfoBefore,
-        loreAfter: worldInfoAfter,
-        anchorBefore: beforeScenarioAnchor.trim(),
-        anchorAfter: afterScenarioAnchor.trim(),
-        mesExamples: mesExamplesArray.join(''),
-        mesExamplesRaw: mesExamplesRawArray.join(''),
-    };
-
-    // Render the story string and combine with injections
-    const storyString = renderStoryString(storyStringParams);
-    let combinedStoryString = isInstruct ? formatInstructModeStoryString(storyString) : storyString;
-
-    // Inject the story string as in-chat prompt (if needed)
-    const applyStoryStringInject = main_api !== 'openai' && power_user.context.story_string_position === extension_prompt_types.IN_CHAT;
-    if (applyStoryStringInject) {
-        const depth = power_user.context.story_string_depth ?? 1;
-        const role = power_user.context.story_string_role ?? extension_prompt_roles.SYSTEM;
-        setExtensionPrompt(inject_ids.STORY_STRING, combinedStoryString, extension_prompt_types.IN_CHAT, depth, false, role);
-        // Remove to prevent duplication
-        combinedStoryString = '';
-    } else {
-        setExtensionPrompt(inject_ids.STORY_STRING, '', extension_prompt_types.IN_CHAT, 0);
-    }
-
-    // Story string rendered, safe to remove
-    if (power_user.strip_examples) {
-        mesExamplesArray = [];
-    }
-
-    // Inject all Depth prompts. Chat Completion does it separately
-    let injectedIndices = [];
-    if (main_api !== 'openai') {
-        injectedIndices = await doChatInject(coreChat, isContinue);
-    }
-
-    if (main_api !== 'openai' && power_user.sysprompt.enabled) {
-        jailbreak = power_user.prefer_character_jailbreak && jailbreak
-            ? substituteParams(jailbreak, name1, name2, (power_user.sysprompt.post_history ?? ''))
-            : baseChatReplace(power_user.sysprompt.post_history, name1, name2);
-
-        // Only inject the jb if there is one
-        if (jailbreak) {
-            // When continuing generation of previous output, last user message precedes the message to continue
-            if (isContinue) {
-                coreChat.splice(coreChat.length - 1, 0, { mes: jailbreak, is_user: true });
-            }
-            else {
-                // This operation will result in the injectedIndices indexes being off by one
-                coreChat.push({ mes: jailbreak, is_user: true });
-                // Add +1 to the elements to correct for the new PHI/Jailbreak message.
-                injectedIndices.forEach((e, idx) => injectedIndices[idx] = e + 1);
-            }
-        }
-    }
+    let {
+        afterScenarioAnchor,
+        beforeScenarioAnchor,
+        combinedStoryString,
+        injectedIndices,
+        jailbreak: preparedJailbreak,
+        mesExamplesArray,
+        storyString,
+        worldInfoAfter,
+        worldInfoBefore,
+        worldInfoString,
+    } = await preparePromptAugmentationStateCore({
+        charDepthPrompt,
+        coreChat,
+        creatorNotes,
+        description,
+        dryRun,
+        isContinue,
+        isInstruct,
+        jailbreak,
+        mesExamples,
+        personality,
+        persona,
+        quietPrompt: quiet_prompt,
+        scenario,
+        skipWIAN,
+        system,
+        thisMaxContext: this_max_context,
+        type,
+    });
+    jailbreak = preparedJailbreak;
 
     let {
         addUserAlignment,

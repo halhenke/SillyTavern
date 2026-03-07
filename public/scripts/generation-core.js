@@ -28,15 +28,19 @@ let getGeneratingApiConfigImpl = null;
 let getGenericSystemMessageTypeImpl = null;
 let getCharacterCardFieldsImpl = null;
 let getCfgPromptImpl = null;
+let getBeforePromptTypeImpl = null;
 let getCollapseNewlinesEnabledImpl = null;
 let getDepthPromptIdImpl = null;
 let getDepthPromptIndexIdImpl = null;
 let getExtensionPromptRoleByNameImpl = null;
+let getExtensionPromptImpl = null;
 let getTrimSpacesEnabledImpl = null;
 let getInChatPromptTypeImpl = null;
+let getInPromptPromptTypeImpl = null;
 let getInstructStoppingSequencesImpl = null;
 let getInstructWrapImpl = null;
 let getForceOutputSequencesImpl = null;
+let getGenerationTriggerImpl = null;
 let getGuidanceScaleImpl = null;
 let getHordeAdjustConfigImpl = null;
 let getMinLengthImpl = null;
@@ -50,7 +54,10 @@ let getTokenCountAsyncImpl = null;
 let getTextGenGenerationDataImpl = null;
 let getUserAlignmentMessageImpl = null;
 let getPinExamplesImpl = null;
+let getStoryStringConfigImpl = null;
 let getTokenPaddingImpl = null;
+let getWorldInfoIncludeNamesImpl = null;
+let getWiAnchorBeforeImpl = null;
 let executeSlashCommandsOnChatInputImpl = null;
 let getSelectedGroupImpl = null;
 let getMaxContextSizeImpl = null;
@@ -61,9 +68,14 @@ let isStreamingEnabledImpl = null;
 let removeDepthPromptsImpl = null;
 let removeReasoningFromStringImpl = null;
 let deactivateSendButtonsImpl = null;
+let addPersonaDescriptionExtensionPromptImpl = null;
+let doChatInjectImpl = null;
 let formatMessageHistoryItemImpl = null;
+let formatInstructModeExamplesImpl = null;
 let formatInstructModeChatImpl = null;
 let formatInstructModePromptImpl = null;
+let formatInstructModeStoryStringImpl = null;
+let flushWIDepthInjectionsImpl = null;
 let getGroupDepthPromptsImpl = null;
 let getAllowWIScanImpl = null;
 let extractImageFromDataImpl = null;
@@ -81,6 +93,7 @@ let sendSystemMessageImpl = null;
 let sendStreamingRequestImpl = null;
 let setExtensionPromptImpl = null;
 let setOpenAiMaxTokensImpl = null;
+let setCustomWorldInfoDepthPromptImpl = null;
 let setGenerationParamsFromPresetImpl = null;
 let setGenerationProgressImpl = null;
 let setSendButtonStateImpl = null;
@@ -88,13 +101,21 @@ let setInContextMessagesImpl = null;
 let setStreamingProcessorImpl = null;
 let setOpenAIMessageExamplesImpl = null;
 let setOpenAIMessagesImpl = null;
+let setFloatingPromptImpl = null;
+let setQuietPromptImpl = null;
+let setStoryStringPromptImpl = null;
+let clearStoryStringPromptImpl = null;
 let showToolCallErrorImpl = null;
 let trimToEndSentenceImpl = null;
 let triggerContinueImpl = null;
 let triggerAutoContinueImpl = null;
 let adjustHordeGenerationParamsImpl = null;
+let parseMesExamplesImpl = null;
 let prepareOpenAIMessagesImpl = null;
+let renderStoryStringImpl = null;
 let runGenerationInterceptorsImpl = null;
+let getWorldInfoPromptImpl = null;
+let shouldIncludePersonaInStoryStringImpl = null;
 
 export let amount_gen = 0;
 export let depth_prompt_depth_default = 0;
@@ -118,19 +139,25 @@ function throwUnbound(name) {
  *   createRawPrompt: (...args: any[]) => string|object[],
  *   generateHorde: (...args: any[]) => Promise<any>,
  *   adjustHordeGenerationParams: (...args: any[]) => Promise<any>,
+ *   addPersonaDescriptionExtensionPrompt: () => any,
  *   executeSlashCommandsOnChatInput: (...args: any[]) => Promise<any>,
  *   createStreamingProcessor: (...args: any[]) => any,
+ *   doChatInject: (...args: any[]) => Promise<number[]>,
  *   getAnimationDuration: () => number,
+ *   getBeforePromptType: () => number,
  *   getCfgPrompt: (...args: any[]) => any,
  *   getCollapseNewlinesEnabled: () => boolean,
  *   getCustomStoppingStrings: () => string[],
  *   getCharacterCardFields: (...args: any[]) => any,
  *   getDepthPromptId: () => any,
  *   getDepthPromptIndexId: (index: number) => any,
+ *   getExtensionPrompt: (...args: any[]) => Promise<string>,
  *   getExtensionPromptRoleByName: (...args: any[]) => any,
  *   getForceOutputSequences: () => { first?: any, last?: any },
+ *   getGenerationTrigger: (type: string|undefined) => string,
  *   getTrimSpacesEnabled: () => boolean,
  *   getInChatPromptType: () => number,
+ *   getInPromptPromptType: () => number,
  *   getInstructWrap: () => boolean,
  *   getGenericSystemMessageType: () => any,
  *   getKoboldGenerationData: (...args: any[]) => any,
@@ -152,6 +179,7 @@ function throwUnbound(name) {
  *   getNovelSettingsConfig: () => { naiSettings?: any, novelaiSettings?: any, novelaiSettingNames?: any },
  *   getOpenAiMaxTokens: () => number,
  *   getPinExamples: () => boolean,
+ *   getStoryStringConfig: () => { position?: number, depth?: number, role?: any, stripExamples?: boolean },
  *   getGeneratingApiConfig: () => { mainApi?: string, openAiSource?: string, textgenType?: string, textgenOobaType?: string },
   *   getTextareaText: () => string,
   *   getTokenCount: (text: string) => number,
@@ -159,6 +187,9 @@ function throwUnbound(name) {
  *   getTokenPadding: () => number,
  *   getTextGenGenerationData: (...args: any[]) => Promise<any>,
  *   getUserAlignmentMessage: () => string,
+ *   getWiAnchorBefore: () => any,
+ *   getWorldInfoIncludeNames: () => boolean,
+ *   getWorldInfoPrompt: (...args: any[]) => Promise<any>,
  *   getSelectedGroup: () => string|null|undefined,
  *   hasPendingFileAttachment: () => boolean,
  *   hideStopButton: () => any,
@@ -171,27 +202,38 @@ function throwUnbound(name) {
  *   extractMultiSwipes: (...args: any[]) => any,
  *   extractReasoningFromData: (...args: any[]) => any,
  *   extractTitleFromData: (...args: any[]) => any,
+ *   flushWIDepthInjections: () => any,
  *   hasToolCalls: (...args: any[]) => boolean,
  *   invokeFunctionTools: (...args: any[]) => Promise<any>,
  *   formatMessageHistoryItem: (...args: any[]) => string,
+ *   formatInstructModeExamples: (...args: any[]) => string[],
  *   formatInstructModeChat: (...args: any[]) => string,
  *   formatInstructModePrompt: (...args: any[]) => string,
+ *   formatInstructModeStoryString: (...args: any[]) => string,
  *   getGroupDepthPrompts: (...args: any[]) => any[],
  *   getAllowWIScan: () => boolean,
+ *   parseMesExamples: (...args: any[]) => string[],
+ *   renderStoryString: (...args: any[]) => string,
  *   sendMessageAsUser: (...args: any[]) => Promise<any>,
  *   sendGenerationRequest: (...args: any[]) => Promise<any>,
  *   sendOpenAIRequest: (...args: any[]) => Promise<any>,
  *   sendSystemMessage: (...args: any[]) => any,
  *   sendStreamingRequest: (...args: any[]) => Promise<any>,
-  *   setExtensionPrompt: (...args: any[]) => any,
+ *   setCustomWorldInfoDepthPrompt: (depth: number, role: any, value: string) => any,
+ *   setExtensionPrompt: (...args: any[]) => any,
  *   setOpenAiMaxTokens: (value: number) => any,
  *   setGenerationParamsFromPreset: (...args: any[]) => void,
  *   setGenerationProgress: (...args: any[]) => void,
   *   setInContextMessages: (...args: any[]) => any,
+ *   setQuietPrompt: (value: string) => any,
  *   setSendButtonState: (...args: any[]) => any,
+ *   setFloatingPrompt: () => any,
  *   setStreamingProcessor: (...args: any[]) => any,
  *   setOpenAIMessageExamples: (...args: any[]) => any,
  *   setOpenAIMessages: (...args: any[]) => any,
+ *   setStoryStringPrompt: (value: string, depth: number, role: any) => any,
+ *   clearStoryStringPrompt: () => any,
+ *   shouldIncludePersonaInStoryString: () => boolean,
  *   showToolCallError: (...args: any[]) => any,
  *   trimToEndSentence: (...args: any[]) => string,
  *   triggerContinue: () => any,
@@ -203,27 +245,33 @@ function throwUnbound(name) {
  */
 export function bindGenerationCore(impl) {
     adjustHordeGenerationParamsImpl = impl?.adjustHordeGenerationParams ?? null;
+    addPersonaDescriptionExtensionPromptImpl = impl?.addPersonaDescriptionExtensionPrompt ?? null;
     generateImpl = impl?.Generate ?? null;
     addChatsPreambleImpl = impl?.addChatsPreamble ?? null;
     addChatsSeparatorImpl = impl?.addChatsSeparator ?? null;
     collapseNewlinesImpl = impl?.collapseNewlines ?? null;
     createRawPromptImpl = impl?.createRawPrompt ?? null;
     createStreamingProcessorImpl = impl?.createStreamingProcessor ?? null;
+    doChatInjectImpl = impl?.doChatInject ?? null;
     generateHordeImpl = impl?.generateHorde ?? null;
     executeSlashCommandsOnChatInputImpl = impl?.executeSlashCommandsOnChatInput ?? null;
     deactivateSendButtonsImpl = impl?.deactivateSendButtons ?? null;
     getAnimationDurationImpl = impl?.getAnimationDuration ?? null;
     getAllowWIScanImpl = impl?.getAllowWIScan ?? null;
+    getBeforePromptTypeImpl = impl?.getBeforePromptType ?? null;
     getCharacterCardFieldsImpl = impl?.getCharacterCardFields ?? null;
     getCfgPromptImpl = impl?.getCfgPrompt ?? null;
     getCollapseNewlinesEnabledImpl = impl?.getCollapseNewlinesEnabled ?? null;
     getCustomStoppingStringsImpl = impl?.getCustomStoppingStrings ?? null;
     getDepthPromptIdImpl = impl?.getDepthPromptId ?? null;
     getDepthPromptIndexIdImpl = impl?.getDepthPromptIndexId ?? null;
+    getExtensionPromptImpl = impl?.getExtensionPrompt ?? null;
     getExtensionPromptRoleByNameImpl = impl?.getExtensionPromptRoleByName ?? null;
     getForceOutputSequencesImpl = impl?.getForceOutputSequences ?? null;
+    getGenerationTriggerImpl = impl?.getGenerationTrigger ?? null;
     getTrimSpacesEnabledImpl = impl?.getTrimSpacesEnabled ?? null;
     getInChatPromptTypeImpl = impl?.getInChatPromptType ?? null;
+    getInPromptPromptTypeImpl = impl?.getInPromptPromptType ?? null;
     getInstructWrapImpl = impl?.getInstructWrap ?? null;
     getGenericSystemMessageTypeImpl = impl?.getGenericSystemMessageType ?? null;
     getGuidanceScaleImpl = impl?.getGuidanceScale ?? null;
@@ -247,12 +295,16 @@ export function bindGenerationCore(impl) {
     getOpenAiMaxTokensImpl = impl?.getOpenAiMaxTokens ?? null;
     getPinExamplesImpl = impl?.getPinExamples ?? null;
     getGeneratingApiConfigImpl = impl?.getGeneratingApiConfig ?? null;
+    getStoryStringConfigImpl = impl?.getStoryStringConfig ?? null;
     getTextareaTextImpl = impl?.getTextareaText ?? null;
     getTokenCountImpl = impl?.getTokenCount ?? null;
     getTokenCountAsyncImpl = impl?.getTokenCountAsync ?? null;
     getTokenPaddingImpl = impl?.getTokenPadding ?? null;
     getTextGenGenerationDataImpl = impl?.getTextGenGenerationData ?? null;
     getUserAlignmentMessageImpl = impl?.getUserAlignmentMessage ?? null;
+    getWiAnchorBeforeImpl = impl?.getWiAnchorBefore ?? null;
+    getWorldInfoIncludeNamesImpl = impl?.getWorldInfoIncludeNames ?? null;
+    getWorldInfoPromptImpl = impl?.getWorldInfoPrompt ?? null;
     getSelectedGroupImpl = impl?.getSelectedGroup ?? null;
     hasPendingFileAttachmentImpl = impl?.hasPendingFileAttachment ?? null;
     hideStopButtonImpl = impl?.hideStopButton ?? null;
@@ -264,26 +316,37 @@ export function bindGenerationCore(impl) {
     extractMultiSwipesImpl = impl?.extractMultiSwipes ?? null;
     extractReasoningFromDataImpl = impl?.extractReasoningFromData ?? null;
     extractTitleFromDataImpl = impl?.extractTitleFromData ?? null;
+    flushWIDepthInjectionsImpl = impl?.flushWIDepthInjections ?? null;
     hasToolCallsImpl = impl?.hasToolCalls ?? null;
     invokeFunctionToolsImpl = impl?.invokeFunctionTools ?? null;
     formatMessageHistoryItemImpl = impl?.formatMessageHistoryItem ?? null;
+    formatInstructModeExamplesImpl = impl?.formatInstructModeExamples ?? null;
     formatInstructModeChatImpl = impl?.formatInstructModeChat ?? null;
     formatInstructModePromptImpl = impl?.formatInstructModePrompt ?? null;
+    formatInstructModeStoryStringImpl = impl?.formatInstructModeStoryString ?? null;
     normalizeReasoningTextImpl = impl?.normalizeReasoningText ?? null;
+    parseMesExamplesImpl = impl?.parseMesExamples ?? null;
+    renderStoryStringImpl = impl?.renderStoryString ?? null;
     sendMessageAsUserImpl = impl?.sendMessageAsUser ?? null;
     sendGenerationRequestImpl = impl?.sendGenerationRequest ?? null;
     sendOpenAIRequestImpl = impl?.sendOpenAIRequest ?? null;
     sendSystemMessageImpl = impl?.sendSystemMessage ?? null;
     sendStreamingRequestImpl = impl?.sendStreamingRequest ?? null;
+    setCustomWorldInfoDepthPromptImpl = impl?.setCustomWorldInfoDepthPrompt ?? null;
     setExtensionPromptImpl = impl?.setExtensionPrompt ?? null;
     setOpenAiMaxTokensImpl = impl?.setOpenAiMaxTokens ?? null;
     setGenerationParamsFromPresetImpl = impl?.setGenerationParamsFromPreset ?? null;
     setGenerationProgressImpl = impl?.setGenerationProgress ?? null;
     setInContextMessagesImpl = impl?.setInContextMessages ?? null;
+    setQuietPromptImpl = impl?.setQuietPrompt ?? null;
     setSendButtonStateImpl = impl?.setSendButtonState ?? null;
+    setFloatingPromptImpl = impl?.setFloatingPrompt ?? null;
     setStreamingProcessorImpl = impl?.setStreamingProcessor ?? null;
     setOpenAIMessageExamplesImpl = impl?.setOpenAIMessageExamples ?? null;
     setOpenAIMessagesImpl = impl?.setOpenAIMessages ?? null;
+    setStoryStringPromptImpl = impl?.setStoryStringPrompt ?? null;
+    clearStoryStringPromptImpl = impl?.clearStoryStringPrompt ?? null;
+    shouldIncludePersonaInStoryStringImpl = impl?.shouldIncludePersonaInStoryString ?? null;
     showToolCallErrorImpl = impl?.showToolCallError ?? null;
     trimToEndSentenceImpl = impl?.trimToEndSentence ?? null;
     triggerContinueImpl = impl?.triggerContinue ?? null;
@@ -727,6 +790,236 @@ export function preparePromptContextState({ isInstruct }) {
         persona,
         scenario,
         system,
+    };
+}
+
+export async function preparePromptAugmentationState({
+    charDepthPrompt,
+    coreChat,
+    creatorNotes,
+    description,
+    dryRun,
+    isContinue,
+    isInstruct,
+    jailbreak,
+    mesExamples,
+    personality,
+    persona,
+    quietPrompt,
+    scenario,
+    skipWIAN,
+    system,
+    thisMaxContext,
+    type,
+}) {
+    if (!parseMesExamplesImpl) {
+        throwUnbound('parseMesExamples');
+    }
+    if (!setFloatingPromptImpl) {
+        throwUnbound('setFloatingPrompt');
+    }
+    if (!addPersonaDescriptionExtensionPromptImpl) {
+        throwUnbound('addPersonaDescriptionExtensionPrompt');
+    }
+    if (!setQuietPromptImpl) {
+        throwUnbound('setQuietPrompt');
+    }
+    if (!getInPromptPromptTypeImpl) {
+        throwUnbound('getInPromptPromptType');
+    }
+    if (!getWorldInfoIncludeNamesImpl) {
+        throwUnbound('getWorldInfoIncludeNames');
+    }
+    if (!getGenerationTriggerImpl) {
+        throwUnbound('getGenerationTrigger');
+    }
+    if (!getWorldInfoPromptImpl) {
+        throwUnbound('getWorldInfoPrompt');
+    }
+    if (!getWiAnchorBeforeImpl) {
+        throwUnbound('getWiAnchorBefore');
+    }
+    if (!formatInstructModeExamplesImpl) {
+        throwUnbound('formatInstructModeExamples');
+    }
+    if (!flushWIDepthInjectionsImpl) {
+        throwUnbound('flushWIDepthInjections');
+    }
+    if (!setCustomWorldInfoDepthPromptImpl) {
+        throwUnbound('setCustomWorldInfoDepthPrompt');
+    }
+    if (!getInChatPromptTypeImpl) {
+        throwUnbound('getInChatPromptType');
+    }
+    if (!getBeforePromptTypeImpl) {
+        throwUnbound('getBeforePromptType');
+    }
+    if (!getExtensionPromptImpl) {
+        throwUnbound('getExtensionPrompt');
+    }
+    if (!shouldIncludePersonaInStoryStringImpl) {
+        throwUnbound('shouldIncludePersonaInStoryString');
+    }
+    if (!renderStoryStringImpl) {
+        throwUnbound('renderStoryString');
+    }
+    if (!formatInstructModeStoryStringImpl) {
+        throwUnbound('formatInstructModeStoryString');
+    }
+    if (!getStoryStringConfigImpl) {
+        throwUnbound('getStoryStringConfig');
+    }
+    if (!setStoryStringPromptImpl) {
+        throwUnbound('setStoryStringPrompt');
+    }
+    if (!clearStoryStringPromptImpl) {
+        throwUnbound('clearStoryStringPrompt');
+    }
+    if (!doChatInjectImpl) {
+        throwUnbound('doChatInject');
+    }
+    if (!getSyspromptConfigImpl) {
+        throwUnbound('getSyspromptConfig');
+    }
+
+    let mesExamplesArray = parseMesExamplesImpl(mesExamples, isInstruct);
+    const inPromptPromptType = getInPromptPromptTypeImpl();
+    const inChatPromptType = getInChatPromptTypeImpl();
+
+    setFloatingPromptImpl();
+    addPersonaDescriptionExtensionPromptImpl();
+
+    const chatForWI = coreChat
+        .map((message) => getWorldInfoIncludeNamesImpl() ? `${message.name}: ${message.mes}` : message.mes)
+        .reverse();
+    const globalScanData = {
+        personaDescription: persona,
+        characterDescription: description,
+        characterPersonality: personality,
+        characterDepthPrompt: charDepthPrompt,
+        scenario,
+        creatorNotes,
+        trigger: getGenerationTriggerImpl(type),
+    };
+
+    let worldInfoString = '';
+    let worldInfoBefore = '';
+    let worldInfoAfter = '';
+    let worldInfoExamples = [];
+    let worldInfoDepth = [];
+
+    setQuietPromptImpl(quietPrompt || '');
+    try {
+        ({
+            worldInfoString = '',
+            worldInfoBefore = '',
+            worldInfoAfter = '',
+            worldInfoExamples = [],
+            worldInfoDepth = [],
+        } = await getWorldInfoPromptImpl(chatForWI, thisMaxContext, dryRun, globalScanData));
+    } finally {
+        setQuietPromptImpl('');
+    }
+
+    for (const example of worldInfoExamples) {
+        const exampleMessage = example.content;
+        if (exampleMessage.length === 0) {
+            continue;
+        }
+
+        const formattedExample = baseChatReplace(exampleMessage, name1, name2);
+        const cleanedExample = parseMesExamplesImpl(formattedExample, isInstruct);
+        if (example.position === getWiAnchorBeforeImpl()) {
+            mesExamplesArray.unshift(...cleanedExample);
+        } else {
+            mesExamplesArray.push(...cleanedExample);
+        }
+    }
+
+    const mesExamplesRawArray = [...mesExamplesArray];
+
+    if (mesExamplesArray && isInstruct) {
+        mesExamplesArray = formatInstructModeExamplesImpl(mesExamplesArray, name1, name2);
+    }
+
+    if (skipWIAN !== true) {
+        console.log('skipWIAN not active, adding WIAN');
+        flushWIDepthInjectionsImpl();
+        if (Array.isArray(worldInfoDepth)) {
+            worldInfoDepth.forEach((entry) => {
+                setCustomWorldInfoDepthPromptImpl(entry.depth, entry.role, entry.entries.join('\n'));
+            });
+        }
+    } else {
+        console.log('skipping WIAN');
+    }
+
+    const beforeScenarioAnchor = await getExtensionPromptImpl(getBeforePromptTypeImpl());
+    const afterScenarioAnchor = await getExtensionPromptImpl(inPromptPromptType);
+    const storyString = renderStoryStringImpl({
+        description,
+        personality,
+        persona: shouldIncludePersonaInStoryStringImpl() ? persona : '',
+        scenario,
+        system,
+        char: name2,
+        user: name1,
+        wiBefore: worldInfoBefore,
+        wiAfter: worldInfoAfter,
+        loreBefore: worldInfoBefore,
+        loreAfter: worldInfoAfter,
+        anchorBefore: beforeScenarioAnchor.trim(),
+        anchorAfter: afterScenarioAnchor.trim(),
+        mesExamples: mesExamplesArray.join(''),
+        mesExamplesRaw: mesExamplesRawArray.join(''),
+    });
+
+    let combinedStoryString = isInstruct ? formatInstructModeStoryStringImpl(storyString) : storyString;
+    const storyStringConfig = getStoryStringConfigImpl() ?? {};
+    const applyStoryStringInject = main_api !== 'openai' && storyStringConfig.position === inChatPromptType;
+    if (applyStoryStringInject) {
+        setStoryStringPromptImpl(combinedStoryString, storyStringConfig.depth ?? 1, storyStringConfig.role);
+        combinedStoryString = '';
+    } else {
+        clearStoryStringPromptImpl();
+    }
+
+    if (storyStringConfig.stripExamples) {
+        mesExamplesArray = [];
+    }
+
+    let injectedIndices = [];
+    if (main_api !== 'openai') {
+        injectedIndices = await doChatInjectImpl(coreChat, isContinue);
+    }
+
+    const sysprompt = getSyspromptConfigImpl() ?? {};
+    if (main_api !== 'openai' && sysprompt.enabled) {
+        jailbreak = sysprompt.preferCharacterJailbreak && jailbreak
+            ? substituteParams(jailbreak, name1, name2, (sysprompt.postHistory ?? ''))
+            : baseChatReplace(sysprompt.postHistory ?? '', name1, name2);
+
+        if (jailbreak) {
+            if (isContinue) {
+                coreChat.splice(coreChat.length - 1, 0, { mes: jailbreak, is_user: true });
+            } else {
+                coreChat.push({ mes: jailbreak, is_user: true });
+                injectedIndices.forEach((index, arrayIndex) => injectedIndices[arrayIndex] = index + 1);
+            }
+        }
+    }
+
+    return {
+        afterScenarioAnchor,
+        beforeScenarioAnchor,
+        combinedStoryString,
+        injectedIndices,
+        jailbreak,
+        mesExamplesArray,
+        storyString,
+        worldInfoAfter,
+        worldInfoBefore,
+        worldInfoString,
     };
 }
 

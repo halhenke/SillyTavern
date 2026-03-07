@@ -1532,3 +1532,33 @@
 ### Next
 1. Reassess whether the next `Generate(...)` extraction should target the earlier world-info/story-string augmentation block or the remaining non-streaming success/error flow.
 2. Keep the next move focused on one remaining pipeline stage with clear side-effect boundaries.
+
+## 2026-03-07 - Monolith Reduction Wave 32 (Generate Prompt Augmentation Block)
+
+### Completed
+- Moved the world-info/story-string augmentation block out of `public/script.js` into `public/scripts/generation-core.js` as `preparePromptAugmentationState(...)`.
+- That extracted block now owns:
+  - initial message-example parsing for the generation pass
+  - floating prompt and persona-description prompt setup
+  - world-info scan preparation and quiet-prompt wrapping
+  - WI example insertion into message examples
+  - instruct-mode example formatting
+  - WI depth-prompt injection setup
+  - before/after anchor collection
+  - story-string rendering and optional in-chat story-string injection
+  - non-OpenAI depth prompt injection into chat history
+  - post-history jailbreak shaping and injection
+- Updated `Generate(...)` in `public/script.js` to consume a compact returned augmentation state instead of owning that full inline block.
+- Extended `bindGenerationCore(...)` with the narrow prompt-augmentation callbacks/config needed to keep the extracted logic off `script.js` without creating new dependency cycles.
+
+### Measurable Impact
+- One of the last large early-stage `Generate(...)` seams has left the monolith.
+- `Generate(...)` is now more concentrated around context packing, provider setup, and the remaining response/error glue instead of owning prompt augmentation directly.
+
+### Insights
+- The WI/story-string path was large, but still a coherent migration unit once prompt writes were pushed behind small bound callbacks instead of exposing legacy constants directly inside `generation-core`.
+- Expanding the existing sysprompt config binding was cleaner than adding a separate jailbreak-only binding, because the helper already needed the same configuration family for prompt augmentation decisions.
+
+### Next
+1. Reassess the remaining `Generate(...)` body for the next coherent reduction, likely the smaller non-streaming success/error glue that still lives in `finishGenerating()`.
+2. Keep avoiding mixed migrations that combine prompt preparation with request execution or UI unblock logic in the same wave.

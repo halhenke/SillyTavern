@@ -1277,3 +1277,32 @@
 ### Next
 1. Reassess whether the next useful `Generate(...)` extraction is prompt augmentation/story-string assembly or the later history-building/provider-response segments.
 2. Keep the next move focused on one medium-sized orchestration seam with explicit returned state rather than widening the helper API too aggressively.
+
+## 2026-03-07 - Monolith Reduction Wave 23 (Generate History Preparation)
+
+### Completed
+- Moved the history-shaping segment out of `public/script.js` into `public/scripts/generation-core.js` as `prepareMessageHistoryState(...)`.
+- That extracted block now owns:
+  - `chat2` history shaping for OpenAI and non-OpenAI paths
+  - continuation trimming for the final message
+  - instruct-mode first/last sequence application
+  - user-alignment message preparation
+  - OpenAI message/example preparation
+- Updated `Generate(...)` in `public/script.js` to consume the returned history state instead of owning that inline block.
+- Extended `bindGenerationCore(...)` with narrow callbacks for:
+  - message-history formatting
+  - force-output sequence ids
+  - user-alignment text access
+  - OpenAI message/example conversion helpers
+
+### Measurable Impact
+- Another contiguous middle section of `Generate(...)` is now core-owned.
+- The remaining monolith-owned generation code is increasingly concentrated around prompt augmentation, token-fitting/context packing, and provider dispatch/response handling.
+
+### Insights
+- The `Generate(...)` function still yields good extraction seams when treated as pipeline stages with explicit returned state.
+- History shaping was a safer next move than the world-info/story-string block because it carries less extension-state coupling while still removing a significant chunk of orchestration.
+
+### Next
+1. Reassess whether the next `Generate(...)` extraction should target prompt augmentation/story-string assembly or the token-fitting/context-packing block that follows history preparation.
+2. Keep the next move centered on a single pipeline stage to avoid mixing extension-prompt concerns with provider-dispatch concerns.

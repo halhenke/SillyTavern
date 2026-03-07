@@ -30,6 +30,7 @@ let getDepthPromptIndexIdImpl = null;
 let getExtensionPromptRoleByNameImpl = null;
 let getInChatPromptTypeImpl = null;
 let getInstructStoppingSequencesImpl = null;
+let getForceOutputSequencesImpl = null;
 let getGuidanceScaleImpl = null;
 let getHordeAdjustConfigImpl = null;
 let getNamesAsStopStringsImpl = null;
@@ -39,6 +40,7 @@ let getTextareaTextImpl = null;
 let getTokenCountImpl = null;
 let getTokenCountAsyncImpl = null;
 let getTextGenGenerationDataImpl = null;
+let getUserAlignmentMessageImpl = null;
 let executeSlashCommandsOnChatInputImpl = null;
 let getSelectedGroupImpl = null;
 let getMaxContextSizeImpl = null;
@@ -48,6 +50,7 @@ let isStreamingEnabledImpl = null;
 let removeDepthPromptsImpl = null;
 let removeReasoningFromStringImpl = null;
 let deactivateSendButtonsImpl = null;
+let formatMessageHistoryItemImpl = null;
 let getGroupDepthPromptsImpl = null;
 let getAllowWIScanImpl = null;
 let sendMessageAsUserImpl = null;
@@ -60,6 +63,8 @@ let setOpenAiMaxTokensImpl = null;
 let setGenerationParamsFromPresetImpl = null;
 let setGenerationProgressImpl = null;
 let setSendButtonStateImpl = null;
+let setOpenAIMessageExamplesImpl = null;
+let setOpenAIMessagesImpl = null;
 let trimToEndSentenceImpl = null;
 let triggerContinueImpl = null;
 let adjustHordeGenerationParamsImpl = null;
@@ -92,7 +97,8 @@ function throwUnbound(name) {
  *   getDepthPromptId: () => any,
  *   getDepthPromptIndexId: (index: number) => any,
  *   getExtensionPromptRoleByName: (...args: any[]) => any,
- *   getInChatPromptType: () => number,
+ *   getForceOutputSequences: () => { first?: any, last?: any },
+  *   getInChatPromptType: () => number,
  *   getGenericSystemMessageType: () => any,
  *   getKoboldGenerationData: (...args: any[]) => any,
  *   getKoboldSettingsConfig: () => { kaiSettings?: any, kaiFlags?: any, koboldaiSettings?: any, koboldaiSettingNames?: any },
@@ -115,6 +121,7 @@ function throwUnbound(name) {
  *   getTokenCount: (text: string) => number,
  *   getTokenCountAsync: (...args: any[]) => Promise<number>,
  *   getTextGenGenerationData: (...args: any[]) => Promise<any>,
+ *   getUserAlignmentMessage: () => string,
  *   getSelectedGroup: () => string|null|undefined,
  *   hasPendingFileAttachment: () => boolean,
  *   hideStopButton: () => any,
@@ -122,6 +129,7 @@ function throwUnbound(name) {
  *   removeDepthPrompts: (...args: any[]) => any,
  *   removeReasoningFromString: (...args: any[]) => string,
  *   deactivateSendButtons: () => any,
+ *   formatMessageHistoryItem: (...args: any[]) => string,
  *   getGroupDepthPrompts: (...args: any[]) => any[],
  *   getAllowWIScan: () => boolean,
  *   sendMessageAsUser: (...args: any[]) => Promise<any>,
@@ -134,6 +142,8 @@ function throwUnbound(name) {
  *   setGenerationParamsFromPreset: (...args: any[]) => void,
  *   setGenerationProgress: (...args: any[]) => void,
  *   setSendButtonState: (...args: any[]) => any,
+ *   setOpenAIMessageExamples: (...args: any[]) => any,
+ *   setOpenAIMessages: (...args: any[]) => any,
  *   trimToEndSentence: (...args: any[]) => string,
  *   triggerContinue: () => any,
  *   runGenerationInterceptors: (...args: any[]) => Promise<boolean>,
@@ -154,6 +164,7 @@ export function bindGenerationCore(impl) {
     getDepthPromptIdImpl = impl?.getDepthPromptId ?? null;
     getDepthPromptIndexIdImpl = impl?.getDepthPromptIndexId ?? null;
     getExtensionPromptRoleByNameImpl = impl?.getExtensionPromptRoleByName ?? null;
+    getForceOutputSequencesImpl = impl?.getForceOutputSequences ?? null;
     getInChatPromptTypeImpl = impl?.getInChatPromptType ?? null;
     getGenericSystemMessageTypeImpl = impl?.getGenericSystemMessageType ?? null;
     getGuidanceScaleImpl = impl?.getGuidanceScale ?? null;
@@ -178,12 +189,14 @@ export function bindGenerationCore(impl) {
     getTokenCountImpl = impl?.getTokenCount ?? null;
     getTokenCountAsyncImpl = impl?.getTokenCountAsync ?? null;
     getTextGenGenerationDataImpl = impl?.getTextGenGenerationData ?? null;
+    getUserAlignmentMessageImpl = impl?.getUserAlignmentMessage ?? null;
     getSelectedGroupImpl = impl?.getSelectedGroup ?? null;
     hasPendingFileAttachmentImpl = impl?.hasPendingFileAttachment ?? null;
     hideStopButtonImpl = impl?.hideStopButton ?? null;
     isStreamingEnabledImpl = impl?.isStreamingEnabled ?? null;
     removeDepthPromptsImpl = impl?.removeDepthPrompts ?? null;
     removeReasoningFromStringImpl = impl?.removeReasoningFromString ?? null;
+    formatMessageHistoryItemImpl = impl?.formatMessageHistoryItem ?? null;
     sendMessageAsUserImpl = impl?.sendMessageAsUser ?? null;
     sendGenerationRequestImpl = impl?.sendGenerationRequest ?? null;
     sendOpenAIRequestImpl = impl?.sendOpenAIRequest ?? null;
@@ -194,6 +207,8 @@ export function bindGenerationCore(impl) {
     setGenerationParamsFromPresetImpl = impl?.setGenerationParamsFromPreset ?? null;
     setGenerationProgressImpl = impl?.setGenerationProgress ?? null;
     setSendButtonStateImpl = impl?.setSendButtonState ?? null;
+    setOpenAIMessageExamplesImpl = impl?.setOpenAIMessageExamples ?? null;
+    setOpenAIMessagesImpl = impl?.setOpenAIMessages ?? null;
     trimToEndSentenceImpl = impl?.trimToEndSentence ?? null;
     triggerContinueImpl = impl?.triggerContinue ?? null;
     runGenerationInterceptorsImpl = impl?.runGenerationInterceptors ?? null;
@@ -710,6 +725,105 @@ export async function prepareGenerationContextWindow({ coreChat, dryRun, type })
         aborted: false,
         adjustedParams,
         thisMaxContext,
+    };
+}
+
+export function prepareMessageHistoryState({ coreChat, isContinue, isInstruct, mesExamplesArray }) {
+    if (!formatMessageHistoryItemImpl) {
+        throwUnbound('formatMessageHistoryItem');
+    }
+    if (!getForceOutputSequencesImpl) {
+        throwUnbound('getForceOutputSequences');
+    }
+    if (!getUserAlignmentMessageImpl) {
+        throwUnbound('getUserAlignmentMessage');
+    }
+    if (!setOpenAIMessagesImpl) {
+        throwUnbound('setOpenAIMessages');
+    }
+    if (!setOpenAIMessageExamplesImpl) {
+        throwUnbound('setOpenAIMessageExamples');
+    }
+
+    const { first: firstOutputSequence = false, last: lastOutputSequence = false } = getForceOutputSequencesImpl() ?? {};
+    let chat2 = [];
+    let continueMag = '';
+    const userMessageIndices = [];
+    const lastUserMessageIndex = coreChat.findLastIndex(x => x.is_user);
+
+    for (let i = coreChat.length - 1, j = 0; i >= 0; i--, j++) {
+        if (main_api === 'openai') {
+            chat2[i] = coreChat[j].mes;
+            if (i === 0 && isContinue) {
+                chat2[i] = chat2[i].slice(0, chat2[i].lastIndexOf(coreChat[j].mes) + coreChat[j].mes.length);
+                continueMag = coreChat[j].mes;
+            }
+            continue;
+        }
+
+        chat2[i] = formatMessageHistoryItemImpl(coreChat[j], isInstruct, false);
+
+        if (j === 0 && isInstruct) {
+            chat2[i] = formatMessageHistoryItemImpl(coreChat[j], isInstruct, firstOutputSequence);
+        }
+
+        if (lastUserMessageIndex >= 0 && j === lastUserMessageIndex && isInstruct) {
+            chat2[i] = formatMessageHistoryItemImpl(coreChat[j], isInstruct, lastOutputSequence);
+        }
+
+        if (i === 0 && isContinue) {
+            const FORMAT_TOKEN = '\u0000\ufffc\u0000\ufffd';
+
+            if (isInstruct) {
+                const originalMessage = String(coreChat[j].mes ?? '');
+                coreChat[j].mes = originalMessage.replaceAll(FORMAT_TOKEN, '') + FORMAT_TOKEN;
+                chat2[i] = formatMessageHistoryItemImpl(coreChat[j], isInstruct, lastOutputSequence);
+                coreChat[j].mes = originalMessage;
+            }
+
+            chat2[i] = chat2[i].includes(FORMAT_TOKEN)
+                ? chat2[i].slice(0, chat2[i].lastIndexOf(FORMAT_TOKEN))
+                : chat2[i].slice(0, chat2[i].lastIndexOf(coreChat[j].mes) + coreChat[j].mes.length);
+            continueMag = coreChat[j].mes;
+        }
+
+        if (coreChat[j].is_user) {
+            userMessageIndices.push(i);
+        }
+    }
+
+    const addUserAlignment = Boolean(isInstruct && getUserAlignmentMessageImpl());
+    let userAlignmentMessage = '';
+
+    if (addUserAlignment) {
+        const alignmentMessage = {
+            name: name1,
+            mes: substituteParams(getUserAlignmentMessageImpl()),
+            is_user: true,
+        };
+        userAlignmentMessage = formatMessageHistoryItemImpl(alignmentMessage, isInstruct, firstOutputSequence);
+    }
+
+    let oaiMessages = [];
+    let oaiMessageExamples = [];
+
+    if (main_api === 'openai') {
+        oaiMessages = setOpenAIMessagesImpl(coreChat);
+        oaiMessageExamples = setOpenAIMessageExamplesImpl(mesExamplesArray);
+    }
+
+    if (chat2.length === 0) {
+        chat2.push('');
+    }
+
+    return {
+        addUserAlignment,
+        chat2,
+        continueMag,
+        oaiMessageExamples,
+        oaiMessages,
+        userAlignmentMessage,
+        userMessageIndices,
     };
 }
 

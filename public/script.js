@@ -263,7 +263,7 @@ import { bindCharacterCore, createOrEditCharacter as createOrEditCharacterCore, 
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
 import { addOneMessage as addOneMessageCore, bindChatOperationsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
-import { bindGenerationCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, prepareContextPackingState as prepareContextPackingStateCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationMessages as prepareGenerationMessagesCore, prepareMessageHistoryState as prepareMessageHistoryStateCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
+import { bindGenerationCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, prepareContextPackingState as prepareContextPackingStateCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationMessages as prepareGenerationMessagesCore, prepareMessageHistoryState as prepareMessageHistoryStateCore, preparePromptAssemblyState as preparePromptAssemblyStateCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
 import { bindMessageCore, setEditedMessageId as setEditedMessageIdCore, updateMessageBlock as updateMessageBlockCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
@@ -543,6 +543,7 @@ bindGenerationCore({
         autoAdjustResponseLength: horde_settings.auto_adjust_response_length,
     }),
     getInChatPromptType: () => extension_prompt_types.IN_CHAT,
+    getInstructWrap: () => power_user.instruct.wrap,
     getInstructStoppingSequences,
     getKoboldGenerationData,
     getKoboldSettingsConfig: () => ({
@@ -586,6 +587,8 @@ bindGenerationCore({
     hideStopButton,
     isStreamingEnabled,
     formatMessageHistoryItem,
+    formatInstructModeChat,
+    formatInstructModePrompt,
     removeDepthPrompts,
     removeReasoningFromString,
     sendMessageAsUser,
@@ -3314,10 +3317,16 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
         addUserAlignment,
         chat2,
         combinedStoryString,
+        forceName2: force_name2,
         injectedIndices,
         isContinue,
+        isImpersonate,
+        isInstruct,
         mesExamplesArray,
-        modifyLastPromptLine,
+        promptBias,
+        quietName,
+        quietPrompt: quiet_prompt,
+        quietToLoud,
         thisMaxContext: this_max_context,
         type,
         userAlignmentMessage,
@@ -3326,7 +3335,6 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
     injectedIndices = packedInjectedIndices;
 
     let mesSend = [];
-    console.debug('calling runGenerate');
 
     if (isContinue) {
         // Coping mechanism for OAI spacing
@@ -3343,144 +3351,31 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
     }
 
     let generatedPromptCache = cyclePrompt || '';
-    if (generatedPromptCache.length == 0 || type === 'continue') {
-        console.debug('generating prompt');
-        arrMes = arrMes.reverse();
-        arrMes.forEach(function (item, i, arr) {
-            // OAI doesn't need all of this
-            if (main_api === 'openai') {
-                return;
-            }
-
-            // Cohee: This removes a newline from the end of the last message in the context
-            // Last prompt line will add a newline if it's not a continuation
-            // In instruct mode it only removes it if wrap is enabled and it's not a quiet generation
-            if (i === arrMes.length - 1 && type !== 'continue') {
-                if (!isInstruct || (power_user.instruct.wrap && type !== 'quiet')) {
-                    item = item.replace(/\n?$/, '');
-                }
-            }
-
-            mesSend[mesSend.length] = { message: item, extensionPrompts: [] };
-        });
-    }
+    console.debug('calling runGenerate');
 
     let mesExmString = '';
-
-    function setPromptString() {
-        if (main_api == 'openai') {
-            return;
-        }
-
-        console.debug('--setting Prompt string');
-        mesExmString = pinExmString ?? mesExamplesArray.slice(0, count_exm_add).join('');
-
-        if (mesSend.length) {
-            mesSend[mesSend.length - 1].message = modifyLastPromptLine(mesSend[mesSend.length - 1].message);
-        }
-    }
-
-    function modifyLastPromptLine(lastMesString) {
-        //#########QUIET PROMPT STUFF PT2##############
-
-        // Add quiet generation prompt at depth 0
-        if (quiet_prompt && quiet_prompt.length) {
-
-            // here name1 is forced for all quiet prompts..why?
-            const name = name1;
-            //checks if we are in instruct, if so, formats the chat as such, otherwise just adds the quiet prompt
-            const quietAppend = isInstruct ? formatInstructModeChat(name, quiet_prompt, false, true, '', name1, name2, false) : `\n${quiet_prompt}`;
-
-            //This begins to fix quietPrompts (particularly /sysgen) for instruct
-            //previously instruct input sequence was being appended to the last chat message w/o '\n'
-            //and no output sequence was added after the input's content.
-            //TODO: respect output_sequence vs last_output_sequence settings
-            //TODO: decide how to prompt this to clarify who is talking 'Narrator', 'System', etc.
-            if (isInstruct) {
-                lastMesString += quietAppend; // + power_user.instruct.output_sequence + '\n';
-            } else {
-                lastMesString += quietAppend;
-            }
-
-
-            // Ross: bailing out early prevents quiet prompts from respecting other instruct prompt toggles
-            // for sysgen, SD, and summary this is desireable as it prevents the AI from responding as char..
-            // but for idle prompting, we want the flexibility of the other prompt toggles, and to respect them as per settings in the extension
-            // need a detection for what the quiet prompt is being asked for...
-
-            // Bail out early?
-            if (!isInstruct && !quietToLoud) {
-                return lastMesString;
-            }
-        }
-
-
-        // Get instruct mode line
-        if (isInstruct && !isContinue) {
-            const name = (quiet_prompt && !quietToLoud && !isImpersonate) ? (quietName ?? 'System') : (isImpersonate ? name1 : name2);
-            const isQuiet = quiet_prompt && type == 'quiet';
-            lastMesString += formatInstructModePrompt(name, isImpersonate, promptBias, name1, name2, isQuiet, quietToLoud);
-        }
-
-        // Get non-instruct impersonation line
-        if (!isInstruct && isImpersonate && !isContinue) {
-            const name = name1;
-            if (!lastMesString.endsWith('\n')) {
-                lastMesString += '\n';
-            }
-            lastMesString += name + ':';
-        }
-
-        // Add character's name
-        // Force name append on continue (if not continuing on user message or first message)
-        const isContinuingOnFirstMessage = chat.length === 1 && isContinue;
-        if (!isInstruct && force_name2 && !isContinuingOnFirstMessage) {
-            if (!lastMesString.endsWith('\n')) {
-                lastMesString += '\n';
-            }
-            if (!isContinue || !(chat[chat.length - 1]?.is_user)) {
-                lastMesString += `${name2}:`;
-            }
-        }
-
-        return lastMesString;
-    }
-
-    async function checkPromptSize() {
-        console.debug('---checking Prompt size');
-        setPromptString();
-        const jointMessages = mesSend.map((e) => `${e.extensionPrompts.join('')}${e.message}`).join('');
-        const prompt = [
-            combinedStoryString,
-            mesExmString,
-            addChatsPreamble(addChatsSeparator(jointMessages)),
-            '\n',
-            modifyLastPromptLine(''),
-            generatedPromptCache,
-        ].join('').replace(/\r/gm, '');
-        let thisPromptContextSize = await getTokenCountAsync(prompt, power_user.token_padding);
-
-        if (thisPromptContextSize > this_max_context) {        //if the prepared prompt is larger than the max context size...
-            if (count_exm_add > 0) {                            // ..and we have example mesages..
-                count_exm_add--;                            // remove the example messages...
-                await checkPromptSize();                            // and try agin...
-            } else if (mesSend.length > 0) {                    // if the chat history is longer than 0
-                mesSend.shift();                            // remove the first (oldest) chat entry..
-                await checkPromptSize();                            // and check size again..
-            } else {
-                //end
-                console.debug(`---mesSend.length = ${mesSend.length}`);
-            }
-        }
-    }
-
-    if (generatedPromptCache.length > 0 && main_api !== 'openai') {
-        console.debug('---Generated Prompt Cache length: ' + generatedPromptCache.length);
-        await checkPromptSize();
-    } else {
-        console.debug('---calling setPromptString ' + generatedPromptCache.length);
-        setPromptString();
-    }
+    ({
+        countExmAdd: count_exm_add,
+        mesExmString,
+        mesSend,
+    } = await preparePromptAssemblyStateCore({
+        arrMes,
+        combinedStoryString,
+        countExmAdd: count_exm_add,
+        forceName2: force_name2,
+        generatedPromptCache,
+        isContinue,
+        isImpersonate,
+        isInstruct,
+        mesExamplesArray,
+        pinExmString,
+        promptBias,
+        quietName,
+        quietPrompt: quiet_prompt,
+        quietToLoud,
+        thisMaxContext: this_max_context,
+        type,
+    }));
 
     // For prompt bit itemization
     let mesSendString = '';

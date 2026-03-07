@@ -1335,3 +1335,30 @@
 ### Next
 1. Reassess whether the next `Generate(...)` extraction should target prompt-line sizing/final prompt assembly or the earlier world-info/story-string augmentation block.
 2. Keep the next move focused on one remaining pipeline stage rather than broadening both prompt augmentation and provider dispatch in the same commit.
+
+## 2026-03-07 - Monolith Reduction Wave 25 (Generate Prompt Assembly Preparation)
+
+### Completed
+- Moved the prompt-line mutation and sizing stage out of `public/script.js` into `public/scripts/generation-core.js` as `preparePromptAssemblyState(...)`.
+- That extracted block now owns:
+  - initial `mesSend` construction from packed context messages
+  - last-prompt-line mutation for quiet/instruct/impersonate/name-forcing cases
+  - prompt-size fitting by trimming examples/history when the assembled prompt exceeds context
+  - final example-string selection for the assembled prompt
+- Refactored the shared prompt-line mutation logic into a core-local helper so the earlier context-packing stage no longer depends on a script-local callback.
+- Extended `bindGenerationCore(...)` with narrow callbacks for:
+  - instruct wrap config access
+  - instruct-mode chat formatting
+  - instruct-mode prompt formatting
+
+### Measurable Impact
+- Another full `Generate(...)` pipeline stage has left the monolith.
+- The remaining monolith-owned generation logic is now increasingly concentrated around combined-prompt flattening, provider payload construction, and response handling.
+
+### Insights
+- The prompt-line logic was worth centralizing in `generation-core` because it was already implicitly shared across adjacent pipeline stages.
+- Keeping the extraction at the preparation/sizing boundary avoided mixing context fitting with later event-driven prompt combination logic in the same commit.
+
+### Next
+1. Reassess whether the next `Generate(...)` extraction should target the combined-prompt builder/provider-data setup or pivot back to the earlier world-info/story-string augmentation block.
+2. Keep the next move centered on one remaining pipeline stage with explicit inputs/outputs, rather than widening the callback surface across multiple stages at once.

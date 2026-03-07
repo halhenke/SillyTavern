@@ -32,6 +32,7 @@ let getDepthPromptIndexIdImpl = null;
 let getExtensionPromptRoleByNameImpl = null;
 let getInChatPromptTypeImpl = null;
 let getInstructStoppingSequencesImpl = null;
+let getInstructWrapImpl = null;
 let getForceOutputSequencesImpl = null;
 let getGuidanceScaleImpl = null;
 let getHordeAdjustConfigImpl = null;
@@ -55,6 +56,8 @@ let removeDepthPromptsImpl = null;
 let removeReasoningFromStringImpl = null;
 let deactivateSendButtonsImpl = null;
 let formatMessageHistoryItemImpl = null;
+let formatInstructModeChatImpl = null;
+let formatInstructModePromptImpl = null;
 let getGroupDepthPromptsImpl = null;
 let getAllowWIScanImpl = null;
 let sendMessageAsUserImpl = null;
@@ -106,6 +109,7 @@ function throwUnbound(name) {
  *   getExtensionPromptRoleByName: (...args: any[]) => any,
  *   getForceOutputSequences: () => { first?: any, last?: any },
   *   getInChatPromptType: () => number,
+ *   getInstructWrap: () => boolean,
  *   getGenericSystemMessageType: () => any,
  *   getKoboldGenerationData: (...args: any[]) => any,
  *   getKoboldSettingsConfig: () => { kaiSettings?: any, kaiFlags?: any, koboldaiSettings?: any, koboldaiSettingNames?: any },
@@ -139,6 +143,8 @@ function throwUnbound(name) {
  *   removeReasoningFromString: (...args: any[]) => string,
  *   deactivateSendButtons: () => any,
  *   formatMessageHistoryItem: (...args: any[]) => string,
+ *   formatInstructModeChat: (...args: any[]) => string,
+ *   formatInstructModePrompt: (...args: any[]) => string,
  *   getGroupDepthPrompts: (...args: any[]) => any[],
  *   getAllowWIScan: () => boolean,
  *   sendMessageAsUser: (...args: any[]) => Promise<any>,
@@ -178,6 +184,7 @@ export function bindGenerationCore(impl) {
     getExtensionPromptRoleByNameImpl = impl?.getExtensionPromptRoleByName ?? null;
     getForceOutputSequencesImpl = impl?.getForceOutputSequences ?? null;
     getInChatPromptTypeImpl = impl?.getInChatPromptType ?? null;
+    getInstructWrapImpl = impl?.getInstructWrap ?? null;
     getGenericSystemMessageTypeImpl = impl?.getGenericSystemMessageType ?? null;
     getGuidanceScaleImpl = impl?.getGuidanceScale ?? null;
     getGroupDepthPromptsImpl = impl?.getGroupDepthPrompts ?? null;
@@ -211,6 +218,8 @@ export function bindGenerationCore(impl) {
     removeDepthPromptsImpl = impl?.removeDepthPrompts ?? null;
     removeReasoningFromStringImpl = impl?.removeReasoningFromString ?? null;
     formatMessageHistoryItemImpl = impl?.formatMessageHistoryItem ?? null;
+    formatInstructModeChatImpl = impl?.formatInstructModeChat ?? null;
+    formatInstructModePromptImpl = impl?.formatInstructModePrompt ?? null;
     sendMessageAsUserImpl = impl?.sendMessageAsUser ?? null;
     sendGenerationRequestImpl = impl?.sendGenerationRequest ?? null;
     sendOpenAIRequestImpl = impl?.sendOpenAIRequest ?? null;
@@ -842,14 +851,79 @@ export function prepareMessageHistoryState({ coreChat, isContinue, isInstruct, m
     };
 }
 
+function modifyPromptLine({
+    forceName2,
+    isContinue,
+    isImpersonate,
+    isInstruct,
+    lastMesString,
+    promptBias,
+    quietName,
+    quietPrompt,
+    quietToLoud,
+    type,
+}) {
+    if (!formatInstructModeChatImpl) {
+        throwUnbound('formatInstructModeChat');
+    }
+    if (!formatInstructModePromptImpl) {
+        throwUnbound('formatInstructModePrompt');
+    }
+
+    if (quietPrompt && quietPrompt.length) {
+        const name = name1;
+        const quietAppend = isInstruct
+            ? formatInstructModeChatImpl(name, quietPrompt, false, true, '', name1, name2, false)
+            : `\n${quietPrompt}`;
+
+        lastMesString += quietAppend;
+
+        if (!isInstruct && !quietToLoud) {
+            return lastMesString;
+        }
+    }
+
+    if (isInstruct && !isContinue) {
+        const name = (quietPrompt && !quietToLoud && !isImpersonate) ? (quietName ?? 'System') : (isImpersonate ? name1 : name2);
+        const isQuiet = quietPrompt && type === 'quiet';
+        lastMesString += formatInstructModePromptImpl(name, isImpersonate, promptBias, name1, name2, isQuiet, quietToLoud);
+    }
+
+    if (!isInstruct && isImpersonate && !isContinue) {
+        const name = name1;
+        if (!lastMesString.endsWith('\n')) {
+            lastMesString += '\n';
+        }
+        lastMesString += `${name}:`;
+    }
+
+    const isContinuingOnFirstMessage = chat.length === 1 && isContinue;
+    if (!isInstruct && forceName2 && !isContinuingOnFirstMessage) {
+        if (!lastMesString.endsWith('\n')) {
+            lastMesString += '\n';
+        }
+        if (!isContinue || !(chat[chat.length - 1]?.is_user)) {
+            lastMesString += `${name2}:`;
+        }
+    }
+
+    return lastMesString;
+}
+
 export async function prepareContextPackingState({
     addUserAlignment,
     chat2,
     combinedStoryString,
+    forceName2,
     injectedIndices,
     isContinue,
+    isImpersonate,
+    isInstruct,
     mesExamplesArray,
-    modifyLastPromptLine,
+    promptBias,
+    quietName,
+    quietPrompt,
+    quietToLoud,
     thisMaxContext,
     type,
     userAlignmentMessage,
@@ -884,7 +958,18 @@ export async function prepareContextPackingState({
             examplesString,
             userAlignmentMessage,
             chatString,
-            modifyLastPromptLine(''),
+            modifyPromptLine({
+                forceName2,
+                isContinue,
+                isImpersonate,
+                isInstruct,
+                lastMesString: '',
+                promptBias,
+                quietName,
+                quietPrompt,
+                quietToLoud,
+                type,
+            }),
             cyclePrompt,
         ].join('').replace(/\r/gm, '');
         return getTokenCountAsyncImpl(encodeString, getTokenPaddingImpl());
@@ -991,6 +1076,144 @@ export async function prepareContextPackingState({
         cyclePrompt,
         injectedIndices,
         pinExmString,
+    };
+}
+
+export async function preparePromptAssemblyState({
+    arrMes,
+    combinedStoryString,
+    countExmAdd,
+    forceName2,
+    generatedPromptCache,
+    isContinue,
+    isImpersonate,
+    isInstruct,
+    mesExamplesArray,
+    pinExmString,
+    promptBias,
+    quietName,
+    quietPrompt,
+    quietToLoud,
+    thisMaxContext,
+    type,
+}) {
+    if (!formatInstructModeChatImpl) {
+        throwUnbound('formatInstructModeChat');
+    }
+    if (!formatInstructModePromptImpl) {
+        throwUnbound('formatInstructModePrompt');
+    }
+    if (!getInstructWrapImpl) {
+        throwUnbound('getInstructWrap');
+    }
+    if (!getTokenCountAsyncImpl) {
+        throwUnbound('getTokenCountAsync');
+    }
+    if (!getTokenPaddingImpl) {
+        throwUnbound('getTokenPadding');
+    }
+    if (!addChatsPreambleImpl) {
+        throwUnbound('addChatsPreamble');
+    }
+    if (!addChatsSeparatorImpl) {
+        throwUnbound('addChatsSeparator');
+    }
+
+    let mesSend = [];
+    let mesExmString = '';
+
+    if (generatedPromptCache.length === 0 || type === 'continue') {
+        console.debug('generating prompt');
+        arrMes = arrMes.reverse();
+        arrMes.forEach((item, i, arr) => {
+            if (main_api === 'openai') {
+                return;
+            }
+
+            if (i === arrMes.length - 1 && type !== 'continue') {
+                if (!isInstruct || (getInstructWrapImpl() && type !== 'quiet')) {
+                    item = item.replace(/\n?$/, '');
+                }
+            }
+
+            mesSend.push({ message: item, extensionPrompts: [] });
+        });
+    }
+
+    const setPromptString = () => {
+        if (main_api === 'openai') {
+            return;
+        }
+
+        console.debug('--setting Prompt string');
+        mesExmString = pinExmString ?? mesExamplesArray.slice(0, countExmAdd).join('');
+
+        if (mesSend.length) {
+            mesSend[mesSend.length - 1].message = modifyPromptLine({
+                forceName2,
+                isContinue,
+                isImpersonate,
+                isInstruct,
+                lastMesString: mesSend[mesSend.length - 1].message,
+                promptBias,
+                quietName,
+                quietPrompt,
+                quietToLoud,
+                type,
+            });
+        }
+    };
+
+    const checkPromptSize = async () => {
+        console.debug('---checking Prompt size');
+        setPromptString();
+        const jointMessages = mesSend.map((e) => `${e.extensionPrompts.join('')}${e.message}`).join('');
+        const prompt = [
+            combinedStoryString,
+            mesExmString,
+            addChatsPreambleImpl(addChatsSeparatorImpl(jointMessages)),
+            '\n',
+            modifyPromptLine({
+                forceName2,
+                isContinue,
+                isImpersonate,
+                isInstruct,
+                lastMesString: '',
+                promptBias,
+                quietName,
+                quietPrompt,
+                quietToLoud,
+                type,
+            }),
+            generatedPromptCache,
+        ].join('').replace(/\r/gm, '');
+        const thisPromptContextSize = await getTokenCountAsyncImpl(prompt, getTokenPaddingImpl());
+
+        if (thisPromptContextSize > thisMaxContext) {
+            if (countExmAdd > 0) {
+                countExmAdd--;
+                await checkPromptSize();
+            } else if (mesSend.length > 0) {
+                mesSend.shift();
+                await checkPromptSize();
+            } else {
+                console.debug(`---mesSend.length = ${mesSend.length}`);
+            }
+        }
+    };
+
+    if (generatedPromptCache.length > 0 && main_api !== 'openai') {
+        console.debug(`---Generated Prompt Cache length: ${generatedPromptCache.length}`);
+        await checkPromptSize();
+    } else {
+        console.debug(`---calling setPromptString ${generatedPromptCache.length}`);
+        setPromptString();
+    }
+
+    return {
+        countExmAdd,
+        mesExmString,
+        mesSend,
     };
 }
 

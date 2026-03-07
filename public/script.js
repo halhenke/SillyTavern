@@ -263,7 +263,7 @@ import { bindCharacterCore, createOrEditCharacter as createOrEditCharacterCore, 
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
 import { addOneMessage as addOneMessageCore, bindChatOperationsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
-import { bindGenerationCore, buildCombinedPrompt as buildCombinedPromptCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, prepareContextPackingState as prepareContextPackingStateCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationMessages as prepareGenerationMessagesCore, prepareMessageHistoryState as prepareMessageHistoryStateCore, preparePromptAssemblyState as preparePromptAssemblyStateCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
+import { bindGenerationCore, buildCombinedPrompt as buildCombinedPromptCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, prepareContextPackingState as prepareContextPackingStateCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationData as prepareGenerationDataCore, prepareGenerationMessages as prepareGenerationMessagesCore, prepareMessageHistoryState as prepareMessageHistoryStateCore, preparePromptAssemblyState as preparePromptAssemblyStateCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
 import { bindMessageCore, setEditedMessageId as setEditedMessageIdCore, updateMessageBlock as updateMessageBlockCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
@@ -548,6 +548,7 @@ bindGenerationCore({
     getInstructWrap: () => power_user.instruct.wrap,
     getInstructStoppingSequences,
     getKoboldGenerationData,
+    getMinLength: () => MIN_LENGTH,
     getKoboldSettingsConfig: () => ({
         kaiSettings: kai_settings,
         kaiFlags: kai_flags,
@@ -568,6 +569,7 @@ bindGenerationCore({
         novelaiSettingNames: novelai_setting_names,
     }),
     getOpenAiMaxTokens: () => oai_settings.openai_max_tokens,
+    getOpenAiMessagesCount: () => openai_messages_count,
     getPinExamples: () => power_user.pin_examples,
     getStoppingStrings,
     getOaiSendIfEmpty: () => oai_settings.send_if_empty,
@@ -608,6 +610,7 @@ bindGenerationCore({
     setOpenAIMessages,
     trimToEndSentence,
     triggerContinue: () => $('#option_continue').trigger('click'),
+    prepareOpenAIMessages,
     runGenerationInterceptors,
 });
 bindChatOperationsCore({
@@ -3416,107 +3419,74 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
     await eventSource.emit(event_types.GENERATE_AFTER_COMBINE_PROMPTS, eventData);
     finalPrompt = eventData.prompt;
 
-    let maxLength = Number(amount_gen); // how many tokens the AI will be requested to generate
     let thisPromptBits = [];
+    const negativePrompt = main_api === 'textgenerationwebui' && useCfgPrompt
+        ? (await buildCombinedPromptCore({
+            afterScenarioAnchor,
+            beforeScenarioAnchor,
+            cfgGuidanceScale,
+            combinedStoryString,
+            description,
+            generatedPromptCache,
+            injectedIndices,
+            isImpersonate,
+            isInstruct,
+            isNegative: true,
+            jailbreak,
+            mesExmString,
+            mesSend,
+            name: name2,
+            naiPreamble: nai_settings.preamble,
+            persona,
+            personality,
+            promptBias,
+            scenario,
+            storyString,
+            system,
+            useCfgPrompt,
+            user: name1,
+            worldInfoAfter,
+            worldInfoBefore,
+        })).combinedPrompt
+        : null;
 
-    let generate_data;
-    switch (main_api) {
-        case 'koboldhorde':
-        case 'kobold':
-            if (main_api == 'koboldhorde' && horde_settings.auto_adjust_response_length) {
-                maxLength = Math.min(maxLength, adjustedParams.maxLength);
-                maxLength = Math.max(maxLength, MIN_LENGTH); // prevent validation errors
-            }
+    let {
+        generateData: generate_data,
+        maxLength,
+        openAiCounts,
+        openAiMessageCount,
+    } = await prepareGenerationDataCore({
+        adjustedParams,
+        cfgGuidanceScale,
+        cyclePrompt,
+        description,
+        dryRun,
+        extensionPrompts: extension_prompts,
+        finalPrompt,
+        isContinue,
+        isImpersonate,
+        jailbreak,
+        negativePrompt,
+        oaiMessageExamples,
+        oaiMessages,
+        personality,
+        promptBias,
+        quietImage,
+        quietPrompt: quiet_prompt,
+        scenario,
+        system,
+        type,
+        useCfgPrompt,
+        worldInfoAfter,
+        worldInfoBefore,
+    });
 
-            generate_data = {
-                prompt: finalPrompt,
-                gui_settings: true,
-                max_length: maxLength,
-                max_context_length: max_context,
-                api_server: kai_settings.api_server,
-            };
+    if (openAiCounts) {
+        parseTokenCounts(openAiCounts, thisPromptBits);
+    }
 
-            if (kai_settings.preset_settings != 'gui') {
-                const isHorde = main_api == 'koboldhorde';
-                const presetSettings = koboldai_settings[koboldai_setting_names[kai_settings.preset_settings]];
-                const maxContext = (adjustedParams && horde_settings.auto_adjust_context_length) ? adjustedParams.maxContextLength : max_context;
-                generate_data = getKoboldGenerationData(finalPrompt, presetSettings, maxLength, maxContext, isHorde, type);
-            }
-            break;
-        case 'textgenerationwebui': {
-            const cfgValues = useCfgPrompt
-                ? {
-                    guidanceScale: cfgGuidanceScale,
-                    negativePrompt: (await buildCombinedPromptCore({
-                        afterScenarioAnchor,
-                        beforeScenarioAnchor,
-                        cfgGuidanceScale,
-                        combinedStoryString,
-                        description,
-                        generatedPromptCache,
-                        injectedIndices,
-                        isImpersonate,
-                        isInstruct,
-                        isNegative: true,
-                        jailbreak,
-                        mesExmString,
-                        mesSend,
-                        name: name2,
-                        naiPreamble: nai_settings.preamble,
-                        persona,
-                        personality,
-                        promptBias,
-                        scenario,
-                        storyString,
-                        system,
-                        useCfgPrompt,
-                        user: name1,
-                        worldInfoAfter,
-                        worldInfoBefore,
-                    })).combinedPrompt,
-                }
-                : null;
-            generate_data = await getTextGenGenerationData(finalPrompt, maxLength, isImpersonate, isContinue, cfgValues, type);
-            break;
-        }
-        case 'novel': {
-            const cfgValues = useCfgPrompt ? { guidanceScale: cfgGuidanceScale } : null;
-            const presetSettings = novelai_settings[novelai_setting_names[nai_settings.preset_settings_novel]];
-            generate_data = getNovelGenerationData(finalPrompt, presetSettings, maxLength, isImpersonate, isContinue, cfgValues, type);
-            break;
-        }
-        case 'openai': {
-            let [prompt, counts] = await prepareOpenAIMessages({
-                name2: name2,
-                charDescription: description,
-                charPersonality: personality,
-                scenario: scenario,
-                worldInfoBefore: worldInfoBefore,
-                worldInfoAfter: worldInfoAfter,
-                extensionPrompts: extension_prompts,
-                bias: promptBias,
-                type: type,
-                quietPrompt: quiet_prompt,
-                quietImage: quietImage,
-                cyclePrompt: cyclePrompt,
-                systemPromptOverride: system,
-                jailbreakPromptOverride: jailbreak,
-                messages: oaiMessages,
-                messageExamples: oaiMessageExamples,
-            }, dryRun);
-            generate_data = { prompt: prompt };
-
-            // TODO: move these side-effects somewhere else, so this switch-case solely sets generate_data
-            // counts will return false if the user has not enabled the token breakdown feature
-            if (counts) {
-                parseTokenCounts(counts, thisPromptBits);
-            }
-
-            if (!dryRun) {
-                setInContextMessages(openai_messages_count, type);
-            }
-            break;
-        }
+    if (main_api === 'openai' && !dryRun) {
+        setInContextMessages(openAiMessageCount, type);
     }
 
     await eventSource.emit(event_types.GENERATE_AFTER_DATA, generate_data);

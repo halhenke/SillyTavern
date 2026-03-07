@@ -1390,3 +1390,33 @@
 ### Next
 1. Reassess whether the next `Generate(...)` extraction should target provider payload setup or pivot back to the earlier world-info/story-string augmentation block.
 2. Keep the next move focused on one remaining pipeline stage, with special care around payload builders that still have provider-specific side effects.
+
+## 2026-03-07 - Monolith Reduction Wave 27 (Generate Provider Payload Setup)
+
+### Completed
+- Moved the provider payload setup switch out of `public/script.js` into `public/scripts/generation-core.js` as `prepareGenerationData(...)`.
+- That extracted block now owns:
+  - Kobold/Kobold Horde payload construction
+  - TextGen payload construction
+  - Novel payload construction
+  - OpenAI prompt preparation handoff
+  - Horde response-length clamping for payload setup
+- Updated `Generate(...)` in `public/script.js` to consume returned payload state and keep the remaining OpenAI-specific side effects explicit:
+  - token-count parsing into prompt bits
+  - in-context message marker update
+- Extended `bindGenerationCore(...)` with narrow callbacks for:
+  - minimum Horde response length access
+  - OpenAI message-count access
+  - OpenAI prompt preparation
+
+### Measurable Impact
+- Another large provider-specific stage has left the monolith.
+- The remaining monolith-owned generation logic is now mostly the earlier world-info/story-string augmentation block plus downstream response handling and post-processing.
+
+### Insights
+- Provider payload setup was a good seam once the combined-prompt builder had already been extracted; before that, too much implicit state was still bundled into the switch.
+- Keeping OpenAI token-count parsing and in-context UI updates in `script.js` for now avoids hiding side effects inside the core layer while still reducing the monolith meaningfully.
+
+### Next
+1. Reassess whether the next `Generate(...)` extraction should target the earlier world-info/story-string augmentation block or the later response-handling path.
+2. Keep the next move focused on one remaining pipeline stage, with special care around extension prompt mutations and streaming/non-streaming branching.

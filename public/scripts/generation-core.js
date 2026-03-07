@@ -38,8 +38,10 @@ let getInstructWrapImpl = null;
 let getForceOutputSequencesImpl = null;
 let getGuidanceScaleImpl = null;
 let getHordeAdjustConfigImpl = null;
+let getMinLengthImpl = null;
 let getNamesAsStopStringsImpl = null;
 let getOaiSendIfEmptyImpl = null;
+let getOpenAiMessagesCountImpl = null;
 let getSyspromptConfigImpl = null;
 let getTextareaTextImpl = null;
 let getTokenCountImpl = null;
@@ -78,6 +80,7 @@ let setOpenAIMessagesImpl = null;
 let trimToEndSentenceImpl = null;
 let triggerContinueImpl = null;
 let adjustHordeGenerationParamsImpl = null;
+let prepareOpenAIMessagesImpl = null;
 let runGenerationInterceptorsImpl = null;
 
 export let amount_gen = 0;
@@ -125,8 +128,10 @@ function throwUnbound(name) {
  *   getHordeAdjustConfig: () => { autoAdjustContextLength?: boolean, autoAdjustResponseLength?: boolean },
  *   getInstructStoppingSequences: () => string[],
  *   getMaxContextSize: () => number,
+ *   getMinLength: () => number,
  *   getNamesAsStopStrings: () => boolean,
  *   getOaiSendIfEmpty: () => string,
+ *   getOpenAiMessagesCount: () => number,
  *   getSyspromptConfig: () => { enabled?: boolean, preferCharacterPrompt?: boolean, content?: string },
  *   getNovelGenerationData: (...args: any[]) => any,
  *   getNovelSettingsConfig: () => { naiSettings?: any, novelaiSettings?: any, novelaiSettingNames?: any },
@@ -166,6 +171,7 @@ function throwUnbound(name) {
  *   setOpenAIMessages: (...args: any[]) => any,
  *   trimToEndSentence: (...args: any[]) => string,
  *   triggerContinue: () => any,
+ *   prepareOpenAIMessages: (...args: any[]) => Promise<any>,
  *   runGenerationInterceptors: (...args: any[]) => Promise<boolean>,
  * }} impl Implementations to bind
  */
@@ -203,8 +209,10 @@ export function bindGenerationCore(impl) {
     getGroupsImpl = impl?.getGroups ?? null;
     getInstructStoppingSequencesImpl = impl?.getInstructStoppingSequences ?? null;
     getMaxContextSizeImpl = impl?.getMaxContextSize ?? null;
+    getMinLengthImpl = impl?.getMinLength ?? null;
     getNamesAsStopStringsImpl = impl?.getNamesAsStopStrings ?? null;
     getOaiSendIfEmptyImpl = impl?.getOaiSendIfEmpty ?? null;
+    getOpenAiMessagesCountImpl = impl?.getOpenAiMessagesCount ?? null;
     getSyspromptConfigImpl = impl?.getSyspromptConfig ?? null;
     getNovelGenerationDataImpl = impl?.getNovelGenerationData ?? null;
     getNovelSettingsConfigImpl = impl?.getNovelSettingsConfig ?? null;
@@ -241,6 +249,7 @@ export function bindGenerationCore(impl) {
     setOpenAIMessagesImpl = impl?.setOpenAIMessages ?? null;
     trimToEndSentenceImpl = impl?.trimToEndSentence ?? null;
     triggerContinueImpl = impl?.triggerContinue ?? null;
+    prepareOpenAIMessagesImpl = impl?.prepareOpenAIMessages ?? null;
     runGenerationInterceptorsImpl = impl?.runGenerationInterceptors ?? null;
 }
 
@@ -1365,6 +1374,136 @@ export async function buildCombinedPrompt({
     return {
         combinedPrompt: data.combinedPrompt,
         mesSendString,
+    };
+}
+
+export async function prepareGenerationData({
+    adjustedParams,
+    cfgGuidanceScale,
+    cyclePrompt,
+    description,
+    dryRun,
+    extensionPrompts,
+    finalPrompt,
+    isContinue,
+    isImpersonate,
+    jailbreak,
+    negativePrompt,
+    oaiMessageExamples,
+    oaiMessages,
+    personality,
+    promptBias,
+    quietImage,
+    quietPrompt,
+    scenario,
+    system,
+    type,
+    useCfgPrompt,
+    worldInfoAfter,
+    worldInfoBefore,
+}) {
+    if (!getKoboldGenerationDataImpl) {
+        throwUnbound('getKoboldGenerationData');
+    }
+    if (!getKoboldSettingsConfigImpl) {
+        throwUnbound('getKoboldSettingsConfig');
+    }
+    if (!getNovelGenerationDataImpl) {
+        throwUnbound('getNovelGenerationData');
+    }
+    if (!getNovelSettingsConfigImpl) {
+        throwUnbound('getNovelSettingsConfig');
+    }
+    if (!getTextGenGenerationDataImpl) {
+        throwUnbound('getTextGenGenerationData');
+    }
+    if (!getHordeAdjustConfigImpl) {
+        throwUnbound('getHordeAdjustConfig');
+    }
+    if (!getMinLengthImpl) {
+        throwUnbound('getMinLength');
+    }
+    if (!prepareOpenAIMessagesImpl) {
+        throwUnbound('prepareOpenAIMessages');
+    }
+    if (!getOpenAiMessagesCountImpl) {
+        throwUnbound('getOpenAiMessagesCount');
+    }
+
+    let maxLength = Number(amount_gen);
+    let generateData;
+    let openAiCounts = null;
+    let openAiMessageCount = 0;
+    const hordeAdjustConfig = getHordeAdjustConfigImpl() ?? {};
+
+    switch (main_api) {
+        case 'koboldhorde':
+        case 'kobold': {
+            if (main_api === 'koboldhorde' && hordeAdjustConfig.autoAdjustResponseLength) {
+                maxLength = Math.min(maxLength, adjustedParams.maxLength);
+                maxLength = Math.max(maxLength, getMinLengthImpl());
+            }
+
+            const { kaiSettings, koboldaiSettings, koboldaiSettingNames } = getKoboldSettingsConfigImpl() ?? {};
+            generateData = {
+                prompt: finalPrompt,
+                gui_settings: true,
+                max_length: maxLength,
+                max_context_length: max_context,
+                api_server: kaiSettings.api_server,
+            };
+
+            if (kaiSettings.preset_settings !== 'gui') {
+                const isHorde = main_api === 'koboldhorde';
+                const presetSettings = koboldaiSettings[koboldaiSettingNames[kaiSettings.preset_settings]];
+                const maxContext = (adjustedParams && hordeAdjustConfig.autoAdjustContextLength) ? adjustedParams.maxContextLength : max_context;
+                generateData = getKoboldGenerationDataImpl(finalPrompt, presetSettings, maxLength, maxContext, isHorde, type);
+            }
+            break;
+        }
+        case 'textgenerationwebui': {
+            const cfgValues = useCfgPrompt ? { guidanceScale: cfgGuidanceScale, negativePrompt } : null;
+            generateData = await getTextGenGenerationDataImpl(finalPrompt, maxLength, isImpersonate, isContinue, cfgValues, type);
+            break;
+        }
+        case 'novel': {
+            const cfgValues = useCfgPrompt ? { guidanceScale: cfgGuidanceScale } : null;
+            const { naiSettings, novelaiSettings, novelaiSettingNames } = getNovelSettingsConfigImpl() ?? {};
+            const presetSettings = novelaiSettings[novelaiSettingNames[naiSettings.preset_settings_novel]];
+            generateData = getNovelGenerationDataImpl(finalPrompt, presetSettings, maxLength, isImpersonate, isContinue, cfgValues, type);
+            break;
+        }
+        case 'openai': {
+            const [prompt, counts] = await prepareOpenAIMessagesImpl({
+                name2,
+                charDescription: description,
+                charPersonality: personality,
+                scenario,
+                worldInfoBefore,
+                worldInfoAfter,
+                extensionPrompts,
+                bias: promptBias,
+                type,
+                quietPrompt,
+                quietImage,
+                cyclePrompt,
+                systemPromptOverride: system,
+                jailbreakPromptOverride: jailbreak,
+                messages: oaiMessages,
+                messageExamples: oaiMessageExamples,
+            }, dryRun);
+            generateData = { prompt };
+            openAiCounts = counts || null;
+            openAiMessageCount = getOpenAiMessagesCountImpl();
+            break;
+        }
+    }
+
+    return {
+        generateData,
+        maxLength,
+        openAiCounts,
+        openAiMessageCount,
     };
 }
 

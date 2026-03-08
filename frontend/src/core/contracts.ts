@@ -110,11 +110,12 @@ export interface SettingsService {
 }
 
 export interface ChatService {
+  addSystemMessage(text: string): Promise<void>;
+  deleteLastMessage(): Promise<void>;
   getCurrentChatId(): string | undefined;
   getMessages(): ChatMessageSummary[];
   getMetadata(): ChatMetadata;
-  addSystemMessage(text: string): Promise<void>;
-  deleteLastMessage(): Promise<void>;
+  updateMessage(id: number, text: string): Promise<void>;
   saveMetadata(next: ChatMetadata): Promise<void>;
 }
 

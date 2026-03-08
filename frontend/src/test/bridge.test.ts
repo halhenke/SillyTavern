@@ -143,6 +143,7 @@ describe('createLegacyBridge', () => {
   it('maps session catalog and delegates character and group actions', async () => {
     const clearChat = vi.fn();
     const deleteLastMessage = vi.fn();
+    const eventEmit = vi.fn();
     const generateQuietPrompt = vi.fn().mockResolvedValue('quiet result');
     const generate = vi.fn();
     const getCharacters = vi.fn();
@@ -158,14 +159,17 @@ describe('createLegacyBridge', () => {
       version: 'v2',
     }));
     const renameChat = vi.fn();
+    const saveChat = vi.fn();
     const sendSystemMessage = vi.fn();
     const sendMessageAsUser = vi.fn();
+    const substituteParams = vi.fn((text: string) => `[substituted] ${text}`);
     const selectCharacterById = vi.fn();
     const openGroupChat = vi.fn();
     const reloadCurrentChat = vi.fn();
     const saveMetadata = vi.fn();
     const unshallowCharacter = vi.fn();
     const updateChatMetadata = vi.fn();
+    const updateMessageBlock = vi.fn();
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       text: async () => '',
@@ -234,7 +238,7 @@ describe('createLegacyBridge', () => {
           clearChat,
           deleteLastMessage,
           eventSource: {
-            emit: vi.fn(),
+            emit: eventEmit,
             off: vi.fn(),
             on: vi.fn(),
             once: vi.fn(),
@@ -254,13 +258,16 @@ describe('createLegacyBridge', () => {
           openGroupChat,
           reloadCurrentChat,
           renameChat,
+          saveChat,
           saveMetadata,
           sendMessageAsUser,
           sendSystemMessage,
+          substituteParams,
           getCurrentChatId: () => 'mage-chat',
           selectCharacterById,
           unshallowCharacter,
           updateChatMetadata,
+          updateMessageBlock,
         }),
       },
     } as unknown as Window;
@@ -331,6 +338,7 @@ describe('createLegacyBridge', () => {
     await bridge?.chat.saveMetadata({ scenario: 'Updated metadata scenario' });
     await bridge?.chat.addSystemMessage('System memo');
     await bridge?.chat.deleteLastMessage();
+    await bridge?.chat.updateMessage(1, 'Edited assistant line');
     await bridge?.composer.sendUserMessage('Hello from React');
     await bridge?.composer.sendAndGenerate('Send and go');
     await bridge?.composer.triggerGeneration('continue');
@@ -390,6 +398,14 @@ describe('createLegacyBridge', () => {
     expect(saveMetadata).toHaveBeenCalledTimes(1);
     expect(sendSystemMessage).toHaveBeenCalledWith('generic', 'System memo');
     expect(deleteLastMessage).toHaveBeenCalledTimes(1);
+    expect(updateMessageBlock).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ mes: 'Edited assistant line' }),
+      { rerenderMessage: true },
+    );
+    expect(eventEmit).toHaveBeenCalledWith('message_edited', 1);
+    expect(eventEmit).toHaveBeenCalledWith('message_updated', 1);
+    expect(saveChat).toHaveBeenCalledTimes(1);
     expect(sendMessageAsUser).toHaveBeenNthCalledWith(1, 'Hello from React', '');
     expect(sendMessageAsUser).toHaveBeenNthCalledWith(2, 'Send and go', '');
     expect(generate).toHaveBeenNthCalledWith(1, 'normal');

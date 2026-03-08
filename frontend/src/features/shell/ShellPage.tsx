@@ -131,6 +131,8 @@ export function ShellPage() {
   const [characterProfile, setCharacterProfile] = useState<CharacterProfile | null>(null);
   const [characterDraft, setCharacterDraft] = useState<CharacterProfile | null>(null);
   const [messages, setMessages] = useState<ChatMessageSummary[]>(DEFAULT_MESSAGES);
+  const [selectedMessageId, setSelectedMessageId] = useState<number | null>(null);
+  const [messageEditDraft, setMessageEditDraft] = useState('');
   const [chatScenarioDraft, setChatScenarioDraft] = useState('');
   const [composerText, setComposerText] = useState('');
   const [systemNoteDraft, setSystemNoteDraft] = useState('');
@@ -272,6 +274,24 @@ export function ShellPage() {
     element.scrollTop = element.scrollHeight;
   }, [messages, snapshot.preferences.autoScrollChatToBottom]);
 
+  useEffect(() => {
+    if (!messages.length) {
+      setSelectedMessageId(null);
+      setMessageEditDraft('');
+      return;
+    }
+
+    const selected = messages.find((message) => message.id === selectedMessageId);
+    const fallback = messages[messages.length - 1];
+    if (!fallback) {
+      return;
+    }
+
+    const active = selected ?? fallback;
+    setSelectedMessageId(active.id);
+    setMessageEditDraft(active.text);
+  }, [messages, selectedMessageId]);
+
   async function handlePreferenceChange(
     key: keyof ShellPreferences,
     value: ShellPreferences[keyof ShellPreferences],
@@ -411,6 +431,14 @@ export function ShellPage() {
   }, [chatScenarioDraft, legacyBridge, snapshot.currentChatId]);
 
   const transcriptMessages = useMemo(() => messages.slice(-80), [messages]);
+  const selectedMessage = useMemo(
+    () => messages.find((message) => message.id === selectedMessageId) ?? null,
+    [messages, selectedMessageId],
+  );
+  const messageEditDirty = useMemo(
+    () => Boolean(selectedMessage) && messageEditDraft !== (selectedMessage?.text ?? ''),
+    [messageEditDraft, selectedMessage],
+  );
 
   async function handleCharacterSave() {
     const bridge = legacyBridge;
@@ -501,6 +529,25 @@ export function ShellPage() {
       refreshRuntime(bridge);
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Could not delete last message');
+    } finally {
+      setBusyAction('');
+    }
+  }
+
+  async function handleMessageEditSave() {
+    const bridge = legacyBridge;
+    if (!bridge || selectedMessageId === null) {
+      return;
+    }
+
+    setActionError('');
+    setBusyAction('message-edit');
+
+    try {
+      await bridge.chat.updateMessage(selectedMessageId, messageEditDraft);
+      refreshRuntime(bridge);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not save message');
     } finally {
       setBusyAction('');
     }
@@ -1073,9 +1120,27 @@ export function ShellPage() {
                     transcriptMessages.map((message) => (
                       <article
                         className={`st-shell-message${
-                          message.isUser ? ' st-shell-message--user' : message.isSystem ? ' st-shell-message--system' : ''
+                          message.isUser
+                            ? ' st-shell-message--user'
+                            : message.isSystem
+                              ? ' st-shell-message--system'
+                              : ''
+                        }${selectedMessageId === message.id ? ' st-shell-message--selected' : ''
                         }`}
                         key={message.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => {
+                          setSelectedMessageId(message.id);
+                          setMessageEditDraft(message.text);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            setSelectedMessageId(message.id);
+                            setMessageEditDraft(message.text);
+                          }
+                        }}
                       >
                         <div className="st-shell-message__header">
                           <span
@@ -1163,6 +1228,66 @@ export function ShellPage() {
               </div>
 
               <aside className="st-shell-chat-rail">
+                <section className="st-shell-card st-shell-card--compact">
+                  <div className="st-shell-card__header">
+                    <h3>Message editor</h3>
+                    <span className="st-shell-badge st-shell-badge--muted">
+                      {selectedMessage ? `#${selectedMessage.id}` : 'no selection'}
+                    </span>
+                  </div>
+                  {selectedMessage ? (
+                    <>
+                      <div className="st-shell-history-item__header">
+                        <span
+                          className={`st-shell-history-role${
+                            selectedMessage.isUser
+                              ? ' st-shell-history-role--user'
+                              : selectedMessage.isSystem
+                                ? ' st-shell-history-role--system'
+                                : ''
+                          }`}
+                        >
+                          {selectedMessage.isUser ? 'user' : selectedMessage.isSystem ? 'system' : 'assistant'}
+                        </span>
+                        <strong>{selectedMessage.name}</strong>
+                        <small>
+                          {selectedMessage.tokenCount !== undefined ? `${selectedMessage.tokenCount}t · ` : ''}
+                          {selectedMessage.timestamp ?? 'no timestamp'}
+                        </small>
+                      </div>
+                      <label className="st-field">
+                        <span>Message text</span>
+                        <textarea
+                          className="st-shell-textarea st-shell-textarea--result"
+                          disabled={!legacyBridge || Boolean(busyAction)}
+                          value={messageEditDraft}
+                          onChange={(event) => setMessageEditDraft(event.target.value)}
+                        />
+                      </label>
+                      <nav className="st-actions">
+                        <button
+                          className="st-button"
+                          disabled={!legacyBridge || !messageEditDirty || Boolean(busyAction)}
+                          type="button"
+                          onClick={() => void handleMessageEditSave()}
+                        >
+                          Save message
+                        </button>
+                        <button
+                          className="st-button st-button--ghost"
+                          disabled={!selectedMessage || Boolean(busyAction)}
+                          type="button"
+                          onClick={() => setMessageEditDraft(selectedMessage.text)}
+                        >
+                          Reset text
+                        </button>
+                      </nav>
+                    </>
+                  ) : (
+                    <p className="st-note">Select a message in the transcript to edit its text.</p>
+                  )}
+                </section>
+
                 <section className="st-shell-card st-shell-card--compact">
                   <div className="st-shell-card__header">
                     <h3>History actions</h3>

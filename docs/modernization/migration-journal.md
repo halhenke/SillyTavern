@@ -1946,3 +1946,27 @@
 ### Next
 1. Move next into a safe message-editing or assistant-message action seam.
 2. Continue collapsing the legacy iframe’s role as more runtime interactions become React-owned.
+
+## 2026-03-09 - React Migration Wave 11 (Message Editing Seam)
+
+### Completed
+- Added a typed `chat.updateMessage(...)` bridge method that:
+  - mutates the runtime chat state
+  - emits the legacy message edit/update events
+  - rerenders the message block
+  - persists the chat
+- Added a React-owned message editor panel tied to transcript selection.
+- Made transcript messages selectable in the React workspace so editing is driven from the new runtime surface instead of the legacy DOM editor.
+- Expanded bridge tests to cover the message edit mutation/save/event path.
+
+### Measurable Impact
+- React now owns a real message-editing workflow for the active chat.
+- This is the first safe message mutation seam moved into React without depending on the legacy inline editor UI.
+
+### Insights
+- Reusing the legacy event sequence (`MESSAGE_EDITED` then `MESSAGE_UPDATED`) is important because downstream listeners may still normalize or react to message changes.
+- Message editing was a better next seam than swipes because the legacy swipe handlers remain tightly bound to DOM-local animation state.
+
+### Next
+1. Move next into assistant-message actions or a safer subset of message duplication/reordering if the runtime seam is clean enough.
+2. Continue preferring event-backed chat mutations over DOM-bound legacy handlers.

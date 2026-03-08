@@ -131,6 +131,7 @@ type LegacyContext = {
   powerUserSettings?: LegacyPowerUserSettings;
   reloadCurrentChat?: () => Promise<void>;
   renameChat?: (oldFileName: string, newName: string) => Promise<void>;
+  saveChat?: () => Promise<void>;
   sendMessageAsUser?: (messageText: string, messageBias?: string) => Promise<unknown>;
   sendSystemMessage?: (type: string, text: string, extra?: Record<string, unknown>) => unknown;
   saveMetadata?: () => Promise<void>;
@@ -149,10 +150,12 @@ type LegacyContext = {
     system?: string;
     version?: string;
   };
+  substituteParams?: (text: string) => string;
   selectCharacterById?: (id: number, options?: { switchMenu?: boolean }) => Promise<void>;
   stopGeneration?: () => void;
   unshallowCharacter?: (id: number) => Promise<void>;
   updateChatMetadata?: (metadata: Record<string, unknown>, reset?: boolean) => void;
+  updateMessageBlock?: (messageId: number, message: unknown, options?: { rerenderMessage?: boolean }) => unknown;
 };
 
 type LegacySillyTavern = {
@@ -397,6 +400,20 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
     getCurrentChatId: () => context.getCurrentChatId?.(),
     getMessages: () => getChatMessages(context),
     getMetadata: () => getChatMetadata(context),
+    updateMessage: async (id, text) => {
+      const message = context.chat?.[id];
+      if (!message) {
+        throw new Error('Message not found');
+      }
+
+      const nextText = id === 0 ? (context.substituteParams?.(text) ?? text) : text;
+      message.mes = nextText;
+
+      await context.eventSource?.emit?.(context.eventTypes?.MESSAGE_EDITED ?? 'message_edited', id);
+      context.updateMessageBlock?.(id, message, { rerenderMessage: true });
+      await context.eventSource?.emit?.(context.eventTypes?.MESSAGE_UPDATED ?? 'message_updated', id);
+      await context.saveChat?.();
+    },
     saveMetadata: async (next) => {
       const mergedMetadata = {
         ...(context.chatMetadata ?? {}),

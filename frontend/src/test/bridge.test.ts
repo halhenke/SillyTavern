@@ -97,4 +97,83 @@ describe('createLegacyBridge', () => {
     expect(saveSettingsDebounced).toHaveBeenCalledTimes(1);
     expect(saveSettings).not.toHaveBeenCalled();
   });
+
+  it('maps session catalog and delegates character and group actions', async () => {
+    const selectCharacterById = vi.fn();
+    const openGroupChat = vi.fn();
+    const reloadCurrentChat = vi.fn();
+
+    const windowObject = {
+      SillyTavern: {
+        getContext: () => ({
+          characterId: 1,
+          characters: [
+            { avatar: 'hero.png', chat: 'hero-chat', name: 'Hero' },
+            { avatar: 'mage.png', chat: 'mage-chat', name: 'Mage' },
+          ],
+          eventSource: {
+            emit: vi.fn(),
+            off: vi.fn(),
+            on: vi.fn(),
+            once: vi.fn(),
+            removeListener: vi.fn(),
+          },
+          getThumbnailUrl: vi.fn((type: string, file: string) => `/thumb/${type}/${file}`),
+          groupId: 'g-2',
+          groups: [
+            { chat_id: 'g-1-chat', id: 'g-1', members: ['a', 'b'], name: 'Alpha Team' },
+            { chat_id: 'g-2-chat', id: 'g-2', members: ['x'], name: 'Beta Team' },
+          ],
+          openGroupChat,
+          reloadCurrentChat,
+          selectCharacterById,
+        }),
+      },
+    } as unknown as Window;
+
+    const bridge = createLegacyBridge(windowObject);
+
+    expect(bridge?.session.getCatalog()).toEqual({
+      characters: [
+        {
+          avatarUrl: '/thumb/avatar/hero.png',
+          chatId: 'hero-chat',
+          id: 0,
+          isSelected: false,
+          name: 'Hero',
+        },
+        {
+          avatarUrl: '/thumb/avatar/mage.png',
+          chatId: 'mage-chat',
+          id: 1,
+          isSelected: false,
+          name: 'Mage',
+        },
+      ],
+      groups: [
+        {
+          chatId: 'g-1-chat',
+          id: 'g-1',
+          isSelected: false,
+          memberCount: 2,
+          name: 'Alpha Team',
+        },
+        {
+          chatId: 'g-2-chat',
+          id: 'g-2',
+          isSelected: true,
+          memberCount: 1,
+          name: 'Beta Team',
+        },
+      ],
+    });
+
+    await bridge?.session.selectCharacter(4);
+    await bridge?.session.openGroup('g-1', 'g-1-chat');
+    await bridge?.session.reloadCurrentChat();
+
+    expect(selectCharacterById).toHaveBeenCalledWith(4, { switchMenu: false });
+    expect(openGroupChat).toHaveBeenCalledWith('g-1', 'g-1-chat');
+    expect(reloadCurrentChat).toHaveBeenCalledTimes(1);
+  });
 });

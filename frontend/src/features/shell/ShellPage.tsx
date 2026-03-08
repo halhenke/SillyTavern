@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { ShellPreferences, ShellSnapshot } from '../../core/contracts';
+import { SessionCatalog, ShellPreferences, ShellSnapshot } from '../../core/contracts';
 import { LegacyBridge, createLegacyBridge } from '../../legacy/bridge';
 
 const DEFAULT_PREFERENCES: ShellPreferences = {
@@ -14,6 +14,11 @@ const DEFAULT_PREFERENCES: ShellPreferences = {
 const DEFAULT_SNAPSHOT: ShellSnapshot = {
   canSaveSettings: false,
   preferences: DEFAULT_PREFERENCES,
+};
+
+const DEFAULT_CATALOG: SessionCatalog = {
+  characters: [],
+  groups: [],
 };
 
 const PREFERENCE_CONTROLS: Array<{
@@ -51,35 +56,40 @@ const PREFERENCE_CONTROLS: Array<{
 export function ShellPage() {
   const [legacyBridge, setLegacyBridge] = useState<LegacyBridge | null>(null);
   const [snapshot, setSnapshot] = useState<ShellSnapshot>(DEFAULT_SNAPSHOT);
+  const [catalog, setCatalog] = useState<SessionCatalog>(DEFAULT_CATALOG);
+  const [sessionQuery, setSessionQuery] = useState('');
   const [loadError, setLoadError] = useState<string>('');
   const [actionError, setActionError] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
+  const [busyAction, setBusyAction] = useState('');
   const legacySource = useMemo(() => `/legacy${window.location.search}`, []);
 
-  const refreshSnapshot = useCallback((bridge: LegacyBridge | null) => {
+  const refreshRuntime = useCallback((bridge: LegacyBridge | null) => {
     if (!bridge) {
       setSnapshot(DEFAULT_SNAPSHOT);
+      setCatalog(DEFAULT_CATALOG);
       return;
     }
 
     setSnapshot(bridge.settings.getShellSnapshot());
+    setCatalog(bridge.session.getCatalog());
   }, []);
 
   useEffect(() => {
-    refreshSnapshot(legacyBridge);
+    refreshRuntime(legacyBridge);
 
     if (!legacyBridge) {
       return;
     }
 
     const intervalId = window.setInterval(() => {
-      refreshSnapshot(legacyBridge);
+      refreshRuntime(legacyBridge);
     }, 1500);
 
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [legacyBridge, refreshSnapshot]);
+  }, [legacyBridge, refreshRuntime]);
 
   const status = useMemo(() => {
     if (loadError) {
@@ -104,6 +114,24 @@ export function ShellPage() {
     return 'st-shell-status';
   }, [loadError, snapshot.onlineStatus]);
 
+  const filteredCatalog = useMemo(() => {
+    const query = sessionQuery.trim().toLowerCase();
+    if (!query) {
+      return catalog;
+    }
+
+    return {
+      characters: catalog.characters.filter((character) => {
+        const haystack = `${character.name} ${character.chatId ?? ''}`.toLowerCase();
+        return haystack.includes(query);
+      }),
+      groups: catalog.groups.filter((group) => {
+        const haystack = `${group.name} ${group.id} ${group.chatId ?? ''}`.toLowerCase();
+        return haystack.includes(query);
+      }),
+    };
+  }, [catalog, sessionQuery]);
+
   async function handlePreferenceChange(key: keyof ShellPreferences, value: boolean) {
     if (!legacyBridge) {
       return;
@@ -119,10 +147,10 @@ export function ShellPage() {
 
     try {
       await legacyBridge.settings.updateShellPreferences({ [key]: value });
-      refreshSnapshot(legacyBridge);
+      refreshRuntime(legacyBridge);
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Could not update settings');
-      refreshSnapshot(legacyBridge);
+      refreshRuntime(legacyBridge);
     } finally {
       setIsSaving(false);
     }
@@ -138,11 +166,29 @@ export function ShellPage() {
 
     try {
       await legacyBridge.settings.saveNow();
-      refreshSnapshot(legacyBridge);
+      refreshRuntime(legacyBridge);
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Could not save settings');
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function runSessionAction(label: string, action: () => Promise<void>) {
+    if (!legacyBridge) {
+      return;
+    }
+
+    setActionError('');
+    setBusyAction(label);
+
+    try {
+      await action();
+      refreshRuntime(legacyBridge);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not update session');
+    } finally {
+      setBusyAction('');
     }
   }
 
@@ -220,19 +266,133 @@ export function ShellPage() {
 
           <section className="st-shell-card">
             <div className="st-shell-card__header">
+              <h2>Session switcher</h2>
+              <span className="st-shell-badge st-shell-badge--muted">
+                {filteredCatalog.characters.length} chars / {filteredCatalog.groups.length} groups
+              </span>
+            </div>
+            <label className="st-field st-shell-search">
+              <span>Filter characters and groups</span>
+              <input
+                placeholder="Search by name, id, or chat"
+                type="text"
+                value={sessionQuery}
+                onChange={(event) => setSessionQuery(event.target.value)}
+              />
+            </label>
+
+            <div className="st-shell-session-grid">
+              <div className="st-shell-session-column">
+                <div className="st-shell-session-heading">
+                  <h3>Characters</h3>
+                  <button
+                    className="st-button st-button--ghost"
+                    disabled={!legacyBridge || Boolean(busyAction)}
+                    type="button"
+                    onClick={() => {
+                      const bridge = legacyBridge;
+                      if (!bridge) {
+                        return;
+                      }
+
+                      void runSessionAction('reload-chat', () => bridge.session.reloadCurrentChat());
+                    }}
+                  >
+                    Reload chat
+                  </button>
+                </div>
+                <div className="st-shell-session-list">
+                  {filteredCatalog.characters.length ? (
+                    filteredCatalog.characters.map((character) => (
+                      <button
+                        className={`st-shell-session-item${character.isSelected ? ' st-shell-session-item--active' : ''}`}
+                        disabled={!legacyBridge || Boolean(busyAction)}
+                        key={character.id}
+                        type="button"
+                        onClick={() => {
+                          const bridge = legacyBridge;
+                          if (!bridge) {
+                            return;
+                          }
+
+                          void runSessionAction(`character-${character.id}`, () =>
+                            bridge.session.selectCharacter(character.id),
+                          );
+                        }}
+                      >
+                        {character.avatarUrl ? (
+                          <img alt={character.name} className="st-shell-avatar" src={character.avatarUrl} />
+                        ) : (
+                          <span className="st-shell-avatar st-shell-avatar--fallback">{character.name.charAt(0)}</span>
+                        )}
+                        <span>
+                          <strong>{character.name}</strong>
+                          <small>{character.chatId ?? 'No chat yet'}</small>
+                        </span>
+                      </button>
+                    ))
+                  ) : (
+                    <p className="st-note">No matching characters.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="st-shell-session-column">
+                <div className="st-shell-session-heading">
+                  <h3>Groups</h3>
+                  <span className="st-note">Switch into an existing group chat.</span>
+                </div>
+                <div className="st-shell-session-list">
+                  {filteredCatalog.groups.length ? (
+                    filteredCatalog.groups.map((group) => (
+                      <button
+                        className={`st-shell-session-item${group.isSelected ? ' st-shell-session-item--active' : ''}`}
+                        disabled={!legacyBridge || Boolean(busyAction)}
+                        key={group.id}
+                        type="button"
+                        onClick={() => {
+                          const bridge = legacyBridge;
+                          if (!bridge) {
+                            return;
+                          }
+
+                          void runSessionAction(`group-${group.id}`, () =>
+                            bridge.session.openGroup(group.id, group.chatId),
+                          );
+                        }}
+                      >
+                        <span className="st-shell-avatar st-shell-avatar--fallback">{group.name.charAt(0)}</span>
+                        <span>
+                          <strong>{group.name}</strong>
+                          <small>
+                            {group.memberCount} members · {group.chatId ?? group.id}
+                          </small>
+                        </span>
+                      </button>
+                    ))
+                  ) : (
+                    <p className="st-note">No matching groups.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="st-shell-card">
+            <div className="st-shell-card__header">
               <h2>Controls</h2>
             </div>
             <nav className="st-actions">
               <button
-                className="st-button--ghost"
-                disabled={!legacyBridge}
+                className="st-button st-button--ghost"
+                disabled={!legacyBridge || Boolean(busyAction)}
                 type="button"
                 onClick={() => legacyBridge?.generation.stopGeneration()}
               >
                 Stop generation
               </button>
               <button
-                className="st-button--ghost"
+                className="st-button st-button--ghost"
                 disabled={!legacyBridge || !snapshot.canSaveSettings || isSaving}
                 type="button"
                 onClick={() => void handleSaveNow()}
@@ -271,12 +431,12 @@ export function ShellPage() {
               }
 
               setLoadError('');
-              setActionError('');
-              setLegacyBridge(bridge);
-              refreshSnapshot(bridge);
-            }}
-          />
-        </section>
+                setActionError('');
+                setLegacyBridge(bridge);
+                refreshRuntime(bridge);
+              }}
+            />
+          </section>
       </section>
     </main>
   );

@@ -3,6 +3,10 @@ import {
   ExtensionHostService,
   GenerationService,
   ModernizationBridge,
+  SessionCatalog,
+  SessionService,
+  ShellCharacterSummary,
+  ShellGroupSummary,
   ShellPreferences,
   ShellSnapshot,
   SettingsService,
@@ -17,8 +21,22 @@ type LegacyPowerUserSettings = {
   trim_spaces?: boolean;
 };
 
+type LegacyCharacter = {
+  avatar?: string;
+  chat?: string;
+  name?: string;
+};
+
+type LegacyGroup = {
+  chat_id?: string;
+  id?: string;
+  members?: unknown[];
+  name?: string;
+};
+
 type LegacyContext = {
   characterId?: number;
+  characters?: LegacyCharacter[];
   eventSource?: {
     on(eventName: string, listener: (...args: unknown[]) => void): void;
     once(eventName: string, listener: (...args: unknown[]) => void): void;
@@ -27,15 +45,20 @@ type LegacyContext = {
   };
   eventTypes?: Record<string, string>;
   groupId?: string;
+  getThumbnailUrl?: (type: string, file: string) => string;
+  groups?: LegacyGroup[];
   mainApi?: string;
   maxContext?: number;
   name1?: string;
   name2?: string;
+  openGroupChat?: (groupId: string, chatId?: string) => Promise<void>;
   onlineStatus?: string;
   powerUserSettings?: LegacyPowerUserSettings;
+  reloadCurrentChat?: () => Promise<void>;
   saveSettingsDebounced?: () => void;
   saveSettings?: () => Promise<void>;
   getCurrentChatId?: () => string;
+  selectCharacterById?: (id: number, options?: { switchMenu?: boolean }) => Promise<void>;
   stopGeneration?: () => void;
 };
 
@@ -87,6 +110,47 @@ function getShellSnapshot(context: LegacyContext): ShellSnapshot {
   };
 }
 
+function getCharacterAvatarUrl(context: LegacyContext, avatar?: string) {
+  if (!avatar || avatar === 'none') {
+    return undefined;
+  }
+
+  return context.getThumbnailUrl?.('avatar', avatar) ?? avatar;
+}
+
+function getCharacterSummary(context: LegacyContext, character: LegacyCharacter, index: number): ShellCharacterSummary {
+  return {
+    avatarUrl: getCharacterAvatarUrl(context, character.avatar),
+    chatId: character.chat,
+    id: index,
+    isSelected: context.groupId === undefined && context.characterId === index,
+    name: character.name?.trim() || `Character ${index + 1}`,
+  };
+}
+
+function getGroupSummary(context: LegacyContext, group: LegacyGroup): ShellGroupSummary | null {
+  if (!group.id) {
+    return null;
+  }
+
+  return {
+    chatId: group.chat_id,
+    id: group.id,
+    isSelected: context.groupId === group.id,
+    memberCount: Array.isArray(group.members) ? group.members.length : 0,
+    name: group.name?.trim() || `Group ${group.id}`,
+  };
+}
+
+function getSessionCatalog(context: LegacyContext): SessionCatalog {
+  return {
+    characters: (context.characters ?? []).map((character, index) => getCharacterSummary(context, character, index)),
+    groups: (context.groups ?? [])
+      .map((group) => getGroupSummary(context, group))
+      .filter((group): group is ShellGroupSummary => Boolean(group)),
+  };
+}
+
 function getSillyTavern(windowObject: Window): LegacySillyTavern | undefined {
   const source = windowObject as Window & { SillyTavern?: LegacySillyTavern };
   return source.SillyTavern;
@@ -124,6 +188,19 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
     getCurrentChatId: () => context.getCurrentChatId?.(),
   };
 
+  const session: SessionService = {
+    getCatalog: () => getSessionCatalog(context),
+    openGroup: async (groupId, chatId) => {
+      await context.openGroupChat?.(groupId, chatId);
+    },
+    reloadCurrentChat: async () => {
+      await context.reloadCurrentChat?.();
+    },
+    selectCharacter: async (id) => {
+      await context.selectCharacterById?.(id, { switchMenu: false });
+    },
+  };
+
   const generation: GenerationService = {
     stopGeneration: () => context.stopGeneration?.(),
   };
@@ -137,6 +214,7 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
     eventBus: createCoreEventBus(context.eventSource),
     settings,
     chat,
+    session,
     generation,
     extensions,
   };

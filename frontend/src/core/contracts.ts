@@ -21,6 +21,27 @@ export interface ShellSnapshot {
   userName?: string;
 }
 
+export interface ShellCharacterSummary {
+  avatarUrl?: string;
+  chatId?: string;
+  id: number;
+  isSelected: boolean;
+  name: string;
+}
+
+export interface ShellGroupSummary {
+  chatId?: string;
+  id: string;
+  isSelected: boolean;
+  memberCount: number;
+  name: string;
+}
+
+export interface SessionCatalog {
+  characters: ShellCharacterSummary[];
+  groups: ShellGroupSummary[];
+}
+
 export interface CoreEventBus {
   on(eventName: string, listener: EventListener): () => void;
   once(eventName: string, listener: EventListener): () => void;
@@ -39,6 +60,13 @@ export interface ChatService {
   getCurrentChatId(): string | undefined;
 }
 
+export interface SessionService {
+  getCatalog(): SessionCatalog;
+  openGroup(groupId: string, chatId?: string): Promise<void>;
+  reloadCurrentChat(): Promise<void>;
+  selectCharacter(id: number): Promise<void>;
+}
+
 export interface GenerationService {
   stopGeneration(): void;
 }
@@ -52,6 +80,7 @@ export interface ModernizationBridge {
   eventBus: CoreEventBus;
   settings: SettingsService;
   chat: ChatService;
+  session: SessionService;
   generation: GenerationService;
   extensions: ExtensionHostService;
 }

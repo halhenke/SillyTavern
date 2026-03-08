@@ -109,7 +109,8 @@ a {
 }
 
 .st-actions button,
-.st-actions a {
+.st-actions a,
+.st-button {
   background: linear-gradient(135deg, var(--st-accent), #4ca7ff);
   color: #071117;
   border: 0;
@@ -120,7 +121,8 @@ a {
   font-weight: 600;
 }
 
-.st-actions .st-button--ghost {
+.st-actions .st-button--ghost,
+.st-button--ghost {
   background: #263141;
   color: var(--st-text);
 }
@@ -265,6 +267,10 @@ a {
   gap: 10px;
 }
 
+.st-shell-search {
+  margin-bottom: 14px;
+}
+
 .st-shell-toggle {
   display: flex;
   justify-content: space-between;
@@ -295,6 +301,90 @@ a {
   accent-color: var(--st-accent);
 }
 
+.st-shell-session-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.st-shell-session-column {
+  display: grid;
+  gap: 10px;
+}
+
+.st-shell-session-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.st-shell-session-heading h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.st-shell-session-list {
+  display: grid;
+  gap: 10px;
+  max-height: 280px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.st-shell-session-item {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid rgba(54, 66, 85, 0.72);
+  border-radius: 14px;
+  background: rgba(13, 18, 24, 0.52);
+  color: var(--st-text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.st-shell-session-item span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.st-shell-session-item strong,
+.st-shell-session-item small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.st-shell-session-item small {
+  color: var(--st-text-muted);
+}
+
+.st-shell-session-item--active {
+  border-color: rgba(94, 199, 165, 0.72);
+  background: rgba(94, 199, 165, 0.12);
+}
+
+.st-shell-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  object-fit: cover;
+  flex: 0 0 auto;
+}
+
+.st-shell-avatar--fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(123, 220, 255, 0.3), rgba(94, 199, 165, 0.18));
+  color: var(--st-text);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 .st-shell-frame {
   width: 100%;
   min-height: 720px;
@@ -320,6 +410,11 @@ a {
   .st-shell-facts div {
     grid-template-columns: 1fr;
     gap: 4px;
+  }
+
+  .st-shell-session-heading {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .st-shell-frame {

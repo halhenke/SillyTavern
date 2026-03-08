@@ -1719,3 +1719,31 @@
 ### Next
 1. Expand the React shell with another bounded operational slice, likely session/character switching or a larger settings surface.
 2. Start replacing one legacy panel at a time instead of continuing broad compatibility-only extraction work.
+
+## 2026-03-09 - React Migration Wave 2 (Shell Session Switcher)
+
+### Completed
+- Extended the typed bridge with a `SessionService` that exposes:
+  - a React-friendly character/group catalog
+  - character selection
+  - group opening
+  - current-chat reload
+- Upgraded the React shell to include a real session switcher panel with:
+  - live character and group lists
+  - session filtering
+  - one-click character switching
+  - one-click group switching
+  - current chat reload
+- Added bridge contract coverage for catalog mapping and session action delegation.
+
+### Measurable Impact
+- The React shell now owns both runtime inspection and a real session navigation workflow.
+- React is no longer only reading legacy state; it is now driving active character/group changes through typed bridge operations.
+
+### Insights
+- The existing `getContext()` surface is already rich enough to support meaningful React control panels before deeper DOM replacement work.
+- A shell-side session switcher is a good migration seam because it uses stable high-level actions (`selectCharacterById`, `openGroupChat`, `reloadCurrentChat`) rather than replicating jQuery-heavy inner panel behavior.
+
+### Next
+1. Continue expanding the React shell with a larger settings/editor surface or session metadata actions.
+2. After that, move into one deeper in-app panel rather than widening shell-only controls indefinitely.

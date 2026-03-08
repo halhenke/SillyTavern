@@ -1657,3 +1657,40 @@
 ### Next
 1. Reassess whether `Generate(...)` should get one final orchestration-only reduction or whether the next effort should pivot to the next adjacent monolith-owned helper cluster.
 2. If generation-side extractions now have sharply diminishing returns, move to the next highest-yield orchestration cluster instead of overfitting the helper boundary.
+
+## 2026-03-09 - Monolith Reduction Wave 36 (Generate Entry Preflight)
+
+### Completed
+- Moved the top-of-function generation preflight block out of `public/script.js` into `public/scripts/generation-core.js` as `prepareGenerationEntryState(...)`.
+- That extracted helper now owns:
+  - shallow-character expansion before generation
+  - generation start / post-command event emission
+  - abort-controller initialization handoff
+  - instruct/impersonate mode derivation
+  - slash-command interruption gating
+  - kobold streaming support and horde-generation gate checks
+  - server ping / backend availability handling
+  - non-dry-run swipe hiding and chat tainting
+  - group-generation delegation or dry-run member selection
+  - quiet-prompt normalization for novel mode
+  - no-connection early exit handling
+- Updated `Generate(...)` in `public/script.js` to consume the returned entry-state object and keep only the remaining orchestration pipeline local.
+- Extended `bindGenerationCore(...)` with the narrow callbacks required for preflight policy and side effects:
+  - generation event emission
+  - abort controller assignment
+  - group-generation delegation
+  - server / unsupported-mode notifications
+  - group/menu state access
+  - chat tainting and connection checks
+
+### Measurable Impact
+- The early policy-heavy section of `Generate(...)` has left the monolith.
+- `Generate(...)` is now much closer to a pure top-level pipeline coordinator.
+
+### Insights
+- The preflight block was a good final generation-side extraction because it was policy-heavy but still internally coherent once its side effects were pushed behind small callbacks.
+- At this point, further `Generate(...)` splitting likely has diminishing returns unless another clearly self-contained orchestration seam appears.
+
+### Next
+1. Reassess the remaining `Generate(...)` body; if there is no equally coherent seam left, pivot to the next adjacent monolith-owned orchestration cluster.
+2. Favor the next highest-yield non-generation cluster rather than forcing more helper fragmentation inside `Generate(...)`.

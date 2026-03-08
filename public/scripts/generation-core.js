@@ -26,6 +26,7 @@ let getAnimationDurationImpl = null;
 let getAbortControllerImpl = null;
 let getAllExtensionPromptsImpl = null;
 let getAutoContinueConfigImpl = null;
+let getCurrentInputTextImpl = null;
 let getConsoleLogPromptsEnabledImpl = null;
 let getCustomStoppingStringsImpl = null;
 let getGeneratingApiConfigImpl = null;
@@ -48,6 +49,9 @@ let getGenerationTriggerImpl = null;
 let getGuidanceScaleImpl = null;
 let getHordeAdjustConfigImpl = null;
 let getInstructionPromptImpl = null;
+let getIsGroupGeneratingImpl = null;
+let getIsInstructEnabledImpl = null;
+let getIsKoboldStreamingUnsupportedImpl = null;
 let getMinLengthImpl = null;
 let getNamesAsStopStringsImpl = null;
 let getOaiSendIfEmptyImpl = null;
@@ -67,11 +71,14 @@ let getTokenPaddingImpl = null;
 let getWorldInfoIncludeNamesImpl = null;
 let getWiAnchorBeforeImpl = null;
 let executeSlashCommandsOnChatInputImpl = null;
+let generateGroupWrapperImpl = null;
 let getSelectedGroupImpl = null;
 let getMaxContextSizeImpl = null;
 let hasPendingFileAttachmentImpl = null;
 let hideStopButtonImpl = null;
 let hideSwipeButtonsImpl = null;
+let isCharacterEditMenuImpl = null;
+let isHordeGenerationNotAllowedImpl = null;
 let isStreamingEnabledImpl = null;
 let removeDepthPromptsImpl = null;
 let removeReasoningFromStringImpl = null;
@@ -103,6 +110,9 @@ let sendOpenAIRequestImpl = null;
 let sendSystemMessageImpl = null;
 let sendStreamingRequestImpl = null;
 let setExtensionPromptImpl = null;
+let setAbortControllerImpl = null;
+let setCharacterIdImpl = null;
+let setCharacterNameImpl = null;
 let setOpenAiMaxTokensImpl = null;
 let setCustomWorldInfoDepthPromptImpl = null;
 let setGenerationParamsFromPresetImpl = null;
@@ -113,15 +123,19 @@ let setStreamingProcessorImpl = null;
 let setOpenAIMessageExamplesImpl = null;
 let setOpenAIMessagesImpl = null;
 let setFloatingPromptImpl = null;
+let setChatTaintedImpl = null;
 let setQuietPromptImpl = null;
 let setStoryStringPromptImpl = null;
 let clearStoryStringPromptImpl = null;
 let showStopButtonImpl = null;
 let showToolCallErrorImpl = null;
+let showKoboldStreamingUnsupportedImpl = null;
+let showServerUnreachableImpl = null;
 let trimToEndSentenceImpl = null;
 let triggerContinueImpl = null;
 let triggerAutoContinueImpl = null;
 let adjustHordeGenerationParamsImpl = null;
+let adjustNovelInstructionPromptImpl = null;
 let parseMesExamplesImpl = null;
 let parseAndSaveLogprobsImpl = null;
 let playMessageSoundImpl = null;
@@ -139,6 +153,10 @@ let showTextGenerationErrorImpl = null;
 let shouldAutoSwipeResultImpl = null;
 let swipeRightImpl = null;
 let unblockGenerationImpl = null;
+let emitGenerationStartedImpl = null;
+let emitGenerationAfterCommandsImpl = null;
+let pingServerImpl = null;
+let unshallowCharacterImpl = null;
 
 export let amount_gen = 0;
 export let depth_prompt_depth_default = 0;
@@ -159,11 +177,15 @@ function throwUnbound(name) {
  *   addChatsPreamble: (...args: any[]) => string,
  *   addChatsSeparator: (...args: any[]) => string,
  *   appendFileContent: (...args: any[]) => Promise<string>,
- *   collapseNewlines: (...args: any[]) => string,
- *   createPromptReasoning: () => any,
- *   createRawPrompt: (...args: any[]) => string|object[],
+  *   collapseNewlines: (...args: any[]) => string,
+  *   createPromptReasoning: () => any,
+  *   createRawPrompt: (...args: any[]) => string|object[],
+ *   emitGenerationAfterCommands: (...args: any[]) => Promise<any>,
+ *   emitGenerationStarted: (...args: any[]) => Promise<any>,
  *   generateHorde: (...args: any[]) => Promise<any>,
+ *   generateGroupWrapper: (...args: any[]) => Promise<any>,
  *   adjustHordeGenerationParams: (...args: any[]) => Promise<any>,
+ *   adjustNovelInstructionPrompt: (prompt: string) => string,
  *   addPersonaDescriptionExtensionPrompt: () => any,
  *   emitImpersonateReady: (message: string) => Promise<any>,
  *   executeSlashCommandsOnChatInput: (...args: any[]) => Promise<any>,
@@ -174,6 +196,7 @@ function throwUnbound(name) {
  *   getBeforePromptType: () => number,
  *   getCfgPrompt: (...args: any[]) => any,
  *   getCollapseNewlinesEnabled: () => boolean,
+ *   getCurrentInputText: () => string,
  *   getCustomStoppingStrings: () => string[],
  *   getCharacterCardFields: (...args: any[]) => any,
  *   getDepthPromptId: () => any,
@@ -197,6 +220,9 @@ function throwUnbound(name) {
  *   getGuidanceScale: () => any,
  *   getHordeAdjustConfig: () => { autoAdjustContextLength?: boolean, autoAdjustResponseLength?: boolean },
  *   getInstructionPrompt: (system: string) => string,
+ *   getIsGroupGenerating: () => boolean,
+ *   getIsInstructEnabled: () => boolean,
+ *   getIsKoboldStreamingUnsupported: () => boolean,
  *   getInstructStoppingSequences: () => string[],
  *   getMaxContextSize: () => number,
  *   getMinLength: () => number,
@@ -226,6 +252,8 @@ function throwUnbound(name) {
  *   hasPendingFileAttachment: () => boolean,
  *   hideStopButton: () => any,
  *   hideSwipeButtons: () => any,
+ *   isCharacterEditMenu: () => boolean,
+ *   isHordeGenerationNotAllowed: () => boolean,
  *   isStreamingEnabled: (...args: any[]) => boolean,
  *   removeDepthPrompts: (...args: any[]) => any,
  *   removeReasoningFromString: (...args: any[]) => string,
@@ -248,6 +276,7 @@ function throwUnbound(name) {
  *   getAllowWIScan: () => boolean,
  *   parseMesExamples: (...args: any[]) => string[],
  *   parseAndSaveLogprobs: (...args: any[]) => any,
+ *   pingServer: () => Promise<boolean>,
  *   playMessageSound: () => any,
  *   renderStoryString: (...args: any[]) => string,
  *   saveChatConditional: () => Promise<any>,
@@ -257,6 +286,10 @@ function throwUnbound(name) {
  *   sendOpenAIRequest: (...args: any[]) => Promise<any>,
  *   sendSystemMessage: (...args: any[]) => any,
  *   sendStreamingRequest: (...args: any[]) => Promise<any>,
+ *   setAbortController: (controller: AbortController) => any,
+ *   setCharacterId: (value: number) => any,
+ *   setCharacterName: (value: string) => any,
+ *   setChatTainted: () => any,
  *   setCustomWorldInfoDepthPrompt: (depth: number, role: any, value: string) => any,
  *   setExtensionPrompt: (...args: any[]) => any,
  *   setOpenAiMaxTokens: (value: number) => any,
@@ -276,13 +309,16 @@ function throwUnbound(name) {
  *   shouldIncludePersonaInStoryString: () => boolean,
  *   shouldAutoSwipeResult: (message: string) => boolean,
  *   showApiError: (message: string) => any,
+ *   showKoboldStreamingUnsupported: () => any,
  *   showStopButton: () => any,
+ *   showServerUnreachable: () => any,
  *   showToolCallError: (...args: any[]) => any,
  *   showTextGenerationError: (message: string) => any,
  *   swipeRight: () => any,
  *   trimToEndSentence: (...args: any[]) => string,
  *   triggerContinue: () => any,
  *   triggerAutoContinue: (...args: any[]) => any,
+ *   unshallowCharacter: (characterId: any) => Promise<any>,
  *   unblockGeneration: (type?: string) => any,
  *   normalizeReasoningText: (...args: any[]) => string,
  *   prepareOpenAIMessages: (...args: any[]) => Promise<any>,
@@ -291,8 +327,11 @@ function throwUnbound(name) {
  */
 export function bindGenerationCore(impl) {
     adjustHordeGenerationParamsImpl = impl?.adjustHordeGenerationParams ?? null;
+    adjustNovelInstructionPromptImpl = impl?.adjustNovelInstructionPrompt ?? null;
     addPersonaDescriptionExtensionPromptImpl = impl?.addPersonaDescriptionExtensionPrompt ?? null;
     appendFileContentImpl = impl?.appendFileContent ?? null;
+    emitGenerationAfterCommandsImpl = impl?.emitGenerationAfterCommands ?? null;
+    emitGenerationStartedImpl = impl?.emitGenerationStarted ?? null;
     emitImpersonateReadyImpl = impl?.emitImpersonateReady ?? null;
     generateImpl = impl?.Generate ?? null;
     addChatsPreambleImpl = impl?.addChatsPreamble ?? null;
@@ -312,6 +351,7 @@ export function bindGenerationCore(impl) {
     getCharacterCardFieldsImpl = impl?.getCharacterCardFields ?? null;
     getCfgPromptImpl = impl?.getCfgPrompt ?? null;
     getCollapseNewlinesEnabledImpl = impl?.getCollapseNewlinesEnabled ?? null;
+    getCurrentInputTextImpl = impl?.getCurrentInputText ?? null;
     getCustomStoppingStringsImpl = impl?.getCustomStoppingStrings ?? null;
     getDepthPromptIdImpl = impl?.getDepthPromptId ?? null;
     getDepthPromptIndexIdImpl = impl?.getDepthPromptIndexId ?? null;
@@ -334,6 +374,9 @@ export function bindGenerationCore(impl) {
     getGenerateUrlImpl = impl?.getGenerateUrl ?? null;
     getGroupsImpl = impl?.getGroups ?? null;
     getConsoleLogPromptsEnabledImpl = impl?.getConsoleLogPromptsEnabled ?? null;
+    getIsGroupGeneratingImpl = impl?.getIsGroupGenerating ?? null;
+    getIsInstructEnabledImpl = impl?.getIsInstructEnabled ?? null;
+    getIsKoboldStreamingUnsupportedImpl = impl?.getIsKoboldStreamingUnsupported ?? null;
     getInstructStoppingSequencesImpl = impl?.getInstructStoppingSequences ?? null;
     getInstructionPromptImpl = impl?.getInstructionPrompt ?? null;
     getMaxContextSizeImpl = impl?.getMaxContextSize ?? null;
@@ -360,10 +403,13 @@ export function bindGenerationCore(impl) {
     getWiAnchorBeforeImpl = impl?.getWiAnchorBefore ?? null;
     getWorldInfoIncludeNamesImpl = impl?.getWorldInfoIncludeNames ?? null;
     getWorldInfoPromptImpl = impl?.getWorldInfoPrompt ?? null;
+    generateGroupWrapperImpl = impl?.generateGroupWrapper ?? null;
     getSelectedGroupImpl = impl?.getSelectedGroup ?? null;
     hasPendingFileAttachmentImpl = impl?.hasPendingFileAttachment ?? null;
     hideStopButtonImpl = impl?.hideStopButton ?? null;
     hideSwipeButtonsImpl = impl?.hideSwipeButtons ?? null;
+    isCharacterEditMenuImpl = impl?.isCharacterEditMenu ?? null;
+    isHordeGenerationNotAllowedImpl = impl?.isHordeGenerationNotAllowed ?? null;
     isStreamingEnabledImpl = impl?.isStreamingEnabled ?? null;
     removeDepthPromptsImpl = impl?.removeDepthPrompts ?? null;
     removeReasoningFromStringImpl = impl?.removeReasoningFromString ?? null;
@@ -384,6 +430,7 @@ export function bindGenerationCore(impl) {
     normalizeReasoningTextImpl = impl?.normalizeReasoningText ?? null;
     parseMesExamplesImpl = impl?.parseMesExamples ?? null;
     parseAndSaveLogprobsImpl = impl?.parseAndSaveLogprobs ?? null;
+    pingServerImpl = impl?.pingServer ?? null;
     playMessageSoundImpl = impl?.playMessageSound ?? null;
     renderStoryStringImpl = impl?.renderStoryString ?? null;
     sendMessageAsUserImpl = impl?.sendMessageAsUser ?? null;
@@ -393,6 +440,10 @@ export function bindGenerationCore(impl) {
     sendStreamingRequestImpl = impl?.sendStreamingRequest ?? null;
     saveChatConditionalImpl = impl?.saveChatConditional ?? null;
     saveReplyImpl = impl?.saveReply ?? null;
+    setAbortControllerImpl = impl?.setAbortController ?? null;
+    setCharacterIdImpl = impl?.setCharacterId ?? null;
+    setCharacterNameImpl = impl?.setCharacterName ?? null;
+    setChatTaintedImpl = impl?.setChatTainted ?? null;
     setCustomWorldInfoDepthPromptImpl = impl?.setCustomWorldInfoDepthPrompt ?? null;
     setExtensionPromptImpl = impl?.setExtensionPrompt ?? null;
     setGeneratedTitleImpl = impl?.setGeneratedTitle ?? null;
@@ -412,13 +463,16 @@ export function bindGenerationCore(impl) {
     shouldIncludePersonaInStoryStringImpl = impl?.shouldIncludePersonaInStoryString ?? null;
     shouldAutoSwipeResultImpl = impl?.shouldAutoSwipeResult ?? null;
     showApiErrorImpl = impl?.showApiError ?? null;
+    showKoboldStreamingUnsupportedImpl = impl?.showKoboldStreamingUnsupported ?? null;
     showStopButtonImpl = impl?.showStopButton ?? null;
+    showServerUnreachableImpl = impl?.showServerUnreachable ?? null;
     showToolCallErrorImpl = impl?.showToolCallError ?? null;
     showTextGenerationErrorImpl = impl?.showTextGenerationError ?? null;
     swipeRightImpl = impl?.swipeRight ?? null;
     trimToEndSentenceImpl = impl?.trimToEndSentence ?? null;
     triggerContinueImpl = impl?.triggerContinue ?? null;
     triggerAutoContinueImpl = impl?.triggerAutoContinue ?? null;
+    unshallowCharacterImpl = impl?.unshallowCharacter ?? null;
     unblockGenerationImpl = impl?.unblockGeneration ?? null;
     prepareOpenAIMessagesImpl = impl?.prepareOpenAIMessages ?? null;
     runGenerationInterceptorsImpl = impl?.runGenerationInterceptors ?? null;
@@ -766,6 +820,187 @@ export async function prepareGenerationMessages({ type, dryRun, isImpersonate, a
         messageBias,
         promptBias,
         textareaText,
+    };
+}
+
+export async function prepareGenerationEntryState({
+    dryRun,
+    forceChid,
+    quietImage,
+    quietPrompt,
+    quietToLoud,
+    signal,
+    skipWIAN,
+    type,
+    automaticTrigger,
+    forceName2,
+    currentCharacterId,
+}) {
+    if (!unshallowCharacterImpl) {
+        throwUnbound('unshallowCharacter');
+    }
+    if (!emitGenerationStartedImpl) {
+        throwUnbound('emitGenerationStarted');
+    }
+    if (!getAbortControllerImpl) {
+        throwUnbound('getAbortController');
+    }
+    if (!setAbortControllerImpl) {
+        throwUnbound('setAbortController');
+    }
+    if (!getIsInstructEnabledImpl) {
+        throwUnbound('getIsInstructEnabled');
+    }
+    if (!getCurrentInputTextImpl) {
+        throwUnbound('getCurrentInputText');
+    }
+    if (!unblockGenerationImpl) {
+        throwUnbound('unblockGeneration');
+    }
+    if (!emitGenerationAfterCommandsImpl) {
+        throwUnbound('emitGenerationAfterCommands');
+    }
+    if (!isHordeGenerationNotAllowedImpl) {
+        throwUnbound('isHordeGenerationNotAllowed');
+    }
+    if (!getIsKoboldStreamingUnsupportedImpl) {
+        throwUnbound('getIsKoboldStreamingUnsupported');
+    }
+    if (!showKoboldStreamingUnsupportedImpl) {
+        throwUnbound('showKoboldStreamingUnsupported');
+    }
+    if (!generateGroupWrapperImpl) {
+        throwUnbound('generateGroupWrapper');
+    }
+    if (!getSelectedGroupImpl) {
+        throwUnbound('getSelectedGroup');
+    }
+    if (!getIsGroupGeneratingImpl) {
+        throwUnbound('getIsGroupGenerating');
+    }
+    if (!isCharacterEditMenuImpl) {
+        throwUnbound('isCharacterEditMenu');
+    }
+    if (!setCharacterIdImpl) {
+        throwUnbound('setCharacterId');
+    }
+    if (!setCharacterNameImpl) {
+        throwUnbound('setCharacterName');
+    }
+    if (!pingServerImpl) {
+        throwUnbound('pingServer');
+    }
+    if (!hideSwipeButtonsImpl) {
+        throwUnbound('hideSwipeButtons');
+    }
+    if (!setChatTaintedImpl) {
+        throwUnbound('setChatTainted');
+    }
+    if (!showServerUnreachableImpl) {
+        throwUnbound('showServerUnreachable');
+    }
+    if (!setSendButtonStateImpl) {
+        throwUnbound('setSendButtonState');
+    }
+
+    await unshallowCharacterImpl(currentCharacterId);
+
+    const eventOptions = { automatic_trigger: automaticTrigger, force_name2: forceName2, quiet_prompt: quietPrompt, quietToLoud, skipWIAN, force_chid: forceChid, signal, quietImage };
+    await emitGenerationStartedImpl(type, eventOptions, dryRun);
+
+    if (!(getAbortControllerImpl() && signal)) {
+        setAbortControllerImpl(new AbortController());
+    }
+
+    const isInstruct = getIsInstructEnabledImpl() && main_api !== 'openai';
+    const isImpersonate = type === 'impersonate';
+
+    if (!(dryRun || type === 'regenerate' || type === 'swipe' || type === 'quiet')) {
+        const interruptedByCommand = await processCommands(getCurrentInputTextImpl());
+        if (interruptedByCommand) {
+            unblockGenerationImpl(type);
+            return { status: 'complete', value: undefined };
+        }
+    }
+
+    await emitGenerationAfterCommandsImpl(type, eventOptions, dryRun);
+
+    if (getIsKoboldStreamingUnsupportedImpl()) {
+        showKoboldStreamingUnsupportedImpl();
+        unblockGenerationImpl(type);
+        return { status: 'complete', value: undefined };
+    }
+
+    if (isHordeGenerationNotAllowedImpl()) {
+        unblockGenerationImpl(type);
+        return { status: 'complete', value: undefined };
+    }
+
+    if (!dryRun) {
+        const pingResult = await pingServerImpl();
+        if (!pingResult) {
+            unblockGenerationImpl(type);
+            showServerUnreachableImpl();
+            throw new Error('Server unreachable');
+        }
+
+        hideSwipeButtonsImpl();
+        setChatTaintedImpl();
+    }
+
+    const selectedGroup = getSelectedGroupImpl();
+    if (selectedGroup && !getIsGroupGeneratingImpl()) {
+        if (!dryRun) {
+            return {
+                status: 'complete',
+                value: await generateGroupWrapperImpl(false, type, {
+                    quiet_prompt: quietPrompt,
+                    force_chid: forceChid,
+                    signal: getAbortControllerImpl()?.signal,
+                    quietImage,
+                }),
+            };
+        }
+
+        const characterIndexMap = new Map(characters.map((char, index) => [char.avatar, index]));
+        const group = (getGroupsImpl() ?? []).find((item) => item.id === selectedGroup);
+        const enabledMembers = group.members.reduce((acc, member) => {
+            if (!group.disabled_members.includes(member) && !acc.includes(member)) {
+                acc.push(member);
+            }
+            return acc;
+        }, []);
+        const memberIds = enabledMembers
+            .map((member) => characterIndexMap.get(member))
+            .filter((index) => index !== undefined && index !== null);
+
+        if (memberIds.length > 0) {
+            if (!isCharacterEditMenuImpl()) {
+                setCharacterIdImpl(memberIds[0]);
+            }
+            setCharacterNameImpl('');
+        } else {
+            console.log('No enabled members found');
+            unblockGenerationImpl(type);
+            return { status: 'complete', value: undefined };
+        }
+    }
+
+    if (quietPrompt) {
+        quietPrompt = substituteParams(quietPrompt);
+        quietPrompt = main_api === 'novel' && !quietToLoud ? adjustNovelInstructionPromptImpl(quietPrompt) : quietPrompt;
+    }
+
+    if (!dryRun && online_status === 'no_connection') {
+        setSendButtonStateImpl(false);
+        return { status: 'complete', value: undefined };
+    }
+
+    return {
+        isImpersonate,
+        isInstruct,
+        quietPrompt,
+        status: 'continue',
     };
 }
 
@@ -2922,3 +3157,6 @@ export function stopGeneration() {
 
     return stopped;
 }
+    if (!adjustNovelInstructionPromptImpl) {
+        throwUnbound('adjustNovelInstructionPrompt');
+    }

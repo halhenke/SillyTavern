@@ -263,7 +263,7 @@ import { bindCharacterCore, createOrEditCharacter as createOrEditCharacterCore, 
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
 import { addOneMessage as addOneMessageCore, bindChatOperationsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
-import { bindGenerationCore, buildCombinedPrompt as buildCombinedPromptCore, executeGenerationRequestFlow as executeGenerationRequestFlowCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, handleGenerationError as handleGenerationErrorCore, prepareContextPackingState as prepareContextPackingStateCore, prepareCoreChatState as prepareCoreChatStateCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationData as prepareGenerationDataCore, prepareGenerationMessages as prepareGenerationMessagesCore, prepareMessageHistoryState as prepareMessageHistoryStateCore, preparePromptAssemblyState as preparePromptAssemblyStateCore, preparePromptAugmentationState as preparePromptAugmentationStateCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
+import { bindGenerationCore, buildCombinedPrompt as buildCombinedPromptCore, executeGenerationRequestFlow as executeGenerationRequestFlowCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, handleGenerationError as handleGenerationErrorCore, prepareContextPackingState as prepareContextPackingStateCore, prepareCoreChatState as prepareCoreChatStateCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationData as prepareGenerationDataCore, prepareGenerationEntryState as prepareGenerationEntryStateCore, prepareGenerationMessages as prepareGenerationMessagesCore, prepareMessageHistoryState as prepareMessageHistoryStateCore, preparePromptAssemblyState as preparePromptAssemblyStateCore, preparePromptAugmentationState as preparePromptAugmentationStateCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
 import { bindMessageCore, setEditedMessageId as setEditedMessageIdCore, updateMessageBlock as updateMessageBlockCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
@@ -513,8 +513,11 @@ bindSessionCore({
 });
 bindGenerationCore({
     adjustHordeGenerationParams,
+    adjustNovelInstructionPrompt,
     addPersonaDescriptionExtensionPrompt,
     appendFileContent,
+    emitGenerationAfterCommands: (type, options, dryRun) => eventSource.emit(event_types.GENERATION_AFTER_COMMANDS, type, options, dryRun),
+    emitGenerationStarted: (type, options, dryRun) => eventSource.emit(event_types.GENERATION_STARTED, type, options, dryRun),
     emitImpersonateReady: (message) => eventSource.emit(event_types.IMPERSONATE_READY, message),
     Generate,
     addChatsPreamble,
@@ -540,6 +543,7 @@ bindGenerationCore({
     getCharacterCardFields,
     getCfgPrompt,
     getCollapseNewlinesEnabled: () => power_user.collapse_newlines,
+    getCurrentInputText: () => String($('#send_textarea').val()),
     getConsoleLogPromptsEnabled: () => power_user.console_log_prompts,
     getCustomStoppingStrings,
     getDepthPromptId: () => inject_ids.DEPTH_PROMPT,
@@ -566,6 +570,9 @@ bindGenerationCore({
     getInstructionPrompt: (system) => main_api !== 'openai' && power_user.sysprompt.enabled
         ? substituteParams(power_user.prefer_character_prompt && system ? system : power_user.sysprompt.content)
         : '',
+    getIsGroupGenerating: () => is_group_generating,
+    getIsInstructEnabled: () => power_user.instruct.enabled,
+    getIsKoboldStreamingUnsupported: () => main_api == 'kobold' && kai_settings.streaming_kobold && !kai_flags.can_use_streaming,
     getInstructWrap: () => power_user.instruct.wrap,
     getInstructStoppingSequences,
     getKoboldGenerationData,
@@ -626,11 +633,14 @@ bindGenerationCore({
     getWiAnchorBefore: () => wi_anchor_position.before,
     getWorldInfoIncludeNames: () => world_info_include_names,
     getWorldInfoPrompt,
+    generateGroupWrapper,
     getSelectedGroup: () => selected_group,
     getAllowWIScan: () => extension_settings.note.allowWIScan,
     hasPendingFileAttachment,
     hideStopButton,
     hideSwipeButtons,
+    isCharacterEditMenu: () => menu_type == 'character_edit',
+    isHordeGenerationNotAllowed,
     isStreamingEnabled,
     extractImageFromData,
     extractMultiSwipes,
@@ -655,6 +665,10 @@ bindGenerationCore({
     sendOpenAIRequest,
     sendSystemMessage,
     sendStreamingRequest,
+    setAbortController: (controller) => abortController = controller,
+    setCharacterId,
+    setCharacterName,
+    setChatTainted: () => chat_metadata['tainted'] = true,
     setCustomWorldInfoDepthPrompt: (depth, role, value) => setExtensionPrompt(inject_ids.CUSTOM_WI_DEPTH_ROLE(depth, role), value, extension_prompt_types.IN_CHAT, depth, false, role),
     setExtensionPrompt,
     setGeneratedTitle: (value) => kobold_horde_model = value,
@@ -677,13 +691,16 @@ bindGenerationCore({
     shouldIncludePersonaInStoryString: () => power_user.persona_description_position == persona_description_positions.IN_PROMPT,
     shouldAutoSwipeResult: (message) => !abortController?.signal?.aborted && power_user.auto_swipe && generatedTextFiltered(message),
     showApiError: (message) => toastr.error(message, t`API Error`, { preventDuplicates: true }),
+    showKoboldStreamingUnsupported: () => toastr.error(t`Streaming is enabled, but the version of Kobold used does not support token streaming.`, undefined, { timeOut: 10000, preventDuplicates: true }),
     showStopButton,
+    showServerUnreachable: () => toastr.error(t`Verify that the server is running and accessible.`, t`ST Server cannot be reached`),
     showToolCallError: (...args) => ToolManager.showToolCallError(...args),
     showTextGenerationError: (message) => toastr.error(message, t`Text generation error`, { timeOut: 10000, extendedTimeOut: 20000 }),
     swipeRight: () => swipe_right(),
     trimToEndSentence,
     triggerContinue: () => $('#option_continue').trigger('click'),
     triggerAutoContinue,
+    unshallowCharacter,
     unblockGeneration,
     prepareOpenAIMessages,
     runGenerationInterceptors,
@@ -3034,106 +3051,26 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
     setGenerationProgress(0);
     generation_started = new Date();
 
-    // Prevent generation from shallow characters
-    await unshallowCharacter(this_chid);
+    const entryState = await prepareGenerationEntryStateCore({
+        automaticTrigger: automatic_trigger,
+        currentCharacterId: this_chid,
+        dryRun,
+        forceChid: force_chid,
+        forceName2: force_name2,
+        quietImage,
+        quietPrompt: quiet_prompt,
+        quietToLoud,
+        signal,
+        skipWIAN,
+        type,
+    });
 
-    // Occurs every time, even if the generation is aborted due to slash commands execution
-    await eventSource.emit(event_types.GENERATION_STARTED, type, { automatic_trigger, force_name2, quiet_prompt, quietToLoud, skipWIAN, force_chid, signal, quietImage }, dryRun);
-
-    // Don't recreate abort controller if signal is passed
-    if (!(abortController && signal)) {
-        abortController = new AbortController();
+    if (entryState.status === 'complete') {
+        return entryState.value;
     }
 
-    // OpenAI doesn't need instruct mode. Use OAI main prompt instead.
-    const isInstruct = power_user.instruct.enabled && main_api !== 'openai';
-    const isImpersonate = type == 'impersonate';
-
-    if (!(dryRun || type == 'regenerate' || type == 'swipe' || type == 'quiet')) {
-        const interruptedByCommand = await processCommands(String($('#send_textarea').val()));
-
-        if (interruptedByCommand) {
-            //$("#send_textarea").val('')[0].dispatchEvent(new Event('input', { bubbles:true }));
-            unblockGeneration(type);
-            return Promise.resolve();
-        }
-    }
-
-    // Occurs only if the generation is not aborted due to slash commands execution
-    await eventSource.emit(event_types.GENERATION_AFTER_COMMANDS, type, { automatic_trigger, force_name2, quiet_prompt, quietToLoud, skipWIAN, force_chid, signal, quietImage }, dryRun);
-
-    if (main_api == 'kobold' && kai_settings.streaming_kobold && !kai_flags.can_use_streaming) {
-        toastr.error(t`Streaming is enabled, but the version of Kobold used does not support token streaming.`, undefined, { timeOut: 10000, preventDuplicates: true });
-        unblockGeneration(type);
-        return Promise.resolve();
-    }
-
-    if (isHordeGenerationNotAllowed()) {
-        unblockGeneration(type);
-        return Promise.resolve();
-    }
-
-    if (!dryRun) {
-        // Ping server to make sure it is still alive
-        const pingResult = await pingServer();
-
-        if (!pingResult) {
-            unblockGeneration(type);
-            toastr.error(t`Verify that the server is running and accessible.`, t`ST Server cannot be reached`);
-            throw new Error('Server unreachable');
-        }
-
-        // Hide swipes if not in a dry run.
-        hideSwipeButtons();
-        // If generated any message, set the flag to indicate it can't be recreated again.
-        chat_metadata['tainted'] = true;
-    }
-
-    if (selected_group && !is_group_generating) {
-        if (!dryRun) {
-            // Returns the promise that generateGroupWrapper returns; resolves when generation is done
-            return generateGroupWrapper(false, type, { quiet_prompt, force_chid, signal: abortController.signal, quietImage });
-        }
-
-        const characterIndexMap = new Map(characters.map((char, index) => [char.avatar, index]));
-        const group = groups.find((x) => x.id === selected_group);
-
-        const enabledMembers = group.members.reduce((acc, member) => {
-            if (!group.disabled_members.includes(member) && !acc.includes(member)) {
-                acc.push(member);
-            }
-            return acc;
-        }, []);
-
-        const memberIds = enabledMembers
-            .map((member) => characterIndexMap.get(member))
-            .filter((index) => index !== undefined && index !== null);
-
-        if (memberIds.length > 0) {
-            if (menu_type != 'character_edit') setCharacterId(memberIds[0]);
-            setCharacterName('');
-        } else {
-            console.log('No enabled members found');
-            unblockGeneration(type);
-            return Promise.resolve();
-        }
-    }
-
-    //#########QUIET PROMPT STUFF##############
-    //this function just gives special care to novel quiet instruction prompts
-    if (quiet_prompt) {
-        quiet_prompt = substituteParams(quiet_prompt);
-        quiet_prompt = main_api == 'novel' && !quietToLoud ? adjustNovelInstructionPrompt(quiet_prompt) : quiet_prompt;
-    }
-
-    const hasBackendConnection = online_status !== 'no_connection';
-
-    // We can't do anything because we're not in a chat right now. (Unless it's a dry run, in which case we need to
-    // assemble the prompt so we can count its tokens regardless of whether a chat is active.)
-    if (!dryRun && !hasBackendConnection) {
-        setSendButtonState(false);
-        return Promise.resolve();
-    }
+    const { isImpersonate, isInstruct } = entryState;
+    quiet_prompt = entryState.quietPrompt;
 
     let {
         generationStarted,

@@ -14,9 +14,21 @@ import {
 import { createCoreEventBus } from '../core/eventBus';
 
 type LegacyPowerUserSettings = {
+  auto_continue?: {
+    allow_chat_completions?: boolean;
+    enabled?: boolean;
+    target_length?: number;
+  };
   auto_scroll_chat_to_bottom?: boolean;
   collapse_newlines?: boolean;
+  compact_input_area?: boolean;
+  console_log_prompts?: boolean;
+  continue_on_send?: boolean;
   message_token_count_enabled?: boolean;
+  quick_continue?: boolean;
+  quick_impersonate?: boolean;
+  request_token_probabilities?: boolean;
+  restore_user_input?: boolean;
   trim_sentences?: boolean;
   trim_spaces?: boolean;
 };
@@ -73,8 +85,18 @@ export type LegacyBridge = ModernizationBridge;
 function readPreferences(powerUserSettings?: LegacyPowerUserSettings): ShellPreferences {
   return {
     autoScrollChatToBottom: Boolean(powerUserSettings?.auto_scroll_chat_to_bottom),
+    autoContinueAllowChatCompletions: Boolean(powerUserSettings?.auto_continue?.allow_chat_completions),
+    autoContinueEnabled: Boolean(powerUserSettings?.auto_continue?.enabled),
+    autoContinueTargetLength: Number(powerUserSettings?.auto_continue?.target_length ?? 400),
     collapseNewlines: Boolean(powerUserSettings?.collapse_newlines),
+    compactInputArea: Boolean(powerUserSettings?.compact_input_area),
+    consoleLogPrompts: Boolean(powerUserSettings?.console_log_prompts),
+    continueOnSend: Boolean(powerUserSettings?.continue_on_send),
     messageTokenCountEnabled: Boolean(powerUserSettings?.message_token_count_enabled),
+    quickContinue: Boolean(powerUserSettings?.quick_continue),
+    quickImpersonate: Boolean(powerUserSettings?.quick_impersonate),
+    requestTokenProbabilities: Boolean(powerUserSettings?.request_token_probabilities),
+    restoreUserInput: Boolean(powerUserSettings?.restore_user_input),
     trimSentences: Boolean(powerUserSettings?.trim_sentences),
     trimSpaces: Boolean(powerUserSettings?.trim_spaces),
   };
@@ -84,11 +106,44 @@ function writePreferences(powerUserSettings: LegacyPowerUserSettings, next: Part
   if (next.autoScrollChatToBottom !== undefined) {
     powerUserSettings.auto_scroll_chat_to_bottom = next.autoScrollChatToBottom;
   }
+  if (next.autoContinueAllowChatCompletions !== undefined) {
+    powerUserSettings.auto_continue ??= {};
+    powerUserSettings.auto_continue.allow_chat_completions = next.autoContinueAllowChatCompletions;
+  }
+  if (next.autoContinueEnabled !== undefined) {
+    powerUserSettings.auto_continue ??= {};
+    powerUserSettings.auto_continue.enabled = next.autoContinueEnabled;
+  }
+  if (next.autoContinueTargetLength !== undefined) {
+    powerUserSettings.auto_continue ??= {};
+    powerUserSettings.auto_continue.target_length = next.autoContinueTargetLength;
+  }
   if (next.collapseNewlines !== undefined) {
     powerUserSettings.collapse_newlines = next.collapseNewlines;
   }
+  if (next.compactInputArea !== undefined) {
+    powerUserSettings.compact_input_area = next.compactInputArea;
+  }
+  if (next.consoleLogPrompts !== undefined) {
+    powerUserSettings.console_log_prompts = next.consoleLogPrompts;
+  }
+  if (next.continueOnSend !== undefined) {
+    powerUserSettings.continue_on_send = next.continueOnSend;
+  }
   if (next.messageTokenCountEnabled !== undefined) {
     powerUserSettings.message_token_count_enabled = next.messageTokenCountEnabled;
+  }
+  if (next.quickContinue !== undefined) {
+    powerUserSettings.quick_continue = next.quickContinue;
+  }
+  if (next.quickImpersonate !== undefined) {
+    powerUserSettings.quick_impersonate = next.quickImpersonate;
+  }
+  if (next.requestTokenProbabilities !== undefined) {
+    powerUserSettings.request_token_probabilities = next.requestTokenProbabilities;
+  }
+  if (next.restoreUserInput !== undefined) {
+    powerUserSettings.restore_user_input = next.restoreUserInput;
   }
   if (next.trimSentences !== undefined) {
     powerUserSettings.trim_sentences = next.trimSentences;

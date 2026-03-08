@@ -22,9 +22,21 @@ describe('createLegacyBridge', () => {
           name2: 'Airi',
           onlineStatus: 'Connected',
           powerUserSettings: {
+            auto_continue: {
+              allow_chat_completions: true,
+              enabled: true,
+              target_length: 550,
+            },
             auto_scroll_chat_to_bottom: true,
             collapse_newlines: false,
+            compact_input_area: true,
+            console_log_prompts: true,
+            continue_on_send: true,
             message_token_count_enabled: true,
+            quick_continue: true,
+            quick_impersonate: false,
+            request_token_probabilities: true,
+            restore_user_input: true,
             trim_sentences: false,
             trim_spaces: true,
           },
@@ -48,8 +60,18 @@ describe('createLegacyBridge', () => {
       onlineStatus: 'Connected',
       preferences: {
         autoScrollChatToBottom: true,
+        autoContinueAllowChatCompletions: true,
+        autoContinueEnabled: true,
+        autoContinueTargetLength: 550,
         collapseNewlines: false,
+        compactInputArea: true,
+        consoleLogPrompts: true,
+        continueOnSend: true,
         messageTokenCountEnabled: true,
+        quickContinue: true,
+        quickImpersonate: false,
+        requestTokenProbabilities: true,
+        restoreUserInput: true,
         trimSentences: false,
         trimSpaces: true,
       },
@@ -61,9 +83,21 @@ describe('createLegacyBridge', () => {
     const saveSettingsDebounced = vi.fn();
     const saveSettings = vi.fn();
     const powerUserSettings = {
+      auto_continue: {
+        allow_chat_completions: false,
+        enabled: false,
+        target_length: 400,
+      },
       auto_scroll_chat_to_bottom: false,
       collapse_newlines: false,
+      compact_input_area: false,
+      console_log_prompts: false,
+      continue_on_send: false,
       message_token_count_enabled: false,
+      quick_continue: false,
+      quick_impersonate: false,
+      request_token_probabilities: false,
+      restore_user_input: false,
       trim_sentences: false,
       trim_spaces: false,
     };
@@ -88,11 +122,19 @@ describe('createLegacyBridge', () => {
     const bridge = createLegacyBridge(windowObject);
 
     await bridge?.settings.updateShellPreferences({
+      autoContinueEnabled: true,
+      autoContinueTargetLength: 620,
       collapseNewlines: true,
+      continueOnSend: true,
+      requestTokenProbabilities: true,
       trimSpaces: true,
     });
 
+    expect(powerUserSettings.auto_continue.enabled).toBe(true);
+    expect(powerUserSettings.auto_continue.target_length).toBe(620);
     expect(powerUserSettings.collapse_newlines).toBe(true);
+    expect(powerUserSettings.continue_on_send).toBe(true);
+    expect(powerUserSettings.request_token_probabilities).toBe(true);
     expect(powerUserSettings.trim_spaces).toBe(true);
     expect(saveSettingsDebounced).toHaveBeenCalledTimes(1);
     expect(saveSettings).not.toHaveBeenCalled();

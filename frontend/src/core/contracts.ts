@@ -3,7 +3,17 @@ export type EventListener = (...payload: EventPayload) => void | Promise<void>;
 
 export interface ShellPreferences {
   autoScrollChatToBottom: boolean;
+  autoContinueAllowChatCompletions: boolean;
+  autoContinueEnabled: boolean;
+  autoContinueTargetLength: number;
   collapseNewlines: boolean;
+  compactInputArea: boolean;
+  consoleLogPrompts: boolean;
+  continueOnSend: boolean;
+  quickContinue: boolean;
+  quickImpersonate: boolean;
+  requestTokenProbabilities: boolean;
+  restoreUserInput: boolean;
   messageTokenCountEnabled: boolean;
   trimSentences: boolean;
   trimSpaces: boolean;

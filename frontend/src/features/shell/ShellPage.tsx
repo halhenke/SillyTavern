@@ -5,7 +5,17 @@ import { LegacyBridge, createLegacyBridge } from '../../legacy/bridge';
 
 const DEFAULT_PREFERENCES: ShellPreferences = {
   autoScrollChatToBottom: false,
+  autoContinueAllowChatCompletions: false,
+  autoContinueEnabled: false,
+  autoContinueTargetLength: 400,
   collapseNewlines: false,
+  compactInputArea: false,
+  consoleLogPrompts: false,
+  continueOnSend: false,
+  quickContinue: false,
+  quickImpersonate: false,
+  requestTokenProbabilities: false,
+  restoreUserInput: false,
   messageTokenCountEnabled: false,
   trimSentences: false,
   trimSpaces: false,
@@ -50,6 +60,65 @@ const PREFERENCE_CONTROLS: Array<{
     key: 'messageTokenCountEnabled',
     label: 'Token counts',
     description: 'Show per-message token counts in the legacy runtime.',
+  },
+];
+
+const GENERATION_CONTROLS: Array<{
+  key: keyof ShellPreferences;
+  label: string;
+  description: string;
+}> = [
+  {
+    key: 'autoContinueEnabled',
+    label: 'Auto-continue',
+    description: 'Allow the runtime to continue long replies automatically.',
+  },
+  {
+    key: 'autoContinueAllowChatCompletions',
+    label: 'Chat completion auto-continue',
+    description: 'Permit auto-continue on chat-completion providers.',
+  },
+  {
+    key: 'continueOnSend',
+    label: 'Continue on send',
+    description: 'Treat send actions as continuation when appropriate.',
+  },
+  {
+    key: 'quickContinue',
+    label: 'Quick continue',
+    description: 'Keep continuation controls close to the main send workflow.',
+  },
+  {
+    key: 'quickImpersonate',
+    label: 'Quick impersonate',
+    description: 'Expose fast impersonation entry points in the composer flow.',
+  },
+  {
+    key: 'consoleLogPrompts',
+    label: 'Console log prompts',
+    description: 'Emit final prompts to the browser console for debugging.',
+  },
+  {
+    key: 'requestTokenProbabilities',
+    label: 'Token probabilities',
+    description: 'Request token probability data when the provider supports it.',
+  },
+];
+
+const WORKFLOW_CONTROLS: Array<{
+  key: keyof ShellPreferences;
+  label: string;
+  description: string;
+}> = [
+  {
+    key: 'compactInputArea',
+    label: 'Compact input area',
+    description: 'Prefer a tighter composer layout in the legacy runtime.',
+  },
+  {
+    key: 'restoreUserInput',
+    label: 'Restore draft input',
+    description: 'Bring unfinished user input back when the session reloads.',
   },
 ];
 
@@ -137,7 +206,10 @@ export function ShellPage() {
     setChatNameDraft(snapshot.currentChatId ?? '');
   }, [snapshot.currentChatId]);
 
-  async function handlePreferenceChange(key: keyof ShellPreferences, value: boolean) {
+  async function handlePreferenceChange(
+    key: keyof ShellPreferences,
+    value: ShellPreferences[keyof ShellPreferences],
+  ) {
     if (!legacyBridge) {
       return;
     }
@@ -159,6 +231,35 @@ export function ShellPage() {
     } finally {
       setIsSaving(false);
     }
+  }
+
+  function renderToggleGroup(
+    title: string,
+    controls: Array<{ key: keyof ShellPreferences; label: string; description: string }>,
+  ) {
+    return (
+      <section className="st-shell-settings-group">
+        <div className="st-shell-settings-group__header">
+          <h3>{title}</h3>
+        </div>
+        <div className="st-shell-toggles">
+          {controls.map((control) => (
+            <label className="st-shell-toggle" key={control.key}>
+              <span>
+                <strong>{control.label}</strong>
+                <small>{control.description}</small>
+              </span>
+              <input
+                checked={Boolean(snapshot.preferences[control.key])}
+                disabled={!legacyBridge || isSaving}
+                type="checkbox"
+                onChange={(event) => void handlePreferenceChange(control.key, event.target.checked)}
+              />
+            </label>
+          ))}
+        </div>
+      </section>
+    );
   }
 
   async function handleSaveNow() {
@@ -251,22 +352,29 @@ export function ShellPage() {
               <h2>Quick preferences</h2>
               <span className="st-shell-badge st-shell-badge--muted">{isSaving ? 'saving' : 'synced'}</span>
             </div>
-            <div className="st-shell-toggles">
-              {PREFERENCE_CONTROLS.map((control) => (
-                <label className="st-shell-toggle" key={control.key}>
-                  <span>
-                    <strong>{control.label}</strong>
-                    <small>{control.description}</small>
-                  </span>
-                  <input
-                    checked={snapshot.preferences[control.key]}
-                    disabled={!legacyBridge || isSaving}
-                    type="checkbox"
-                    onChange={(event) => void handlePreferenceChange(control.key, event.target.checked)}
-                  />
-                </label>
-              ))}
-            </div>
+            {renderToggleGroup('Message cleanup', PREFERENCE_CONTROLS)}
+            {renderToggleGroup('Generation defaults', GENERATION_CONTROLS)}
+            {renderToggleGroup('Workflow', WORKFLOW_CONTROLS)}
+            <section className="st-shell-settings-group">
+              <div className="st-shell-settings-group__header">
+                <h3>Auto-continue target</h3>
+                <span className="st-note">{snapshot.preferences.autoContinueTargetLength} tokens</span>
+              </div>
+              <label className="st-field">
+                <span>Reply length target</span>
+                <input
+                  disabled={!legacyBridge || isSaving}
+                  max={2000}
+                  min={50}
+                  step={10}
+                  type="range"
+                  value={snapshot.preferences.autoContinueTargetLength}
+                  onChange={(event) =>
+                    void handlePreferenceChange('autoContinueTargetLength', Number(event.target.value))
+                  }
+                />
+              </label>
+            </section>
           </section>
 
           <section className="st-shell-card">

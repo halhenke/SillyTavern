@@ -1773,3 +1773,31 @@
 ### Next
 1. Move to a broader React settings/editor slice or a deeper in-app panel.
 2. Avoid spending too many more waves on shell controls alone unless they directly support the next larger panel migration.
+
+## 2026-03-09 - React Migration Wave 4 (Shell Settings Editor)
+
+### Completed
+- Expanded the typed shell preference contract to cover a broader, still-bounded set of generation and workflow defaults.
+- Extended the legacy bridge so React can read and write:
+  - auto-continue settings
+  - continue / impersonation shortcuts
+  - prompt logging and token probability requests
+  - compact input and draft restore workflow defaults
+- Upgraded the shell panel from a small quick-toggle block into a categorized React settings editor with:
+  - message cleanup controls
+  - generation default controls
+  - workflow controls
+  - auto-continue target length slider
+- Expanded bridge tests to cover the richer preference mapping and update paths.
+
+### Measurable Impact
+- The React shell now owns a materially broader settings surface rather than only a handful of basic toggles.
+- React-controlled settings now span cleanup, generation behavior, and workflow defaults through one typed bridge contract.
+
+### Insights
+- A bounded settings editor is a better next step than more shell action buttons because it moves a meaningful configuration surface without taking on the message DOM yet.
+- The bridge can now support mixed boolean and numeric preference updates cleanly, which will matter for later React settings migration work.
+
+### Next
+1. Move into a deeper in-app panel next, likely character management or composer/generation controls.
+2. Keep the shell as a useful operational layer, but stop turning it into a full duplicate of the legacy app.

@@ -267,6 +267,23 @@ a {
   gap: 10px;
 }
 
+.st-shell-settings-group + .st-shell-settings-group {
+  margin-top: 16px;
+}
+
+.st-shell-settings-group__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.st-shell-settings-group__header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
 .st-shell-search {
   margin-bottom: 14px;
 }

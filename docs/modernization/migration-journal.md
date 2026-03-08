@@ -1694,3 +1694,28 @@
 ### Next
 1. Reassess the remaining `Generate(...)` body; if there is no equally coherent seam left, pivot to the next adjacent monolith-owned orchestration cluster.
 2. Favor the next highest-yield non-generation cluster rather than forcing more helper fragmentation inside `Generate(...)`.
+
+## 2026-03-09 - React Migration Wave 1 (Shell Runtime Panel)
+
+### Completed
+- Upgraded the React shell from an iframe-only wrapper into a real runtime panel in `frontend/src/features/shell/ShellPage.tsx`.
+- Extended the typed bridge contracts in `frontend/src/core/contracts.ts` and `frontend/src/legacy/bridge.ts` so React code can read a shell snapshot and update a small, explicit subset of power-user preferences without touching `script.js`.
+- Added the first migrated React shell controls:
+  - live runtime status and active session facts
+  - quick preference toggles for a bounded subset of `power_user` settings
+  - generation stop and explicit save actions
+  - legacy app/login escape hatches
+- Refreshed `frontend/src/styles/global.css` to support the new shell layout while leaving the login surface intact.
+- Added bridge contract coverage in `frontend/src/test/bridge.test.ts`.
+
+### Measurable Impact
+- The React app now owns a visible, useful shell-side control surface instead of only bootstrapping legacy pages.
+- New React code can read and mutate a first real slice of runtime settings through the typed bridge instead of ad hoc globals.
+
+### Insights
+- The bridge is now mature enough to support real React surfaces without another long extraction-only phase.
+- A shell-side settings panel is a better first React cut than deeper chat UI because it exercises runtime state, persistence, and controls without requiring immediate replacement of the full message DOM stack.
+
+### Next
+1. Expand the React shell with another bounded operational slice, likely session/character switching or a larger settings surface.
+2. Start replacing one legacy panel at a time instead of continuing broad compatibility-only extraction work.

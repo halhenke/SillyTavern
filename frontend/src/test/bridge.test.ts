@@ -99,6 +99,8 @@ describe('createLegacyBridge', () => {
   });
 
   it('maps session catalog and delegates character and group actions', async () => {
+    const clearChat = vi.fn();
+    const renameChat = vi.fn();
     const selectCharacterById = vi.fn();
     const openGroupChat = vi.fn();
     const reloadCurrentChat = vi.fn();
@@ -111,6 +113,7 @@ describe('createLegacyBridge', () => {
             { avatar: 'hero.png', chat: 'hero-chat', name: 'Hero' },
             { avatar: 'mage.png', chat: 'mage-chat', name: 'Mage' },
           ],
+          clearChat,
           eventSource: {
             emit: vi.fn(),
             off: vi.fn(),
@@ -126,6 +129,8 @@ describe('createLegacyBridge', () => {
           ],
           openGroupChat,
           reloadCurrentChat,
+          renameChat,
+          getCurrentChatId: () => 'mage-chat',
           selectCharacterById,
         }),
       },
@@ -171,9 +176,13 @@ describe('createLegacyBridge', () => {
     await bridge?.session.selectCharacter(4);
     await bridge?.session.openGroup('g-1', 'g-1-chat');
     await bridge?.session.reloadCurrentChat();
+    await bridge?.session.clearCurrentChat();
+    await bridge?.session.renameCurrentChat('renamed-chat');
 
     expect(selectCharacterById).toHaveBeenCalledWith(4, { switchMenu: false });
     expect(openGroupChat).toHaveBeenCalledWith('g-1', 'g-1-chat');
     expect(reloadCurrentChat).toHaveBeenCalledTimes(1);
+    expect(clearChat).toHaveBeenCalledTimes(1);
+    expect(renameChat).toHaveBeenCalledWith('mage-chat', 'renamed-chat');
   });
 });

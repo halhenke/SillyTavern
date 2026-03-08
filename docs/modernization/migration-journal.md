@@ -1747,3 +1747,29 @@
 ### Next
 1. Continue expanding the React shell with a larger settings/editor surface or session metadata actions.
 2. After that, move into one deeper in-app panel rather than widening shell-only controls indefinitely.
+
+## 2026-03-09 - React Migration Wave 3 (Shell Chat Actions)
+
+### Completed
+- Extended the typed `SessionService` with current-chat actions:
+  - clear current chat
+  - rename current chat
+- Added a React-owned chat action block to the shell so the current session can be renamed or cleared without dropping back to legacy controls.
+- Expanded bridge tests to cover the new current-chat action delegation.
+
+### Measurable Impact
+- The React shell now controls a small but real piece of chat lifecycle management rather than only navigation and preferences.
+- React-owned session actions now cover:
+  - switching characters
+  - switching groups
+  - reloading chats
+  - renaming chats
+  - clearing chats
+
+### Insights
+- The shell is now exercising enough high-level runtime actions that the next step should likely move beyond shell-only controls into one deeper panel or a broader settings editor.
+- Using current-chat actions through the typed bridge keeps the React layer focused on stable orchestration calls rather than direct DOM mutation.
+
+### Next
+1. Move to a broader React settings/editor slice or a deeper in-app panel.
+2. Avoid spending too many more waves on shell controls alone unless they directly support the next larger panel migration.

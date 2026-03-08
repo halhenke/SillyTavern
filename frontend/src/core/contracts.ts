@@ -61,9 +61,11 @@ export interface ChatService {
 }
 
 export interface SessionService {
+  clearCurrentChat(): Promise<void>;
   getCatalog(): SessionCatalog;
   openGroup(groupId: string, chatId?: string): Promise<void>;
   reloadCurrentChat(): Promise<void>;
+  renameCurrentChat(nextName: string): Promise<void>;
   selectCharacter(id: number): Promise<void>;
 }
 

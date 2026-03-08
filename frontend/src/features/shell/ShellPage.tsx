@@ -58,6 +58,7 @@ export function ShellPage() {
   const [snapshot, setSnapshot] = useState<ShellSnapshot>(DEFAULT_SNAPSHOT);
   const [catalog, setCatalog] = useState<SessionCatalog>(DEFAULT_CATALOG);
   const [sessionQuery, setSessionQuery] = useState('');
+  const [chatNameDraft, setChatNameDraft] = useState('');
   const [loadError, setLoadError] = useState<string>('');
   const [actionError, setActionError] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
@@ -131,6 +132,10 @@ export function ShellPage() {
       }),
     };
   }, [catalog, sessionQuery]);
+
+  useEffect(() => {
+    setChatNameDraft(snapshot.currentChatId ?? '');
+  }, [snapshot.currentChatId]);
 
   async function handlePreferenceChange(key: keyof ShellPreferences, value: boolean) {
     if (!legacyBridge) {
@@ -382,7 +387,47 @@ export function ShellPage() {
             <div className="st-shell-card__header">
               <h2>Controls</h2>
             </div>
+            <label className="st-field st-shell-search">
+              <span>Current chat name</span>
+              <input
+                disabled={!legacyBridge || !snapshot.currentChatId || Boolean(busyAction)}
+                placeholder="No active chat"
+                type="text"
+                value={chatNameDraft}
+                onChange={(event) => setChatNameDraft(event.target.value)}
+              />
+            </label>
             <nav className="st-actions">
+              <button
+                className="st-button st-button--ghost"
+                disabled={!legacyBridge || !snapshot.currentChatId || Boolean(busyAction)}
+                type="button"
+                onClick={() => {
+                  const bridge = legacyBridge;
+                  if (!bridge) {
+                    return;
+                  }
+
+                  void runSessionAction('rename-chat', () => bridge.session.renameCurrentChat(chatNameDraft));
+                }}
+              >
+                Rename chat
+              </button>
+              <button
+                className="st-button st-button--ghost"
+                disabled={!legacyBridge || !snapshot.currentChatId || Boolean(busyAction)}
+                type="button"
+                onClick={() => {
+                  const bridge = legacyBridge;
+                  if (!bridge) {
+                    return;
+                  }
+
+                  void runSessionAction('clear-chat', () => bridge.session.clearCurrentChat());
+                }}
+              >
+                Clear current chat
+              </button>
               <button
                 className="st-button st-button--ghost"
                 disabled={!legacyBridge || Boolean(busyAction)}

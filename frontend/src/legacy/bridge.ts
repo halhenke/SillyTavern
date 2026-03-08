@@ -37,6 +37,7 @@ type LegacyGroup = {
 type LegacyContext = {
   characterId?: number;
   characters?: LegacyCharacter[];
+  clearChat?: () => Promise<void>;
   eventSource?: {
     on(eventName: string, listener: (...args: unknown[]) => void): void;
     once(eventName: string, listener: (...args: unknown[]) => void): void;
@@ -55,6 +56,7 @@ type LegacyContext = {
   onlineStatus?: string;
   powerUserSettings?: LegacyPowerUserSettings;
   reloadCurrentChat?: () => Promise<void>;
+  renameChat?: (oldFileName: string, newName: string) => Promise<void>;
   saveSettingsDebounced?: () => void;
   saveSettings?: () => Promise<void>;
   getCurrentChatId?: () => string;
@@ -189,12 +191,28 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
   };
 
   const session: SessionService = {
+    clearCurrentChat: async () => {
+      await context.clearChat?.();
+    },
     getCatalog: () => getSessionCatalog(context),
     openGroup: async (groupId, chatId) => {
       await context.openGroupChat?.(groupId, chatId);
     },
     reloadCurrentChat: async () => {
       await context.reloadCurrentChat?.();
+    },
+    renameCurrentChat: async (nextName) => {
+      const currentChatId = context.getCurrentChatId?.();
+      if (!currentChatId) {
+        throw new Error('No active chat to rename');
+      }
+
+      const trimmedName = nextName.trim();
+      if (!trimmedName) {
+        throw new Error('Chat name is required');
+      }
+
+      await context.renameChat?.(currentChatId, trimmedName);
     },
     selectCharacter: async (id) => {
       await context.selectCharacterById?.(id, { switchMenu: false });

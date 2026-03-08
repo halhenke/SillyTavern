@@ -10,7 +10,9 @@ import { chat } from './chat-operations-core.js';
 let generateImpl = null;
 let addChatsPreambleImpl = null;
 let addChatsSeparatorImpl = null;
+let appendFileContentImpl = null;
 let collapseNewlinesImpl = null;
+let createPromptReasoningImpl = null;
 let createRawPromptImpl = null;
 let generateHordeImpl = null;
 let getKoboldGenerationDataImpl = null;
@@ -82,6 +84,8 @@ let formatInstructModeExamplesImpl = null;
 let formatInstructModeChatImpl = null;
 let formatInstructModePromptImpl = null;
 let formatInstructModeStoryStringImpl = null;
+let formatPromptMessageImpl = null;
+let formatPromptReasoningImpl = null;
 let flushWIDepthInjectionsImpl = null;
 let getGroupDepthPromptsImpl = null;
 let getAllowWIScanImpl = null;
@@ -154,7 +158,9 @@ function throwUnbound(name) {
  *   Generate: (...args: any[]) => Promise<any>,
  *   addChatsPreamble: (...args: any[]) => string,
  *   addChatsSeparator: (...args: any[]) => string,
+ *   appendFileContent: (...args: any[]) => Promise<string>,
  *   collapseNewlines: (...args: any[]) => string,
+ *   createPromptReasoning: () => any,
  *   createRawPrompt: (...args: any[]) => string|object[],
  *   generateHorde: (...args: any[]) => Promise<any>,
  *   adjustHordeGenerationParams: (...args: any[]) => Promise<any>,
@@ -236,6 +242,8 @@ function throwUnbound(name) {
  *   formatInstructModeChat: (...args: any[]) => string,
  *   formatInstructModePrompt: (...args: any[]) => string,
  *   formatInstructModeStoryString: (...args: any[]) => string,
+ *   formatPromptMessage: (...args: any[]) => string,
+ *   formatPromptReasoning: (...args: any[]) => string,
  *   getGroupDepthPrompts: (...args: any[]) => any[],
  *   getAllowWIScan: () => boolean,
  *   parseMesExamples: (...args: any[]) => string[],
@@ -284,11 +292,13 @@ function throwUnbound(name) {
 export function bindGenerationCore(impl) {
     adjustHordeGenerationParamsImpl = impl?.adjustHordeGenerationParams ?? null;
     addPersonaDescriptionExtensionPromptImpl = impl?.addPersonaDescriptionExtensionPrompt ?? null;
+    appendFileContentImpl = impl?.appendFileContent ?? null;
     emitImpersonateReadyImpl = impl?.emitImpersonateReady ?? null;
     generateImpl = impl?.Generate ?? null;
     addChatsPreambleImpl = impl?.addChatsPreamble ?? null;
     addChatsSeparatorImpl = impl?.addChatsSeparator ?? null;
     collapseNewlinesImpl = impl?.collapseNewlines ?? null;
+    createPromptReasoningImpl = impl?.createPromptReasoning ?? null;
     createRawPromptImpl = impl?.createRawPrompt ?? null;
     createStreamingProcessorImpl = impl?.createStreamingProcessor ?? null;
     doChatInjectImpl = impl?.doChatInject ?? null;
@@ -369,6 +379,8 @@ export function bindGenerationCore(impl) {
     formatInstructModeChatImpl = impl?.formatInstructModeChat ?? null;
     formatInstructModePromptImpl = impl?.formatInstructModePrompt ?? null;
     formatInstructModeStoryStringImpl = impl?.formatInstructModeStoryString ?? null;
+    formatPromptMessageImpl = impl?.formatPromptMessage ?? null;
+    formatPromptReasoningImpl = impl?.formatPromptReasoning ?? null;
     normalizeReasoningTextImpl = impl?.normalizeReasoningText ?? null;
     parseMesExamplesImpl = impl?.parseMesExamples ?? null;
     parseAndSaveLogprobsImpl = impl?.parseAndSaveLogprobs ?? null;
@@ -847,6 +859,66 @@ export function preparePromptContextState({ isInstruct }) {
         persona,
         scenario,
         system,
+    };
+}
+
+export async function prepareCoreChatState({ canUseTools, isContinue, type }) {
+    if (!formatPromptMessageImpl) {
+        throwUnbound('formatPromptMessage');
+    }
+    if (!appendFileContentImpl) {
+        throwUnbound('appendFileContent');
+    }
+    if (!createPromptReasoningImpl) {
+        throwUnbound('createPromptReasoning');
+    }
+    if (!formatPromptReasoningImpl) {
+        throwUnbound('formatPromptReasoning');
+    }
+
+    let coreChat = chat.filter((chatItem) => !chatItem.is_system || (canUseTools && Array.isArray(chatItem.extra?.tool_invocations)));
+    if (type === 'swipe') {
+        coreChat.pop();
+    }
+
+    coreChat = await Promise.all(coreChat.map(async (chatItem, index) => {
+        const depth = coreChat.length - index - (isContinue ? 2 : 1);
+        let message = formatPromptMessageImpl(chatItem, depth);
+        message = await appendFileContentImpl(chatItem, message);
+
+        if (chatItem?.extra?.append_title && chatItem?.extra?.title) {
+            message = `${message}\n\n${chatItem.extra.title}`;
+        }
+
+        return {
+            ...chatItem,
+            mes: message,
+            index,
+        };
+    }));
+
+    const promptReasoning = createPromptReasoningImpl();
+    for (let i = coreChat.length - 1; i >= 0; i--) {
+        const depth = coreChat.length - i - (isContinue ? 2 : 1);
+        const isPrefix = isContinue && i === coreChat.length - 1;
+        coreChat[i] = {
+            ...coreChat[i],
+            mes: promptReasoning.addToMessage(
+                coreChat[i].mes,
+                formatPromptReasoningImpl(coreChat[i].extra?.reasoning, depth),
+                isPrefix,
+                coreChat[i].extra?.reasoning_duration,
+            ),
+        };
+
+        if (promptReasoning.isLimitReached()) {
+            break;
+        }
+    }
+
+    return {
+        coreChat,
+        promptReasoning,
     };
 }
 

@@ -263,7 +263,7 @@ import { bindCharacterCore, createOrEditCharacter as createOrEditCharacterCore, 
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
 import { addOneMessage as addOneMessageCore, bindChatOperationsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
-import { bindGenerationCore, buildCombinedPrompt as buildCombinedPromptCore, executeGenerationRequestFlow as executeGenerationRequestFlowCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, handleGenerationError as handleGenerationErrorCore, prepareContextPackingState as prepareContextPackingStateCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationData as prepareGenerationDataCore, prepareGenerationMessages as prepareGenerationMessagesCore, prepareMessageHistoryState as prepareMessageHistoryStateCore, preparePromptAssemblyState as preparePromptAssemblyStateCore, preparePromptAugmentationState as preparePromptAugmentationStateCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
+import { bindGenerationCore, buildCombinedPrompt as buildCombinedPromptCore, executeGenerationRequestFlow as executeGenerationRequestFlowCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, handleGenerationError as handleGenerationErrorCore, prepareContextPackingState as prepareContextPackingStateCore, prepareCoreChatState as prepareCoreChatStateCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationData as prepareGenerationDataCore, prepareGenerationMessages as prepareGenerationMessagesCore, prepareMessageHistoryState as prepareMessageHistoryStateCore, preparePromptAssemblyState as preparePromptAssemblyStateCore, preparePromptAugmentationState as preparePromptAugmentationStateCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
 import { bindMessageCore, setEditedMessageId as setEditedMessageIdCore, updateMessageBlock as updateMessageBlockCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
@@ -514,11 +514,13 @@ bindSessionCore({
 bindGenerationCore({
     adjustHordeGenerationParams,
     addPersonaDescriptionExtensionPrompt,
+    appendFileContent,
     emitImpersonateReady: (message) => eventSource.emit(event_types.IMPERSONATE_READY, message),
     Generate,
     addChatsPreamble,
     addChatsSeparator,
     collapseNewlines,
+    createPromptReasoning: () => new PromptReasoning(),
     createRawPrompt,
     createStreamingProcessor: (type, forceName2, generationStarted, continueMag, promptReasoning) => new StreamingProcessor(type, forceName2, generationStarted, continueMag, promptReasoning),
     deactivateSendButtons,
@@ -527,6 +529,8 @@ bindGenerationCore({
     flushWIDepthInjections,
     formatInstructModeExamples,
     formatInstructModeStoryString,
+    formatPromptMessage: (chatItem, depth) => getRegexedString(chatItem.mes, chatItem.is_user ? regex_placement.USER_INPUT : regex_placement.AI_OUTPUT, { isPrompt: true, depth }),
+    formatPromptReasoning: (reasoning, depth) => getRegexedString(String(reasoning ?? ''), regex_placement.REASONING, { isPrompt: true, depth }),
     generateHorde,
     getAnimationDuration: () => animation_duration,
     getAllExtensionPrompts,
@@ -3159,54 +3163,13 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
         creatorNotes,
     } = preparePromptContextStateCore({ isInstruct });
 
-    // Collect messages with usable content
     const canUseTools = ToolManager.isToolCallingSupported();
     const canPerformToolCalls = !dryRun && ToolManager.canPerformToolCalls(type) && depth < ToolManager.RECURSE_LIMIT;
-    let coreChat = chat.filter(x => !x.is_system || (canUseTools && Array.isArray(x.extra?.tool_invocations)));
-    if (type === 'swipe') {
-        coreChat.pop();
-    }
-
-    coreChat = await Promise.all(coreChat.map(async (chatItem, index) => {
-        let message = chatItem.mes;
-        let regexType = chatItem.is_user ? regex_placement.USER_INPUT : regex_placement.AI_OUTPUT;
-        let options = { isPrompt: true, depth: (coreChat.length - index - (isContinue ? 2 : 1)) };
-
-        let regexedMessage = getRegexedString(message, regexType, options);
-        regexedMessage = await appendFileContent(chatItem, regexedMessage);
-
-        if (chatItem?.extra?.append_title && chatItem?.extra?.title) {
-            regexedMessage = `${regexedMessage}\n\n${chatItem.extra.title}`;
-        }
-
-        return {
-            ...chatItem,
-            mes: regexedMessage,
-            index,
-        };
-    }));
-
-    const promptReasoning = new PromptReasoning();
-    for (let i = coreChat.length - 1; i >= 0; i--) {
-        const depth = coreChat.length - i - (isContinue ? 2 : 1);
-        const isPrefix = isContinue && i === coreChat.length - 1;
-        coreChat[i] = {
-            ...coreChat[i],
-            mes: promptReasoning.addToMessage(
-                coreChat[i].mes,
-                getRegexedString(
-                    String(coreChat[i].extra?.reasoning ?? ''),
-                    regex_placement.REASONING,
-                    { isPrompt: true, depth: depth },
-                ),
-                isPrefix,
-                coreChat[i].extra?.reasoning_duration,
-            ),
-        };
-        if (promptReasoning.isLimitReached()) {
-            break;
-        }
-    }
+    let { coreChat, promptReasoning } = await prepareCoreChatStateCore({
+        canUseTools,
+        isContinue,
+        type,
+    });
 
     let {
         aborted: contextWindowAborted,

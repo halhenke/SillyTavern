@@ -1627,3 +1627,33 @@
 ### Next
 1. Reassess whether `Generate(...)` is now small enough to stop, or whether one more focused pass should lift its remaining orchestration shell into `generation-core`.
 2. If the remaining `Generate(...)` body is no longer a good extraction target, pivot to the next adjacent monolith-owned orchestration cluster instead of forcing another generation-side split.
+
+## 2026-03-09 - Monolith Reduction Wave 35 (Generate Core Chat Preparation)
+
+### Completed
+- Moved the `coreChat` preparation and prompt-reasoning injection block out of `public/script.js` into `public/scripts/generation-core.js` as `prepareCoreChatState(...)`.
+- That extracted helper now owns:
+  - filtering chat messages down to the prompt-eligible chat set
+  - swipe-mode tail trimming
+  - prompt-time message formatting
+  - file-content append handling
+  - appended-title inclusion
+  - prompt-reasoning injection and limit handling
+- Updated `Generate(...)` in `public/script.js` to consume `{ coreChat, promptReasoning }` directly instead of owning that transformation loop inline.
+- Extended `bindGenerationCore(...)` with the narrow callbacks needed for:
+  - prompt message formatting
+  - prompt reasoning formatting
+  - file-content append handling
+  - prompt reasoning object creation
+
+### Measurable Impact
+- Another cohesive chat-preparation block has left the monolith.
+- The remaining `Generate(...)` body is now more clearly an orchestration pipeline rather than a place where raw chat transformation logic lives.
+
+### Insights
+- The `coreChat` preparation path was worth extracting even after the larger generation waves because it was still a self-contained transformation stage with minimal UI coupling.
+- Passing formatted-message and reasoning helpers as callbacks is a better migration boundary than pulling regex-placement details directly into `generation-core` at this stage.
+
+### Next
+1. Reassess whether `Generate(...)` should get one final orchestration-only reduction or whether the next effort should pivot to the next adjacent monolith-owned helper cluster.
+2. If generation-side extractions now have sharply diminishing returns, move to the next highest-yield orchestration cluster instead of overfitting the helper boundary.

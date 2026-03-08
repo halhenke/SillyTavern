@@ -1,4 +1,6 @@
 import {
+  CharacterProfile,
+  CharacterService,
   ChatService,
   ExtensionHostService,
   GenerationService,
@@ -37,7 +39,41 @@ type LegacyPowerUserSettings = {
 type LegacyCharacter = {
   avatar?: string;
   chat?: string;
+  create_date?: string;
+  creator?: string;
+  creatorcomment?: string;
+  data?: {
+    alternate_greetings?: string[];
+    character_version?: string;
+    creator?: string;
+    creator_notes?: string;
+    extensions?: {
+      depth_prompt?: {
+        depth?: number;
+        prompt?: string;
+        role?: string;
+      };
+      fav?: boolean;
+      talkativeness?: number;
+      world?: string;
+    };
+    mes_example?: string;
+    name?: string;
+    personality?: string;
+    post_history_instructions?: string;
+    scenario?: string;
+    system_prompt?: string;
+    tags?: string[];
+  };
+  description?: string;
+  first_mes?: string;
+  json_data?: string;
+  mes_example?: string;
   name?: string;
+  personality?: string;
+  scenario?: string;
+  talkativeness?: number;
+  tags?: string[];
 };
 
 type LegacyGroup = {
@@ -67,6 +103,7 @@ type LegacyContext = {
   }) => Promise<string>;
   groupId?: string;
   getThumbnailUrl?: (type: string, file: string) => string;
+  getRequestHeaders?: () => HeadersInit;
   groups?: LegacyGroup[];
   mainApi?: string;
   maxContext?: number;
@@ -80,8 +117,21 @@ type LegacyContext = {
   saveSettingsDebounced?: () => void;
   saveSettings?: () => Promise<void>;
   getCurrentChatId?: () => string;
+  getCharacters?: () => Promise<void>;
+  getCharacterCardFields?: (options?: { chid?: number | null }) => {
+    charDepthPrompt?: string;
+    creatorNotes?: string;
+    description?: string;
+    jailbreak?: string;
+    mesExamples?: string;
+    personality?: string;
+    scenario?: string;
+    system?: string;
+    version?: string;
+  };
   selectCharacterById?: (id: number, options?: { switchMenu?: boolean }) => Promise<void>;
   stopGeneration?: () => void;
+  unshallowCharacter?: (id: number) => Promise<void>;
 };
 
 type LegacySillyTavern = {
@@ -216,6 +266,50 @@ function getSessionCatalog(context: LegacyContext): SessionCatalog {
   };
 }
 
+function getSelectedCharacter(context: LegacyContext) {
+  const characterId = context.characterId;
+  if (characterId === undefined || characterId === null) {
+    return null;
+  }
+
+  const character = context.characters?.[characterId];
+  if (!character) {
+    return null;
+  }
+
+  return { character, characterId };
+}
+
+function getSelectedCharacterProfile(context: LegacyContext): CharacterProfile | null {
+  const selected = getSelectedCharacter(context);
+  if (!selected) {
+    return null;
+  }
+
+  const { character, characterId } = selected;
+  const cardFields = context.getCharacterCardFields?.({ chid: characterId });
+
+  return {
+    avatarFile: character.avatar,
+    avatarUrl: getCharacterAvatarUrl(context, character.avatar),
+    characterVersion: cardFields?.version ?? character.data?.character_version ?? '',
+    chatId: character.chat,
+    creator: character.data?.creator ?? character.creator ?? '',
+    creatorNotes: cardFields?.creatorNotes ?? character.data?.creator_notes ?? character.creatorcomment ?? '',
+    description: cardFields?.description ?? character.description ?? '',
+    firstMessage: character.first_mes ?? '',
+    id: characterId,
+    mesExamples: cardFields?.mesExamples ?? character.mes_example ?? character.data?.mes_example ?? '',
+    name: character.name?.trim() || `Character ${characterId + 1}`,
+    personality: cardFields?.personality ?? character.personality ?? '',
+    postHistoryInstructions: cardFields?.jailbreak ?? character.data?.post_history_instructions ?? '',
+    scenario: cardFields?.scenario ?? character.scenario ?? '',
+    systemPrompt: cardFields?.system ?? character.data?.system_prompt ?? '',
+    tags: character.data?.tags ?? character.tags ?? [],
+    talkativeness: Number(character.data?.extensions?.talkativeness ?? character.talkativeness ?? 0.5),
+  };
+}
+
 function getSillyTavern(windowObject: Window): LegacySillyTavern | undefined {
   const source = windowObject as Window & { SillyTavern?: LegacySillyTavern };
   return source.SillyTavern;
@@ -297,6 +391,68 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
     stopGeneration: () => context.stopGeneration?.(),
   };
 
+  const character: CharacterService = {
+    getSelectedProfile: async () => {
+      const selected = getSelectedCharacter(context);
+      if (!selected) {
+        return null;
+      }
+
+      await context.unshallowCharacter?.(selected.characterId);
+      return getSelectedCharacterProfile(context);
+    },
+    saveSelectedProfile: async (profile) => {
+      const selected = getSelectedCharacter(context);
+      const avatarFile = selected?.character?.avatar;
+      if (!avatarFile) {
+        throw new Error('No selected character to save');
+      }
+
+      const current = selected.character;
+      const formData = new FormData();
+      formData.set('avatar_url', avatarFile);
+      formData.set('chat', current.chat ?? '');
+      formData.set('create_date', current.create_date ?? '');
+      formData.set('json_data', current.json_data ?? '');
+      formData.set('ch_name', profile.name.trim());
+      formData.set('description', profile.description);
+      formData.set('personality', profile.personality);
+      formData.set('scenario', profile.scenario);
+      formData.set('first_mes', profile.firstMessage);
+      formData.set('mes_example', profile.mesExamples);
+      formData.set('creator_notes', profile.creatorNotes);
+      formData.set('system_prompt', profile.systemPrompt);
+      formData.set('post_history_instructions', profile.postHistoryInstructions);
+      formData.set('character_version', profile.characterVersion);
+      formData.set('creator', profile.creator);
+      formData.set('tags', profile.tags.join(', '));
+      formData.set('talkativeness', String(profile.talkativeness));
+      formData.set('fav', String(Boolean(current.data?.extensions?.fav)));
+      formData.set('world', current.data?.extensions?.world ?? '');
+      formData.set('depth_prompt_prompt', current.data?.extensions?.depth_prompt?.prompt ?? '');
+      formData.set('depth_prompt_depth', String(current.data?.extensions?.depth_prompt?.depth ?? 4));
+      formData.set('depth_prompt_role', current.data?.extensions?.depth_prompt?.role ?? 'system');
+
+      const alternateGreetings = current.data?.alternate_greetings ?? [];
+      for (const greeting of alternateGreetings) {
+        formData.append('alternate_greetings', greeting);
+      }
+
+      const response = await fetch('/api/characters/edit', {
+        method: 'POST',
+        headers: context.getRequestHeaders?.(),
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Character save failed');
+      }
+
+      await context.getCharacters?.();
+    },
+  };
+
   const extensions: ExtensionHostService = {
     getContext: () => context,
     getEventTypes: () => context.eventTypes ?? {},
@@ -308,6 +464,7 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
     chat,
     session,
     generation,
+    character,
     extensions,
   };
 }

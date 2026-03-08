@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { SessionCatalog, ShellPreferences, ShellSnapshot } from '../../core/contracts';
+import { CharacterProfile, SessionCatalog, ShellPreferences, ShellSnapshot } from '../../core/contracts';
 import { LegacyBridge, createLegacyBridge } from '../../legacy/bridge';
 
 const DEFAULT_PREFERENCES: ShellPreferences = {
@@ -126,6 +126,8 @@ export function ShellPage() {
   const [legacyBridge, setLegacyBridge] = useState<LegacyBridge | null>(null);
   const [snapshot, setSnapshot] = useState<ShellSnapshot>(DEFAULT_SNAPSHOT);
   const [catalog, setCatalog] = useState<SessionCatalog>(DEFAULT_CATALOG);
+  const [characterProfile, setCharacterProfile] = useState<CharacterProfile | null>(null);
+  const [characterDraft, setCharacterDraft] = useState<CharacterProfile | null>(null);
   const [sessionQuery, setSessionQuery] = useState('');
   const [chatNameDraft, setChatNameDraft] = useState('');
   const [quietPrompt, setQuietPrompt] = useState('');
@@ -210,6 +212,34 @@ export function ShellPage() {
   useEffect(() => {
     setChatNameDraft(snapshot.currentChatId ?? '');
   }, [snapshot.currentChatId]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadCharacterProfile() {
+      if (!legacyBridge || snapshot.characterId === undefined) {
+        if (mounted) {
+          setCharacterProfile(null);
+          setCharacterDraft(null);
+        }
+        return;
+      }
+
+      const profile = await legacyBridge.character.getSelectedProfile();
+      if (!mounted) {
+        return;
+      }
+
+      setCharacterProfile(profile);
+      setCharacterDraft(profile);
+    }
+
+    void loadCharacterProfile();
+
+    return () => {
+      mounted = false;
+    };
+  }, [legacyBridge, snapshot.characterId]);
 
   async function handlePreferenceChange(
     key: keyof ShellPreferences,
@@ -331,6 +361,40 @@ export function ShellPage() {
     } finally {
       setBusyAction('');
     }
+  }
+
+  const characterIsDirty = useMemo(() => {
+    if (!characterProfile || !characterDraft) {
+      return false;
+    }
+
+    return JSON.stringify(characterProfile) !== JSON.stringify(characterDraft);
+  }, [characterDraft, characterProfile]);
+
+  async function handleCharacterSave() {
+    const bridge = legacyBridge;
+    if (!bridge || !characterDraft) {
+      return;
+    }
+
+    setActionError('');
+    setBusyAction('character-save');
+
+    try {
+      await bridge.character.saveSelectedProfile(characterDraft);
+      const refreshedProfile = await bridge.character.getSelectedProfile();
+      setCharacterProfile(refreshedProfile);
+      setCharacterDraft(refreshedProfile);
+      refreshRuntime(bridge);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not save character');
+    } finally {
+      setBusyAction('');
+    }
+  }
+
+  function updateCharacterDraft(next: Partial<CharacterProfile>) {
+    setCharacterDraft((current) => (current ? { ...current, ...next } : current));
   }
 
   return (
@@ -674,6 +738,181 @@ export function ShellPage() {
                 value={quietPromptResult}
               />
             </label>
+          </section>
+
+          <section className="st-shell-card">
+            <div className="st-shell-card__header">
+              <h2>Character editor</h2>
+              <span className="st-shell-badge st-shell-badge--muted">
+                {characterDraft ? (characterIsDirty ? 'modified' : 'synced') : 'no character'}
+              </span>
+            </div>
+            {characterDraft ? (
+              <>
+                <div className="st-shell-character-header">
+                  {characterDraft.avatarUrl ? (
+                    <img alt={characterDraft.name} className="st-shell-character-avatar" src={characterDraft.avatarUrl} />
+                  ) : (
+                    <span className="st-shell-character-avatar st-shell-avatar--fallback">{characterDraft.name.charAt(0)}</span>
+                  )}
+                  <div className="st-shell-character-meta">
+                    <strong>{characterDraft.name}</strong>
+                    <small>{characterDraft.chatId ?? 'No active chat'}</small>
+                  </div>
+                </div>
+
+                <div className="st-shell-editor-grid">
+                  <label className="st-field">
+                    <span>Name</span>
+                    <input
+                      disabled={Boolean(busyAction)}
+                      type="text"
+                      value={characterDraft.name}
+                      onChange={(event) => updateCharacterDraft({ name: event.target.value })}
+                    />
+                  </label>
+                  <label className="st-field">
+                    <span>Character version</span>
+                    <input
+                      disabled={Boolean(busyAction)}
+                      type="text"
+                      value={characterDraft.characterVersion}
+                      onChange={(event) => updateCharacterDraft({ characterVersion: event.target.value })}
+                    />
+                  </label>
+                  <label className="st-field">
+                    <span>Creator</span>
+                    <input
+                      disabled={Boolean(busyAction)}
+                      type="text"
+                      value={characterDraft.creator}
+                      onChange={(event) => updateCharacterDraft({ creator: event.target.value })}
+                    />
+                  </label>
+                  <label className="st-field">
+                    <span>Talkativeness</span>
+                    <input
+                      disabled={Boolean(busyAction)}
+                      max={1}
+                      min={0}
+                      step={0.05}
+                      type="range"
+                      value={characterDraft.talkativeness}
+                      onChange={(event) => updateCharacterDraft({ talkativeness: Number(event.target.value) })}
+                    />
+                  </label>
+                </div>
+
+                <label className="st-field">
+                  <span>Description</span>
+                  <textarea
+                    className="st-shell-textarea"
+                    disabled={Boolean(busyAction)}
+                    value={characterDraft.description}
+                    onChange={(event) => updateCharacterDraft({ description: event.target.value })}
+                  />
+                </label>
+                <label className="st-field">
+                  <span>Personality</span>
+                  <textarea
+                    className="st-shell-textarea"
+                    disabled={Boolean(busyAction)}
+                    value={characterDraft.personality}
+                    onChange={(event) => updateCharacterDraft({ personality: event.target.value })}
+                  />
+                </label>
+                <label className="st-field">
+                  <span>Scenario</span>
+                  <textarea
+                    className="st-shell-textarea"
+                    disabled={Boolean(busyAction)}
+                    value={characterDraft.scenario}
+                    onChange={(event) => updateCharacterDraft({ scenario: event.target.value })}
+                  />
+                </label>
+                <label className="st-field">
+                  <span>First message</span>
+                  <textarea
+                    className="st-shell-textarea"
+                    disabled={Boolean(busyAction)}
+                    value={characterDraft.firstMessage}
+                    onChange={(event) => updateCharacterDraft({ firstMessage: event.target.value })}
+                  />
+                </label>
+                <label className="st-field">
+                  <span>Example messages</span>
+                  <textarea
+                    className="st-shell-textarea st-shell-textarea--result"
+                    disabled={Boolean(busyAction)}
+                    value={characterDraft.mesExamples}
+                    onChange={(event) => updateCharacterDraft({ mesExamples: event.target.value })}
+                  />
+                </label>
+                <label className="st-field">
+                  <span>System prompt</span>
+                  <textarea
+                    className="st-shell-textarea"
+                    disabled={Boolean(busyAction)}
+                    value={characterDraft.systemPrompt}
+                    onChange={(event) => updateCharacterDraft({ systemPrompt: event.target.value })}
+                  />
+                </label>
+                <label className="st-field">
+                  <span>Post-history instructions</span>
+                  <textarea
+                    className="st-shell-textarea"
+                    disabled={Boolean(busyAction)}
+                    value={characterDraft.postHistoryInstructions}
+                    onChange={(event) => updateCharacterDraft({ postHistoryInstructions: event.target.value })}
+                  />
+                </label>
+                <label className="st-field">
+                  <span>Creator notes</span>
+                  <textarea
+                    className="st-shell-textarea"
+                    disabled={Boolean(busyAction)}
+                    value={characterDraft.creatorNotes}
+                    onChange={(event) => updateCharacterDraft({ creatorNotes: event.target.value })}
+                  />
+                </label>
+                <label className="st-field">
+                  <span>Tags</span>
+                  <input
+                    disabled={Boolean(busyAction)}
+                    type="text"
+                    value={characterDraft.tags.join(', ')}
+                    onChange={(event) =>
+                      updateCharacterDraft({
+                        tags: event.target.value
+                          .split(',')
+                          .map((item) => item.trim())
+                          .filter(Boolean),
+                      })
+                    }
+                  />
+                </label>
+                <nav className="st-actions">
+                  <button
+                    className="st-button"
+                    disabled={!characterIsDirty || Boolean(busyAction)}
+                    type="button"
+                    onClick={() => void handleCharacterSave()}
+                  >
+                    Save character
+                  </button>
+                  <button
+                    className="st-button st-button--ghost"
+                    disabled={!characterProfile || Boolean(busyAction)}
+                    type="button"
+                    onClick={() => setCharacterDraft(characterProfile)}
+                  >
+                    Reset draft
+                  </button>
+                </nav>
+              </>
+            ) : (
+              <p className="st-note">Select a character to inspect or edit its core card fields.</p>
+            )}
           </section>
         </aside>
 

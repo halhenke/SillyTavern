@@ -59,6 +59,26 @@ export interface QuietPromptOptions {
   trimToSentence?: boolean;
 }
 
+export interface CharacterProfile {
+  avatarFile?: string;
+  avatarUrl?: string;
+  characterVersion: string;
+  chatId?: string;
+  creator: string;
+  creatorNotes: string;
+  description: string;
+  firstMessage: string;
+  id: number;
+  mesExamples: string;
+  name: string;
+  personality: string;
+  postHistoryInstructions: string;
+  scenario: string;
+  systemPrompt: string;
+  tags: string[];
+  talkativeness: number;
+}
+
 export interface CoreEventBus {
   on(eventName: string, listener: EventListener): () => void;
   once(eventName: string, listener: EventListener): () => void;
@@ -91,6 +111,11 @@ export interface GenerationService {
   stopGeneration(): void;
 }
 
+export interface CharacterService {
+  getSelectedProfile(): Promise<CharacterProfile | null>;
+  saveSelectedProfile(profile: CharacterProfile): Promise<void>;
+}
+
 export interface ExtensionHostService {
   getContext(): unknown;
   getEventTypes(): Record<string, string>;
@@ -102,5 +127,6 @@ export interface ModernizationBridge {
   chat: ChatService;
   session: SessionService;
   generation: GenerationService;
+  character: CharacterService;
   extensions: ExtensionHostService;
 }

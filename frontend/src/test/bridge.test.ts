@@ -143,10 +143,28 @@ describe('createLegacyBridge', () => {
   it('maps session catalog and delegates character and group actions', async () => {
     const clearChat = vi.fn();
     const generateQuietPrompt = vi.fn().mockResolvedValue('quiet result');
+    const getCharacters = vi.fn();
+    const getRequestHeaders = vi.fn(() => ({ 'X-CSRF-Token': 'token' }));
+    const getCharacterCardFields = vi.fn(() => ({
+      creatorNotes: 'Card notes',
+      description: 'Card description',
+      jailbreak: 'Stay in character',
+      mesExamples: 'Example block',
+      personality: 'Calm',
+      scenario: 'At the cafe',
+      system: 'Reply as the character',
+      version: 'v2',
+    }));
     const renameChat = vi.fn();
     const selectCharacterById = vi.fn();
     const openGroupChat = vi.fn();
     const reloadCurrentChat = vi.fn();
+    const unshallowCharacter = vi.fn();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () => '',
+    });
+    vi.stubGlobal('fetch', fetchMock);
 
     const windowObject = {
       SillyTavern: {
@@ -154,7 +172,39 @@ describe('createLegacyBridge', () => {
           characterId: 1,
           characters: [
             { avatar: 'hero.png', chat: 'hero-chat', name: 'Hero' },
-            { avatar: 'mage.png', chat: 'mage-chat', name: 'Mage' },
+            {
+              avatar: 'mage.png',
+              chat: 'mage-chat',
+              create_date: '2025-01-01',
+              data: {
+                alternate_greetings: ['Hello there'],
+                character_version: 'v2',
+                creator: 'Hal',
+                creator_notes: 'Original notes',
+                extensions: {
+                  depth_prompt: {
+                    depth: 3,
+                    prompt: 'Stay moody',
+                    role: 'system',
+                  },
+                  fav: true,
+                  talkativeness: 0.65,
+                  world: 'city',
+                },
+                post_history_instructions: 'Keep the tone sharp',
+                system_prompt: 'You are Mage',
+                tags: ['mage', 'city'],
+              },
+              description: 'Original description',
+              first_mes: 'Welcome back.',
+              json_data: '{\"spec\":\"chara_card_v2\"}',
+              mes_example: 'Example line',
+              name: 'Mage',
+              personality: 'Reserved',
+              scenario: 'Night city',
+              talkativeness: 0.65,
+              tags: ['mage', 'city'],
+            },
           ],
           clearChat,
           eventSource: {
@@ -165,6 +215,9 @@ describe('createLegacyBridge', () => {
             removeListener: vi.fn(),
           },
           generateQuietPrompt,
+          getCharacters,
+          getCharacterCardFields,
+          getRequestHeaders,
           getThumbnailUrl: vi.fn((type: string, file: string) => `/thumb/${type}/${file}`),
           groupId: 'g-2',
           groups: [
@@ -176,6 +229,7 @@ describe('createLegacyBridge', () => {
           renameChat,
           getCurrentChatId: () => 'mage-chat',
           selectCharacterById,
+          unshallowCharacter,
         }),
       },
     } as unknown as Window;
@@ -230,12 +284,51 @@ describe('createLegacyBridge', () => {
         trimToSentence: true,
       }),
     ).resolves.toBe('quiet result');
+    await expect(bridge?.character.getSelectedProfile()).resolves.toEqual({
+      avatarFile: 'mage.png',
+      avatarUrl: '/thumb/avatar/mage.png',
+      characterVersion: 'v2',
+      chatId: 'mage-chat',
+      creator: 'Hal',
+      creatorNotes: 'Card notes',
+      description: 'Card description',
+      firstMessage: 'Welcome back.',
+      id: 1,
+      mesExamples: 'Example block',
+      name: 'Mage',
+      personality: 'Calm',
+      postHistoryInstructions: 'Stay in character',
+      scenario: 'At the cafe',
+      systemPrompt: 'Reply as the character',
+      tags: ['mage', 'city'],
+      talkativeness: 0.65,
+    });
+    await bridge?.character.saveSelectedProfile({
+      avatarFile: 'mage.png',
+      avatarUrl: '/thumb/avatar/mage.png',
+      characterVersion: 'v3',
+      chatId: 'mage-chat',
+      creator: 'Hal',
+      creatorNotes: 'Updated notes',
+      description: 'Updated description',
+      firstMessage: 'Hello again.',
+      id: 1,
+      mesExamples: 'New examples',
+      name: 'Archmage',
+      personality: 'Direct',
+      postHistoryInstructions: 'Keep it sharp',
+      scenario: 'On the tower roof',
+      systemPrompt: 'Stay precise',
+      tags: ['mage', 'mentor'],
+      talkativeness: 0.8,
+    });
 
     expect(selectCharacterById).toHaveBeenCalledWith(4, { switchMenu: false });
     expect(openGroupChat).toHaveBeenCalledWith('g-1', 'g-1-chat');
     expect(reloadCurrentChat).toHaveBeenCalledTimes(1);
     expect(clearChat).toHaveBeenCalledTimes(1);
     expect(renameChat).toHaveBeenCalledWith('mage-chat', 'renamed-chat');
+    expect(unshallowCharacter).toHaveBeenCalledWith(1);
     expect(generateQuietPrompt).toHaveBeenCalledWith({
       quietPrompt: 'Summarize the scene',
       quietToLoud: true,
@@ -243,5 +336,15 @@ describe('createLegacyBridge', () => {
       responseLength: 240,
       trimToSentence: true,
     });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/characters/edit');
+    const requestInit = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(requestInit.method).toBe('POST');
+    expect(requestInit.headers).toEqual({ 'X-CSRF-Token': 'token' });
+    expect((requestInit.body as FormData).get('ch_name')).toBe('Archmage');
+    expect((requestInit.body as FormData).get('description')).toBe('Updated description');
+    expect((requestInit.body as FormData).get('system_prompt')).toBe('Stay precise');
+    expect((requestInit.body as FormData).get('tags')).toBe('mage, mentor');
+    expect(getCharacters).toHaveBeenCalledTimes(1);
   });
 });

@@ -1825,3 +1825,30 @@
 ### Next
 1. Move next into a deeper in-app panel, likely character data/editor viewing or a fuller generation/composer surface.
 2. Keep React additions aligned to high-level runtime actions rather than recreating low-level DOM behavior.
+
+## 2026-03-09 - React Migration Wave 6 (Shell Character Editor)
+
+### Completed
+- Added a typed `CharacterService` to the React bridge for:
+  - reading the selected character profile
+  - saving a selected character profile back through `/api/characters/edit`
+- Built a React character editor panel in the shell that supports:
+  - selected character inspection
+  - editing core card text fields
+  - editing creator/version/talkativeness metadata
+  - tag editing
+  - saving and draft reset
+- Preserved non-edited legacy character fields during save by carrying forward existing avatar, world, alternate greetings, depth prompt, and JSON metadata fields.
+- Expanded bridge tests to cover selected-character profile loading and save delegation.
+
+### Measurable Impact
+- React now owns a deeper data-editing surface, not just shell controls and bounded generation utilities.
+- The migration has crossed from runtime orchestration into actual authoring workflows.
+
+### Insights
+- The server-side `/api/characters/edit` contract is stable enough to support a narrow React editor without routing saves through the legacy DOM form.
+- Preserving untouched legacy fields during save is important; a naive partial payload would have caused silent data loss in character cards.
+
+### Next
+1. Move next into either a fuller composer/generation surface or a more focused chat metadata/editor panel.
+2. Keep using stable runtime actions and backend contracts rather than trying to mirror legacy form DOM state.

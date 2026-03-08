@@ -324,6 +324,36 @@ a {
   color: var(--st-text-muted);
 }
 
+.st-shell-character-header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.st-shell-character-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  object-fit: cover;
+  flex: 0 0 auto;
+}
+
+.st-shell-character-meta {
+  display: grid;
+  gap: 4px;
+}
+
+.st-shell-character-meta small {
+  color: var(--st-text-muted);
+}
+
+.st-shell-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .st-shell-textarea--result {
   min-height: 180px;
 }
@@ -477,6 +507,10 @@ a {
   .st-shell-inline-fields {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .st-shell-editor-grid {
+    grid-template-columns: 1fr;
   }
 
   .st-shell-inline-meta {

@@ -83,6 +83,8 @@ export interface ChatMetadata {
   scenario: string;
 }
 
+export type ComposerGenerationMode = 'continue' | 'impersonate' | 'normal' | 'regenerate';
+
 export interface CoreEventBus {
   on(eventName: string, listener: EventListener): () => void;
   once(eventName: string, listener: EventListener): () => void;
@@ -122,6 +124,12 @@ export interface CharacterService {
   saveSelectedProfile(profile: CharacterProfile): Promise<void>;
 }
 
+export interface ComposerService {
+  sendAndGenerate(text: string): Promise<void>;
+  sendUserMessage(text: string): Promise<void>;
+  triggerGeneration(mode: ComposerGenerationMode): Promise<void>;
+}
+
 export interface ExtensionHostService {
   getContext(): unknown;
   getEventTypes(): Record<string, string>;
@@ -134,5 +142,6 @@ export interface ModernizationBridge {
   session: SessionService;
   generation: GenerationService;
   character: CharacterService;
+  composer: ComposerService;
   extensions: ExtensionHostService;
 }

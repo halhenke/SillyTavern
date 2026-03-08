@@ -143,6 +143,7 @@ describe('createLegacyBridge', () => {
   it('maps session catalog and delegates character and group actions', async () => {
     const clearChat = vi.fn();
     const generateQuietPrompt = vi.fn().mockResolvedValue('quiet result');
+    const generate = vi.fn();
     const getCharacters = vi.fn();
     const getRequestHeaders = vi.fn(() => ({ 'X-CSRF-Token': 'token' }));
     const getCharacterCardFields = vi.fn(() => ({
@@ -156,6 +157,7 @@ describe('createLegacyBridge', () => {
       version: 'v2',
     }));
     const renameChat = vi.fn();
+    const sendMessageAsUser = vi.fn();
     const selectCharacterById = vi.fn();
     const openGroupChat = vi.fn();
     const reloadCurrentChat = vi.fn();
@@ -219,6 +221,7 @@ describe('createLegacyBridge', () => {
             once: vi.fn(),
             removeListener: vi.fn(),
           },
+          generate,
           generateQuietPrompt,
           getCharacters,
           getCharacterCardFields,
@@ -233,6 +236,7 @@ describe('createLegacyBridge', () => {
           reloadCurrentChat,
           renameChat,
           saveMetadata,
+          sendMessageAsUser,
           getCurrentChatId: () => 'mage-chat',
           selectCharacterById,
           unshallowCharacter,
@@ -285,6 +289,9 @@ describe('createLegacyBridge', () => {
     await bridge?.session.renameCurrentChat('renamed-chat');
     expect(bridge?.chat.getMetadata()).toEqual({ scenario: 'Current metadata scenario' });
     await bridge?.chat.saveMetadata({ scenario: 'Updated metadata scenario' });
+    await bridge?.composer.sendUserMessage('Hello from React');
+    await bridge?.composer.sendAndGenerate('Send and go');
+    await bridge?.composer.triggerGeneration('continue');
     await expect(
       bridge?.generation.generateQuietPrompt({
         prompt: 'Summarize the scene',
@@ -339,6 +346,10 @@ describe('createLegacyBridge', () => {
     expect(renameChat).toHaveBeenCalledWith('mage-chat', 'renamed-chat');
     expect(updateChatMetadata).toHaveBeenCalledWith({ scenario: 'Updated metadata scenario' }, true);
     expect(saveMetadata).toHaveBeenCalledTimes(1);
+    expect(sendMessageAsUser).toHaveBeenNthCalledWith(1, 'Hello from React', '');
+    expect(sendMessageAsUser).toHaveBeenNthCalledWith(2, 'Send and go', '');
+    expect(generate).toHaveBeenNthCalledWith(1, 'normal');
+    expect(generate).toHaveBeenNthCalledWith(2, 'continue');
     expect(unshallowCharacter).toHaveBeenCalledWith(1);
     expect(generateQuietPrompt).toHaveBeenCalledWith({
       quietPrompt: 'Summarize the scene',

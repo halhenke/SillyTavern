@@ -3,6 +3,8 @@ import {
   CharacterService,
   ChatMetadata,
   ChatService,
+  ComposerGenerationMode,
+  ComposerService,
   ExtensionHostService,
   GenerationService,
   ModernizationBridge,
@@ -103,6 +105,7 @@ type LegacyContext = {
     removeReasoning?: boolean;
     trimToSentence?: boolean;
   }) => Promise<string>;
+  generate?: (type: ComposerGenerationMode, options?: Record<string, unknown>, dryRun?: boolean) => Promise<unknown>;
   groupId?: string;
   getThumbnailUrl?: (type: string, file: string) => string;
   getRequestHeaders?: () => HeadersInit;
@@ -116,6 +119,7 @@ type LegacyContext = {
   powerUserSettings?: LegacyPowerUserSettings;
   reloadCurrentChat?: () => Promise<void>;
   renameChat?: (oldFileName: string, newName: string) => Promise<void>;
+  sendMessageAsUser?: (messageText: string, messageBias?: string) => Promise<unknown>;
   saveMetadata?: () => Promise<void>;
   saveSettingsDebounced?: () => void;
   saveSettings?: () => Promise<void>;
@@ -477,6 +481,29 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
     getEventTypes: () => context.eventTypes ?? {},
   };
 
+  const composer: ComposerService = {
+    sendAndGenerate: async (text) => {
+      const trimmedText = text.trim();
+      if (!trimmedText) {
+        throw new Error('Message text is required');
+      }
+
+      await context.sendMessageAsUser?.(trimmedText, '');
+      await context.generate?.('normal');
+    },
+    sendUserMessage: async (text) => {
+      const trimmedText = text.trim();
+      if (!trimmedText) {
+        throw new Error('Message text is required');
+      }
+
+      await context.sendMessageAsUser?.(trimmedText, '');
+    },
+    triggerGeneration: async (mode) => {
+      await context.generate?.(mode);
+    },
+  };
+
   return {
     eventBus: createCoreEventBus(context.eventSource),
     settings,
@@ -484,6 +511,7 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
     session,
     generation,
     character,
+    composer,
     extensions,
   };
 }

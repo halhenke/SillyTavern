@@ -129,6 +129,7 @@ export function ShellPage() {
   const [characterProfile, setCharacterProfile] = useState<CharacterProfile | null>(null);
   const [characterDraft, setCharacterDraft] = useState<CharacterProfile | null>(null);
   const [chatScenarioDraft, setChatScenarioDraft] = useState('');
+  const [composerText, setComposerText] = useState('');
   const [sessionQuery, setSessionQuery] = useState('');
   const [chatNameDraft, setChatNameDraft] = useState('');
   const [quietPrompt, setQuietPrompt] = useState('');
@@ -434,6 +435,36 @@ export function ShellPage() {
     }
   }
 
+  async function handleComposerAction(
+    action: 'continue' | 'impersonate' | 'normal' | 'regenerate' | 'send' | 'send-generate',
+  ) {
+    const bridge = legacyBridge;
+    if (!bridge) {
+      return;
+    }
+
+    setActionError('');
+    setBusyAction(`composer-${action}`);
+
+    try {
+      if (action === 'send') {
+        await bridge.composer.sendUserMessage(composerText);
+        setComposerText('');
+      } else if (action === 'send-generate') {
+        await bridge.composer.sendAndGenerate(composerText);
+        setComposerText('');
+      } else {
+        await bridge.composer.triggerGeneration(action);
+      }
+
+      refreshRuntime(bridge);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not run composer action');
+    } finally {
+      setBusyAction('');
+    }
+  }
+
   return (
     <main className="st-screen st-shell">
       <header className="st-shell-header">
@@ -696,6 +727,67 @@ export function ShellPage() {
               </a>
             </nav>
             {actionError ? <p className="st-error">{actionError}</p> : null}
+          </section>
+
+          <section className="st-shell-card">
+            <div className="st-shell-card__header">
+              <h2>Composer</h2>
+              <span className="st-shell-badge st-shell-badge--muted">
+                {busyAction.startsWith('composer-') ? 'running' : 'ready'}
+              </span>
+            </div>
+            <label className="st-field">
+              <span>User message</span>
+              <textarea
+                className="st-shell-textarea"
+                disabled={!legacyBridge || Boolean(busyAction)}
+                placeholder="Write a user turn here and drive generation from React."
+                value={composerText}
+                onChange={(event) => setComposerText(event.target.value)}
+              />
+            </label>
+            <nav className="st-actions">
+              <button
+                className="st-button"
+                disabled={!legacyBridge || !composerText.trim() || Boolean(busyAction)}
+                type="button"
+                onClick={() => void handleComposerAction('send-generate')}
+              >
+                Send and generate
+              </button>
+              <button
+                className="st-button st-button--ghost"
+                disabled={!legacyBridge || !composerText.trim() || Boolean(busyAction)}
+                type="button"
+                onClick={() => void handleComposerAction('send')}
+              >
+                Send only
+              </button>
+              <button
+                className="st-button st-button--ghost"
+                disabled={!legacyBridge || Boolean(busyAction)}
+                type="button"
+                onClick={() => void handleComposerAction('continue')}
+              >
+                Continue
+              </button>
+              <button
+                className="st-button st-button--ghost"
+                disabled={!legacyBridge || Boolean(busyAction)}
+                type="button"
+                onClick={() => void handleComposerAction('impersonate')}
+              >
+                Impersonate
+              </button>
+              <button
+                className="st-button st-button--ghost"
+                disabled={!legacyBridge || Boolean(busyAction)}
+                type="button"
+                onClick={() => void handleComposerAction('regenerate')}
+              >
+                Regenerate
+              </button>
+            </nav>
           </section>
 
           <section className="st-shell-card">

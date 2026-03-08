@@ -1871,3 +1871,28 @@
 ### Next
 1. Move next into a fuller composer/generation surface or a more focused message-level tool panel.
 2. Keep preferring stable runtime metadata/action APIs over low-level DOM replication.
+
+## 2026-03-09 - React Migration Wave 8 (Shell Composer Surface)
+
+### Completed
+- Extended `window.SillyTavern.getContext()` with `sendMessageAsUser(...)` so React can drive user-message sends through an existing high-level runtime action.
+- Added a typed `ComposerService` to the React bridge for:
+  - send-only user messages
+  - send-plus-generate
+  - continue generation
+  - impersonate generation
+  - regenerate
+- Added a React-owned composer panel to the shell with a message textarea and direct generation controls.
+- Expanded bridge tests to cover send/generate delegation.
+
+### Measurable Impact
+- React now owns a real send/generate interaction surface, not just supporting tools around the legacy runtime.
+- The shell can drive the core chat loop through stable runtime actions without simulating the legacy textarea DOM.
+
+### Insights
+- `sendMessageAsUser(...)` plus `Generate(...)` is a practical bridge seam because both are already high-level orchestration points with stable behavior.
+- This is a better interim composer migration than trying to partially reimplement the legacy input widget and its event wiring.
+
+### Next
+1. Move next into message-level tools or a more complete chat/history inspection surface.
+2. Keep using explicit runtime actions for the React composer instead of coupling React to the legacy textarea state.

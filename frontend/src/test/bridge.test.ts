@@ -142,6 +142,7 @@ describe('createLegacyBridge', () => {
 
   it('maps session catalog and delegates character and group actions', async () => {
     const clearChat = vi.fn();
+    const deleteLastMessage = vi.fn();
     const generateQuietPrompt = vi.fn().mockResolvedValue('quiet result');
     const generate = vi.fn();
     const getCharacters = vi.fn();
@@ -157,6 +158,7 @@ describe('createLegacyBridge', () => {
       version: 'v2',
     }));
     const renameChat = vi.fn();
+    const sendSystemMessage = vi.fn();
     const sendMessageAsUser = vi.fn();
     const selectCharacterById = vi.fn();
     const openGroupChat = vi.fn();
@@ -213,7 +215,24 @@ describe('createLegacyBridge', () => {
           chatMetadata: {
             scenario: 'Current metadata scenario',
           },
+          chat: [
+            {
+              is_user: true,
+              mes: 'User line',
+              name: 'Hal',
+              send_date: '2025-01-02',
+            },
+            {
+              extra: { token_count: 42 },
+              is_system: false,
+              is_user: false,
+              mes: 'Assistant line',
+              name: 'Mage',
+              send_date: '2025-01-03',
+            },
+          ],
           clearChat,
+          deleteLastMessage,
           eventSource: {
             emit: vi.fn(),
             off: vi.fn(),
@@ -237,6 +256,7 @@ describe('createLegacyBridge', () => {
           renameChat,
           saveMetadata,
           sendMessageAsUser,
+          sendSystemMessage,
           getCurrentChatId: () => 'mage-chat',
           selectCharacterById,
           unshallowCharacter,
@@ -287,8 +307,30 @@ describe('createLegacyBridge', () => {
     await bridge?.session.reloadCurrentChat();
     await bridge?.session.clearCurrentChat();
     await bridge?.session.renameCurrentChat('renamed-chat');
+    expect(bridge?.chat.getMessages()).toEqual([
+      {
+        id: 0,
+        isSystem: false,
+        isUser: true,
+        name: 'Hal',
+        text: 'User line',
+        timestamp: '2025-01-02',
+        tokenCount: undefined,
+      },
+      {
+        id: 1,
+        isSystem: false,
+        isUser: false,
+        name: 'Mage',
+        text: 'Assistant line',
+        timestamp: '2025-01-03',
+        tokenCount: 42,
+      },
+    ]);
     expect(bridge?.chat.getMetadata()).toEqual({ scenario: 'Current metadata scenario' });
     await bridge?.chat.saveMetadata({ scenario: 'Updated metadata scenario' });
+    await bridge?.chat.addSystemMessage('System memo');
+    await bridge?.chat.deleteLastMessage();
     await bridge?.composer.sendUserMessage('Hello from React');
     await bridge?.composer.sendAndGenerate('Send and go');
     await bridge?.composer.triggerGeneration('continue');
@@ -346,6 +388,8 @@ describe('createLegacyBridge', () => {
     expect(renameChat).toHaveBeenCalledWith('mage-chat', 'renamed-chat');
     expect(updateChatMetadata).toHaveBeenCalledWith({ scenario: 'Updated metadata scenario' }, true);
     expect(saveMetadata).toHaveBeenCalledTimes(1);
+    expect(sendSystemMessage).toHaveBeenCalledWith('generic', 'System memo');
+    expect(deleteLastMessage).toHaveBeenCalledTimes(1);
     expect(sendMessageAsUser).toHaveBeenNthCalledWith(1, 'Hello from React', '');
     expect(sendMessageAsUser).toHaveBeenNthCalledWith(2, 'Send and go', '');
     expect(generate).toHaveBeenNthCalledWith(1, 'normal');

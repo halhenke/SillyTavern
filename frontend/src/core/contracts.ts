@@ -85,6 +85,16 @@ export interface ChatMetadata {
 
 export type ComposerGenerationMode = 'continue' | 'impersonate' | 'normal' | 'regenerate';
 
+export interface ChatMessageSummary {
+  id: number;
+  isSystem: boolean;
+  isUser: boolean;
+  name: string;
+  text: string;
+  timestamp?: string;
+  tokenCount?: number;
+}
+
 export interface CoreEventBus {
   on(eventName: string, listener: EventListener): () => void;
   once(eventName: string, listener: EventListener): () => void;
@@ -101,7 +111,10 @@ export interface SettingsService {
 
 export interface ChatService {
   getCurrentChatId(): string | undefined;
+  getMessages(): ChatMessageSummary[];
   getMetadata(): ChatMetadata;
+  addSystemMessage(text: string): Promise<void>;
+  deleteLastMessage(): Promise<void>;
   saveMetadata(next: ChatMetadata): Promise<void>;
 }
 

@@ -1896,3 +1896,29 @@
 ### Next
 1. Move next into message-level tools or a more complete chat/history inspection surface.
 2. Keep using explicit runtime actions for the React composer instead of coupling React to the legacy textarea state.
+
+## 2026-03-09 - React Migration Wave 9 (Shell History Tools)
+
+### Completed
+- Extended the typed chat bridge with:
+  - mapped message history summaries
+  - delete-last-message
+  - generic system-note insertion
+- Added a React-owned history tools panel with:
+  - live recent-message inspection
+  - role/timestamp/token-count display
+  - system note insertion
+  - delete-last-message action
+- Expanded bridge tests to cover message mapping and history actions.
+
+### Measurable Impact
+- React now owns a real chat-history inspection surface in addition to send/generate controls.
+- The shell can perform a small but useful set of message-level operations through stable runtime actions.
+
+### Insights
+- Message history is a good next step because the chat array is already a stable runtime state source, while richer message editing still depends on more legacy DOM-specific flows.
+- Avoiding `swipe_left/right` for now was correct; those functions still depend on DOM-bound `this` semantics and are not clean React bridge surfaces yet.
+
+### Next
+1. Move next into a cleaner message-editing seam or a richer chat/history panel if a safe runtime action exists.
+2. Keep avoiding DOM-bound legacy handlers until they are wrapped behind typed bridge methods.

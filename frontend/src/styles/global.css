@@ -354,6 +354,58 @@ a {
   gap: 12px;
 }
 
+.st-shell-history-list {
+  display: grid;
+  gap: 10px;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.st-shell-history-item {
+  border: 1px solid rgba(54, 66, 85, 0.72);
+  border-radius: 14px;
+  background: rgba(13, 18, 24, 0.52);
+  padding: 12px;
+}
+
+.st-shell-history-item__header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.st-shell-history-item__header small {
+  color: var(--st-text-muted);
+}
+
+.st-shell-history-item p {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.st-shell-history-role {
+  border-radius: 999px;
+  padding: 2px 8px;
+  background: rgba(123, 220, 255, 0.16);
+  color: var(--st-accent-strong);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.st-shell-history-role--user {
+  background: rgba(94, 199, 165, 0.16);
+  color: var(--st-accent);
+}
+
+.st-shell-history-role--system {
+  background: rgba(255, 123, 114, 0.16);
+  color: #ffb2ab;
+}
+
 .st-shell-textarea--result {
   min-height: 180px;
 }

@@ -2,6 +2,7 @@ import {
   CharacterProfile,
   CharacterService,
   ChatMetadata,
+  ChatMessageSummary,
   ChatService,
   ComposerGenerationMode,
   ComposerService,
@@ -89,8 +90,19 @@ type LegacyGroup = {
 type LegacyContext = {
   characterId?: number;
   characters?: LegacyCharacter[];
+  chat?: Array<{
+    extra?: {
+      token_count?: number;
+    };
+    is_system?: boolean;
+    is_user?: boolean;
+    mes?: string;
+    name?: string;
+    send_date?: string;
+  }>;
   clearChat?: () => Promise<void>;
   chatMetadata?: Record<string, unknown>;
+  deleteLastMessage?: () => Promise<void>;
   eventSource?: {
     on(eventName: string, listener: (...args: unknown[]) => void): void;
     once(eventName: string, listener: (...args: unknown[]) => void): void;
@@ -120,6 +132,7 @@ type LegacyContext = {
   reloadCurrentChat?: () => Promise<void>;
   renameChat?: (oldFileName: string, newName: string) => Promise<void>;
   sendMessageAsUser?: (messageText: string, messageBias?: string) => Promise<unknown>;
+  sendSystemMessage?: (type: string, text: string, extra?: Record<string, unknown>) => unknown;
   saveMetadata?: () => Promise<void>;
   saveSettingsDebounced?: () => void;
   saveSettings?: () => Promise<void>;
@@ -324,6 +337,18 @@ function getChatMetadata(context: LegacyContext): ChatMetadata {
   };
 }
 
+function getChatMessages(context: LegacyContext): ChatMessageSummary[] {
+  return (context.chat ?? []).map((message, index) => ({
+    id: index,
+    isSystem: Boolean(message.is_system),
+    isUser: Boolean(message.is_user),
+    name: message.name ?? (message.is_user ? context.name1 ?? 'User' : context.name2 ?? 'Assistant'),
+    text: message.mes ?? '',
+    timestamp: message.send_date,
+    tokenCount: message.extra?.token_count,
+  }));
+}
+
 function getSillyTavern(windowObject: Window): LegacySillyTavern | undefined {
   const source = windowObject as Window & { SillyTavern?: LegacySillyTavern };
   return source.SillyTavern;
@@ -358,7 +383,19 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
   };
 
   const chat: ChatService = {
+    addSystemMessage: async (text) => {
+      const trimmedText = text.trim();
+      if (!trimmedText) {
+        throw new Error('System note text is required');
+      }
+
+      context.sendSystemMessage?.('generic', trimmedText);
+    },
+    deleteLastMessage: async () => {
+      await context.deleteLastMessage?.();
+    },
     getCurrentChatId: () => context.getCurrentChatId?.(),
+    getMessages: () => getChatMessages(context),
     getMetadata: () => getChatMetadata(context),
     saveMetadata: async (next) => {
       const mergedMetadata = {

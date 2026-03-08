@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { CharacterProfile, SessionCatalog, ShellPreferences, ShellSnapshot } from '../../core/contracts';
+import { CharacterProfile, ChatMessageSummary, SessionCatalog, ShellPreferences, ShellSnapshot } from '../../core/contracts';
 import { LegacyBridge, createLegacyBridge } from '../../legacy/bridge';
 
 const DEFAULT_PREFERENCES: ShellPreferences = {
@@ -30,6 +30,8 @@ const DEFAULT_CATALOG: SessionCatalog = {
   characters: [],
   groups: [],
 };
+
+const DEFAULT_MESSAGES: ChatMessageSummary[] = [];
 
 const PREFERENCE_CONTROLS: Array<{
   key: keyof ShellPreferences;
@@ -128,8 +130,10 @@ export function ShellPage() {
   const [catalog, setCatalog] = useState<SessionCatalog>(DEFAULT_CATALOG);
   const [characterProfile, setCharacterProfile] = useState<CharacterProfile | null>(null);
   const [characterDraft, setCharacterDraft] = useState<CharacterProfile | null>(null);
+  const [messages, setMessages] = useState<ChatMessageSummary[]>(DEFAULT_MESSAGES);
   const [chatScenarioDraft, setChatScenarioDraft] = useState('');
   const [composerText, setComposerText] = useState('');
+  const [systemNoteDraft, setSystemNoteDraft] = useState('');
   const [sessionQuery, setSessionQuery] = useState('');
   const [chatNameDraft, setChatNameDraft] = useState('');
   const [quietPrompt, setQuietPrompt] = useState('');
@@ -147,11 +151,13 @@ export function ShellPage() {
     if (!bridge) {
       setSnapshot(DEFAULT_SNAPSHOT);
       setCatalog(DEFAULT_CATALOG);
+      setMessages(DEFAULT_MESSAGES);
       return;
     }
 
     setSnapshot(bridge.settings.getShellSnapshot());
     setCatalog(bridge.session.getCatalog());
+    setMessages(bridge.chat.getMessages());
   }, []);
 
   useEffect(() => {
@@ -460,6 +466,45 @@ export function ShellPage() {
       refreshRuntime(bridge);
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Could not run composer action');
+    } finally {
+      setBusyAction('');
+    }
+  }
+
+  async function handleDeleteLastMessage() {
+    const bridge = legacyBridge;
+    if (!bridge) {
+      return;
+    }
+
+    setActionError('');
+    setBusyAction('message-delete');
+
+    try {
+      await bridge.chat.deleteLastMessage();
+      refreshRuntime(bridge);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not delete last message');
+    } finally {
+      setBusyAction('');
+    }
+  }
+
+  async function handleSystemNote() {
+    const bridge = legacyBridge;
+    if (!bridge) {
+      return;
+    }
+
+    setActionError('');
+    setBusyAction('system-note');
+
+    try {
+      await bridge.chat.addSystemMessage(systemNoteDraft);
+      setSystemNoteDraft('');
+      refreshRuntime(bridge);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not add system note');
     } finally {
       setBusyAction('');
     }
@@ -788,6 +833,67 @@ export function ShellPage() {
                 Regenerate
               </button>
             </nav>
+          </section>
+
+          <section className="st-shell-card">
+            <div className="st-shell-card__header">
+              <h2>History tools</h2>
+              <span className="st-shell-badge st-shell-badge--muted">{messages.length} messages</span>
+            </div>
+            <label className="st-field">
+              <span>System note</span>
+              <textarea
+                className="st-shell-textarea"
+                disabled={!legacyBridge || Boolean(busyAction)}
+                placeholder="Add a generic system note into the current chat."
+                value={systemNoteDraft}
+                onChange={(event) => setSystemNoteDraft(event.target.value)}
+              />
+            </label>
+            <nav className="st-actions">
+              <button
+                className="st-button"
+                disabled={!legacyBridge || !systemNoteDraft.trim() || Boolean(busyAction)}
+                type="button"
+                onClick={() => void handleSystemNote()}
+              >
+                Add system note
+              </button>
+              <button
+                className="st-button st-button--ghost"
+                disabled={!legacyBridge || messages.length === 0 || Boolean(busyAction)}
+                type="button"
+                onClick={() => void handleDeleteLastMessage()}
+              >
+                Delete last message
+              </button>
+            </nav>
+            <div className="st-shell-history-list">
+              {messages.length ? (
+                [...messages].reverse().slice(0, 12).map((message) => (
+                  <article className="st-shell-history-item" key={message.id}>
+                    <div className="st-shell-history-item__header">
+                      <span
+                        className={`st-shell-history-role${
+                          message.isUser ? ' st-shell-history-role--user' : message.isSystem ? ' st-shell-history-role--system' : ''
+                        }`}
+                      >
+                        {message.isUser ? 'user' : message.isSystem ? 'system' : 'assistant'}
+                      </span>
+                      <strong>{message.name}</strong>
+                      <small>
+                        #{message.id}
+                        {message.tokenCount !== undefined ? ` · ${message.tokenCount}t` : ''}
+                        {message.timestamp ? ` · ${message.timestamp}` : ''}
+                      </small>
+                    </div>
+                    <p>{message.text || '(empty message)'}</p>
+                  </article>
+                ))
+              ) : (
+                <p className="st-note">No messages in the active chat.</p>
+              )}
+            </div>
           </section>
 
           <section className="st-shell-card">

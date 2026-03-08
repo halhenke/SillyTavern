@@ -1801,3 +1801,27 @@
 ### Next
 1. Move into a deeper in-app panel next, likely character management or composer/generation controls.
 2. Keep the shell as a useful operational layer, but stop turning it into a full duplicate of the legacy app.
+
+## 2026-03-09 - React Migration Wave 5 (Shell Generation Tools)
+
+### Completed
+- Extended the typed generation bridge with a `generateQuietPrompt(...)` surface.
+- Added a React-owned generation tools panel to the shell with:
+  - quiet prompt text entry
+  - target length control
+  - quiet-to-loud toggle
+  - trim-to-sentence toggle
+  - result display
+- Expanded bridge tests to cover quiet-prompt delegation.
+
+### Measurable Impact
+- React now owns a real generation workflow, not only settings and session management.
+- The shell can execute a bounded runtime generation task and display the result without handing control back to legacy UI.
+
+### Insights
+- `generateQuietPrompt(...)` is a strong migration seam because it is already a high-level runtime action with a clean input/output boundary.
+- This is a better bridge-backed React panel than trying to partially replace the full composer or message list too early.
+
+### Next
+1. Move next into a deeper in-app panel, likely character data/editor viewing or a fuller generation/composer surface.
+2. Keep React additions aligned to high-level runtime actions rather than recreating low-level DOM behavior.

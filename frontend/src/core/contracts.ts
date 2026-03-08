@@ -52,6 +52,13 @@ export interface SessionCatalog {
   groups: ShellGroupSummary[];
 }
 
+export interface QuietPromptOptions {
+  prompt: string;
+  quietToLoud?: boolean;
+  responseLength?: number;
+  trimToSentence?: boolean;
+}
+
 export interface CoreEventBus {
   on(eventName: string, listener: EventListener): () => void;
   once(eventName: string, listener: EventListener): () => void;
@@ -80,6 +87,7 @@ export interface SessionService {
 }
 
 export interface GenerationService {
+  generateQuietPrompt(options: QuietPromptOptions): Promise<string>;
   stopGeneration(): void;
 }
 

@@ -3,6 +3,7 @@ import {
   ExtensionHostService,
   GenerationService,
   ModernizationBridge,
+  QuietPromptOptions,
   SessionCatalog,
   SessionService,
   ShellCharacterSummary,
@@ -57,6 +58,13 @@ type LegacyContext = {
     emit?(eventName: string, ...payload: unknown[]): Promise<void> | void;
   };
   eventTypes?: Record<string, string>;
+  generateQuietPrompt?: (options?: {
+    quietPrompt?: string;
+    quietToLoud?: boolean;
+    responseLength?: number | null;
+    removeReasoning?: boolean;
+    trimToSentence?: boolean;
+  }) => Promise<string>;
   groupId?: string;
   getThumbnailUrl?: (type: string, file: string) => string;
   groups?: LegacyGroup[];
@@ -275,6 +283,17 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
   };
 
   const generation: GenerationService = {
+    generateQuietPrompt: async (options: QuietPromptOptions) => {
+      const response = await context.generateQuietPrompt?.({
+        quietPrompt: options.prompt,
+        quietToLoud: options.quietToLoud,
+        responseLength: options.responseLength,
+        removeReasoning: true,
+        trimToSentence: options.trimToSentence,
+      });
+
+      return response ?? '';
+    },
     stopGeneration: () => context.stopGeneration?.(),
   };
 

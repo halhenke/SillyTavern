@@ -101,6 +101,17 @@ a {
   padding: 10px;
 }
 
+.st-field textarea {
+  width: 100%;
+  border: 1px solid #404b5e;
+  background: #11151b;
+  color: var(--st-text);
+  border-radius: 8px;
+  padding: 10px;
+  resize: vertical;
+  min-height: 120px;
+}
+
 .st-actions {
   display: flex;
   flex-wrap: wrap;
@@ -288,6 +299,35 @@ a {
   margin-bottom: 14px;
 }
 
+.st-shell-inline-fields {
+  display: flex;
+  gap: 14px;
+  align-items: end;
+}
+
+.st-shell-inline-fields .st-field {
+  flex: 1 1 auto;
+}
+
+.st-shell-inline-meta {
+  min-width: 80px;
+  padding-bottom: 12px;
+  text-align: right;
+}
+
+.st-shell-inline-meta strong {
+  display: block;
+  font-size: 1.2rem;
+}
+
+.st-shell-inline-meta small {
+  color: var(--st-text-muted);
+}
+
+.st-shell-textarea--result {
+  min-height: 180px;
+}
+
 .st-shell-toggle {
   display: flex;
   justify-content: space-between;
@@ -432,6 +472,16 @@ a {
   .st-shell-session-heading {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .st-shell-inline-fields {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .st-shell-inline-meta {
+    padding-bottom: 0;
+    text-align: left;
   }
 
   .st-shell-frame {

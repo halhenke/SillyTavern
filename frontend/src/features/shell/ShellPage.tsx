@@ -128,6 +128,11 @@ export function ShellPage() {
   const [catalog, setCatalog] = useState<SessionCatalog>(DEFAULT_CATALOG);
   const [sessionQuery, setSessionQuery] = useState('');
   const [chatNameDraft, setChatNameDraft] = useState('');
+  const [quietPrompt, setQuietPrompt] = useState('');
+  const [quietPromptResult, setQuietPromptResult] = useState('');
+  const [quietPromptLength, setQuietPromptLength] = useState(350);
+  const [quietToLoud, setQuietToLoud] = useState(false);
+  const [trimQuietPrompt, setTrimQuietPrompt] = useState(true);
   const [loadError, setLoadError] = useState<string>('');
   const [actionError, setActionError] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
@@ -293,6 +298,36 @@ export function ShellPage() {
       refreshRuntime(legacyBridge);
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Could not update session');
+    } finally {
+      setBusyAction('');
+    }
+  }
+
+  async function handleQuietPromptRun() {
+    const bridge = legacyBridge;
+    if (!bridge) {
+      return;
+    }
+
+    const prompt = quietPrompt.trim();
+    if (!prompt) {
+      setActionError('Quiet prompt text is required');
+      return;
+    }
+
+    setActionError('');
+    setBusyAction('quiet-prompt');
+
+    try {
+      const result = await bridge.generation.generateQuietPrompt({
+        prompt,
+        quietToLoud,
+        responseLength: quietPromptLength,
+        trimToSentence: trimQuietPrompt,
+      });
+      setQuietPromptResult(result);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not run quiet prompt');
     } finally {
       setBusyAction('');
     }
@@ -560,6 +595,85 @@ export function ShellPage() {
               </a>
             </nav>
             {actionError ? <p className="st-error">{actionError}</p> : null}
+          </section>
+
+          <section className="st-shell-card">
+            <div className="st-shell-card__header">
+              <h2>Generation tools</h2>
+              <span className="st-shell-badge st-shell-badge--muted">{busyAction === 'quiet-prompt' ? 'running' : 'ready'}</span>
+            </div>
+            <label className="st-field">
+              <span>Quiet prompt</span>
+              <textarea
+                className="st-shell-textarea"
+                disabled={!legacyBridge || Boolean(busyAction)}
+                placeholder="Ask the current runtime for a hidden or utility generation."
+                value={quietPrompt}
+                onChange={(event) => setQuietPrompt(event.target.value)}
+              />
+            </label>
+            <div className="st-shell-inline-fields">
+              <label className="st-field">
+                <span>Target length</span>
+                <input
+                  disabled={!legacyBridge || Boolean(busyAction)}
+                  max={1200}
+                  min={50}
+                  step={10}
+                  type="range"
+                  value={quietPromptLength}
+                  onChange={(event) => setQuietPromptLength(Number(event.target.value))}
+                />
+              </label>
+              <div className="st-shell-inline-meta">
+                <strong>{quietPromptLength}</strong>
+                <small>tokens</small>
+              </div>
+            </div>
+            <div className="st-shell-toggles">
+              <label className="st-shell-toggle">
+                <span>
+                  <strong>Quiet to loud</strong>
+                  <small>Allow the result to flow through the louder generation path when needed.</small>
+                </span>
+                <input
+                  checked={quietToLoud}
+                  disabled={!legacyBridge || Boolean(busyAction)}
+                  type="checkbox"
+                  onChange={(event) => setQuietToLoud(event.target.checked)}
+                />
+              </label>
+              <label className="st-shell-toggle">
+                <span>
+                  <strong>Trim to sentence</strong>
+                  <small>Cut the result back to a clean sentence ending.</small>
+                </span>
+                <input
+                  checked={trimQuietPrompt}
+                  disabled={!legacyBridge || Boolean(busyAction)}
+                  type="checkbox"
+                  onChange={(event) => setTrimQuietPrompt(event.target.checked)}
+                />
+              </label>
+            </div>
+            <nav className="st-actions">
+              <button
+                className="st-button"
+                disabled={!legacyBridge || Boolean(busyAction)}
+                type="button"
+                onClick={() => void handleQuietPromptRun()}
+              >
+                Run quiet prompt
+              </button>
+            </nav>
+            <label className="st-field">
+              <span>Result</span>
+              <textarea
+                className="st-shell-textarea st-shell-textarea--result"
+                readOnly
+                value={quietPromptResult}
+              />
+            </label>
           </section>
         </aside>
 

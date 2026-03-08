@@ -142,6 +142,7 @@ describe('createLegacyBridge', () => {
 
   it('maps session catalog and delegates character and group actions', async () => {
     const clearChat = vi.fn();
+    const generateQuietPrompt = vi.fn().mockResolvedValue('quiet result');
     const renameChat = vi.fn();
     const selectCharacterById = vi.fn();
     const openGroupChat = vi.fn();
@@ -163,6 +164,7 @@ describe('createLegacyBridge', () => {
             once: vi.fn(),
             removeListener: vi.fn(),
           },
+          generateQuietPrompt,
           getThumbnailUrl: vi.fn((type: string, file: string) => `/thumb/${type}/${file}`),
           groupId: 'g-2',
           groups: [
@@ -220,11 +222,26 @@ describe('createLegacyBridge', () => {
     await bridge?.session.reloadCurrentChat();
     await bridge?.session.clearCurrentChat();
     await bridge?.session.renameCurrentChat('renamed-chat');
+    await expect(
+      bridge?.generation.generateQuietPrompt({
+        prompt: 'Summarize the scene',
+        quietToLoud: true,
+        responseLength: 240,
+        trimToSentence: true,
+      }),
+    ).resolves.toBe('quiet result');
 
     expect(selectCharacterById).toHaveBeenCalledWith(4, { switchMenu: false });
     expect(openGroupChat).toHaveBeenCalledWith('g-1', 'g-1-chat');
     expect(reloadCurrentChat).toHaveBeenCalledTimes(1);
     expect(clearChat).toHaveBeenCalledTimes(1);
     expect(renameChat).toHaveBeenCalledWith('mage-chat', 'renamed-chat');
+    expect(generateQuietPrompt).toHaveBeenCalledWith({
+      quietPrompt: 'Summarize the scene',
+      quietToLoud: true,
+      removeReasoning: true,
+      responseLength: 240,
+      trimToSentence: true,
+    });
   });
 });

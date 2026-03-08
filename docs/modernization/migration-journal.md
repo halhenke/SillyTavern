@@ -1922,3 +1922,27 @@
 ### Next
 1. Move next into a cleaner message-editing seam or a richer chat/history panel if a safe runtime action exists.
 2. Keep avoiding DOM-bound legacy handlers until they are wrapped behind typed bridge methods.
+
+## 2026-03-09 - React Migration Wave 10 (Primary Runtime Chat Workspace)
+
+### Completed
+- Reworked the shell so the main runtime column is now a React-owned chat workspace instead of a full-size iframe.
+- Promoted the React transcript/composer surface to the primary runtime area with:
+  - live chat transcript rendering
+  - runtime badges and chat context header
+  - integrated composer controls
+  - integrated history and metadata side rail
+- Demoted the legacy app to a fallback/details panel in the runtime column instead of keeping it as the main visible surface.
+- Added transcript auto-scroll tied to the existing shell preference.
+
+### Measurable Impact
+- This is the first wave where React, not the embedded legacy page, is the primary runtime surface for normal chat interaction.
+- The migration has moved from “React shell around legacy” to “React first, legacy fallback” for the chat workspace itself.
+
+### Insights
+- Reusing the existing bridge-backed transcript/composer/history tools made it possible to flip the visual priority without adding another round of compatibility extraction first.
+- Keeping the legacy iframe available as a fallback/details panel is still useful during parity work, but it no longer needs to dominate the layout.
+
+### Next
+1. Move next into a safe message-editing or assistant-message action seam.
+2. Continue collapsing the legacy iframe’s role as more runtime interactions become React-owned.

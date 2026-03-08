@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { CharacterProfile, ChatMessageSummary, SessionCatalog, ShellPreferences, ShellSnapshot } from '../../core/contracts';
 import { LegacyBridge, createLegacyBridge } from '../../legacy/bridge';
@@ -146,6 +146,7 @@ export function ShellPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [busyAction, setBusyAction] = useState('');
   const legacySource = useMemo(() => `/legacy${window.location.search}`, []);
+  const transcriptRef = useRef<HTMLDivElement | null>(null);
 
   const refreshRuntime = useCallback((bridge: LegacyBridge | null) => {
     if (!bridge) {
@@ -257,6 +258,19 @@ export function ShellPage() {
       mounted = false;
     };
   }, [legacyBridge, snapshot.characterId]);
+
+  useEffect(() => {
+    if (!snapshot.preferences.autoScrollChatToBottom) {
+      return;
+    }
+
+    const element = transcriptRef.current;
+    if (!element) {
+      return;
+    }
+
+    element.scrollTop = element.scrollHeight;
+  }, [messages, snapshot.preferences.autoScrollChatToBottom]);
 
   async function handlePreferenceChange(
     key: keyof ShellPreferences,
@@ -395,6 +409,8 @@ export function ShellPage() {
 
     return chatScenarioDraft !== legacyBridge.chat.getMetadata().scenario;
   }, [chatScenarioDraft, legacyBridge, snapshot.currentChatId]);
+
+  const transcriptMessages = useMemo(() => messages.slice(-80), [messages]);
 
   async function handleCharacterSave() {
     const bridge = legacyBridge;
@@ -776,165 +792,6 @@ export function ShellPage() {
 
           <section className="st-shell-card">
             <div className="st-shell-card__header">
-              <h2>Composer</h2>
-              <span className="st-shell-badge st-shell-badge--muted">
-                {busyAction.startsWith('composer-') ? 'running' : 'ready'}
-              </span>
-            </div>
-            <label className="st-field">
-              <span>User message</span>
-              <textarea
-                className="st-shell-textarea"
-                disabled={!legacyBridge || Boolean(busyAction)}
-                placeholder="Write a user turn here and drive generation from React."
-                value={composerText}
-                onChange={(event) => setComposerText(event.target.value)}
-              />
-            </label>
-            <nav className="st-actions">
-              <button
-                className="st-button"
-                disabled={!legacyBridge || !composerText.trim() || Boolean(busyAction)}
-                type="button"
-                onClick={() => void handleComposerAction('send-generate')}
-              >
-                Send and generate
-              </button>
-              <button
-                className="st-button st-button--ghost"
-                disabled={!legacyBridge || !composerText.trim() || Boolean(busyAction)}
-                type="button"
-                onClick={() => void handleComposerAction('send')}
-              >
-                Send only
-              </button>
-              <button
-                className="st-button st-button--ghost"
-                disabled={!legacyBridge || Boolean(busyAction)}
-                type="button"
-                onClick={() => void handleComposerAction('continue')}
-              >
-                Continue
-              </button>
-              <button
-                className="st-button st-button--ghost"
-                disabled={!legacyBridge || Boolean(busyAction)}
-                type="button"
-                onClick={() => void handleComposerAction('impersonate')}
-              >
-                Impersonate
-              </button>
-              <button
-                className="st-button st-button--ghost"
-                disabled={!legacyBridge || Boolean(busyAction)}
-                type="button"
-                onClick={() => void handleComposerAction('regenerate')}
-              >
-                Regenerate
-              </button>
-            </nav>
-          </section>
-
-          <section className="st-shell-card">
-            <div className="st-shell-card__header">
-              <h2>History tools</h2>
-              <span className="st-shell-badge st-shell-badge--muted">{messages.length} messages</span>
-            </div>
-            <label className="st-field">
-              <span>System note</span>
-              <textarea
-                className="st-shell-textarea"
-                disabled={!legacyBridge || Boolean(busyAction)}
-                placeholder="Add a generic system note into the current chat."
-                value={systemNoteDraft}
-                onChange={(event) => setSystemNoteDraft(event.target.value)}
-              />
-            </label>
-            <nav className="st-actions">
-              <button
-                className="st-button"
-                disabled={!legacyBridge || !systemNoteDraft.trim() || Boolean(busyAction)}
-                type="button"
-                onClick={() => void handleSystemNote()}
-              >
-                Add system note
-              </button>
-              <button
-                className="st-button st-button--ghost"
-                disabled={!legacyBridge || messages.length === 0 || Boolean(busyAction)}
-                type="button"
-                onClick={() => void handleDeleteLastMessage()}
-              >
-                Delete last message
-              </button>
-            </nav>
-            <div className="st-shell-history-list">
-              {messages.length ? (
-                [...messages].reverse().slice(0, 12).map((message) => (
-                  <article className="st-shell-history-item" key={message.id}>
-                    <div className="st-shell-history-item__header">
-                      <span
-                        className={`st-shell-history-role${
-                          message.isUser ? ' st-shell-history-role--user' : message.isSystem ? ' st-shell-history-role--system' : ''
-                        }`}
-                      >
-                        {message.isUser ? 'user' : message.isSystem ? 'system' : 'assistant'}
-                      </span>
-                      <strong>{message.name}</strong>
-                      <small>
-                        #{message.id}
-                        {message.tokenCount !== undefined ? ` · ${message.tokenCount}t` : ''}
-                        {message.timestamp ? ` · ${message.timestamp}` : ''}
-                      </small>
-                    </div>
-                    <p>{message.text || '(empty message)'}</p>
-                  </article>
-                ))
-              ) : (
-                <p className="st-note">No messages in the active chat.</p>
-              )}
-            </div>
-          </section>
-
-          <section className="st-shell-card">
-            <div className="st-shell-card__header">
-              <h2>Chat metadata</h2>
-              <span className="st-shell-badge st-shell-badge--muted">
-                {snapshot.currentChatId ? (metadataIsDirty ? 'modified' : 'synced') : 'no chat'}
-              </span>
-            </div>
-            <label className="st-field">
-              <span>Scenario override</span>
-              <textarea
-                className="st-shell-textarea"
-                disabled={!snapshot.currentChatId || Boolean(busyAction)}
-                placeholder="Override the active chat scenario for the current session."
-                value={chatScenarioDraft}
-                onChange={(event) => setChatScenarioDraft(event.target.value)}
-              />
-            </label>
-            <nav className="st-actions">
-              <button
-                className="st-button"
-                disabled={!snapshot.currentChatId || !metadataIsDirty || Boolean(busyAction)}
-                type="button"
-                onClick={() => void handleMetadataSave()}
-              >
-                Save metadata
-              </button>
-              <button
-                className="st-button st-button--ghost"
-                disabled={!snapshot.currentChatId || Boolean(busyAction)}
-                type="button"
-                onClick={() => setChatScenarioDraft(legacyBridge?.chat.getMetadata().scenario ?? '')}
-              >
-                Reset metadata
-              </button>
-            </nav>
-          </section>
-
-          <section className="st-shell-card">
-            <div className="st-shell-card__header">
               <h2>Generation tools</h2>
               <span className="st-shell-badge st-shell-badge--muted">{busyAction === 'quiet-prompt' ? 'running' : 'ready'}</span>
             </div>
@@ -1189,32 +1046,227 @@ export function ShellPage() {
         </aside>
 
         <section className="st-shell-runtime">
-          <iframe
-            className="st-shell-frame"
-            src={legacySource}
-            title="SillyTavern Legacy Runtime"
-            onLoad={(event) => {
-              const iframeWindow = event.currentTarget.contentWindow;
-              if (!iframeWindow) {
-                setLoadError('Missing iframe window');
-                setLegacyBridge(null);
-                return;
-              }
+          <section className="st-shell-chat-surface">
+            <div className="st-shell-card__header">
+              <div>
+                <h2>React chat workspace</h2>
+                <p className="st-note">This replaces the primary runtime area. The legacy app remains available below for fallback and parity checks.</p>
+              </div>
+              <span className="st-shell-badge st-shell-badge--muted">
+                {busyAction.startsWith('composer-') ? 'generating' : `${messages.length} messages`}
+              </span>
+            </div>
 
-              const bridge = createLegacyBridge(iframeWindow);
-              if (!bridge) {
-                setLoadError('SillyTavern context unavailable');
-                setLegacyBridge(null);
-                return;
-              }
+            <div className="st-shell-chat-toolbar">
+              <span className="st-shell-history-role st-shell-history-role--user">{snapshot.userName ?? 'user'}</span>
+              <span className="st-shell-history-role">{snapshot.characterName ?? 'assistant'}</span>
+              <span className="st-shell-history-role st-shell-history-role--system">{snapshot.mainApi ?? 'api'}</span>
+              <small>{snapshot.currentChatId ?? 'no active chat'}</small>
+            </div>
 
-              setLoadError('');
+            {actionError ? <p className="st-error">{actionError}</p> : null}
+
+            <div className="st-shell-chat-layout">
+              <div className="st-shell-chat-main">
+                <div className="st-shell-transcript" ref={transcriptRef}>
+                  {transcriptMessages.length ? (
+                    transcriptMessages.map((message) => (
+                      <article
+                        className={`st-shell-message${
+                          message.isUser ? ' st-shell-message--user' : message.isSystem ? ' st-shell-message--system' : ''
+                        }`}
+                        key={message.id}
+                      >
+                        <div className="st-shell-message__header">
+                          <span
+                            className={`st-shell-history-role${
+                              message.isUser ? ' st-shell-history-role--user' : message.isSystem ? ' st-shell-history-role--system' : ''
+                            }`}
+                          >
+                            {message.isUser ? 'user' : message.isSystem ? 'system' : 'assistant'}
+                          </span>
+                          <strong>{message.name}</strong>
+                          <small>
+                            #{message.id}
+                            {message.tokenCount !== undefined ? ` · ${message.tokenCount}t` : ''}
+                            {message.timestamp ? ` · ${message.timestamp}` : ''}
+                          </small>
+                        </div>
+                        <p>{message.text || '(empty message)'}</p>
+                      </article>
+                    ))
+                  ) : (
+                    <p className="st-note">No messages in the active chat.</p>
+                  )}
+                </div>
+
+                <section className="st-shell-composer-surface">
+                  <div className="st-shell-card__header">
+                    <h3>Composer</h3>
+                    <span className="st-shell-badge st-shell-badge--muted">
+                      {busyAction.startsWith('composer-') ? 'running' : 'ready'}
+                    </span>
+                  </div>
+                  <label className="st-field">
+                    <span>User message</span>
+                    <textarea
+                      className="st-shell-textarea"
+                      disabled={!legacyBridge || Boolean(busyAction)}
+                      placeholder="Write a user turn here and drive generation from React."
+                      value={composerText}
+                      onChange={(event) => setComposerText(event.target.value)}
+                    />
+                  </label>
+                  <nav className="st-actions">
+                    <button
+                      className="st-button"
+                      disabled={!legacyBridge || !composerText.trim() || Boolean(busyAction)}
+                      type="button"
+                      onClick={() => void handleComposerAction('send-generate')}
+                    >
+                      Send and generate
+                    </button>
+                    <button
+                      className="st-button st-button--ghost"
+                      disabled={!legacyBridge || !composerText.trim() || Boolean(busyAction)}
+                      type="button"
+                      onClick={() => void handleComposerAction('send')}
+                    >
+                      Send only
+                    </button>
+                    <button
+                      className="st-button st-button--ghost"
+                      disabled={!legacyBridge || Boolean(busyAction)}
+                      type="button"
+                      onClick={() => void handleComposerAction('continue')}
+                    >
+                      Continue
+                    </button>
+                    <button
+                      className="st-button st-button--ghost"
+                      disabled={!legacyBridge || Boolean(busyAction)}
+                      type="button"
+                      onClick={() => void handleComposerAction('impersonate')}
+                    >
+                      Impersonate
+                    </button>
+                    <button
+                      className="st-button st-button--ghost"
+                      disabled={!legacyBridge || Boolean(busyAction)}
+                      type="button"
+                      onClick={() => void handleComposerAction('regenerate')}
+                    >
+                      Regenerate
+                    </button>
+                  </nav>
+                </section>
+              </div>
+
+              <aside className="st-shell-chat-rail">
+                <section className="st-shell-card st-shell-card--compact">
+                  <div className="st-shell-card__header">
+                    <h3>History actions</h3>
+                    <span className="st-shell-badge st-shell-badge--muted">safe tools</span>
+                  </div>
+                  <label className="st-field">
+                    <span>System note</span>
+                    <textarea
+                      className="st-shell-textarea"
+                      disabled={!legacyBridge || Boolean(busyAction)}
+                      placeholder="Add a generic system note into the current chat."
+                      value={systemNoteDraft}
+                      onChange={(event) => setSystemNoteDraft(event.target.value)}
+                    />
+                  </label>
+                  <nav className="st-actions">
+                    <button
+                      className="st-button"
+                      disabled={!legacyBridge || !systemNoteDraft.trim() || Boolean(busyAction)}
+                      type="button"
+                      onClick={() => void handleSystemNote()}
+                    >
+                      Add system note
+                    </button>
+                    <button
+                      className="st-button st-button--ghost"
+                      disabled={!legacyBridge || messages.length === 0 || Boolean(busyAction)}
+                      type="button"
+                      onClick={() => void handleDeleteLastMessage()}
+                    >
+                      Delete last message
+                    </button>
+                  </nav>
+                </section>
+
+                <section className="st-shell-card st-shell-card--compact">
+                  <div className="st-shell-card__header">
+                    <h3>Chat metadata</h3>
+                    <span className="st-shell-badge st-shell-badge--muted">
+                      {snapshot.currentChatId ? (metadataIsDirty ? 'modified' : 'synced') : 'no chat'}
+                    </span>
+                  </div>
+                  <label className="st-field">
+                    <span>Scenario override</span>
+                    <textarea
+                      className="st-shell-textarea"
+                      disabled={!snapshot.currentChatId || Boolean(busyAction)}
+                      placeholder="Override the active chat scenario for the current session."
+                      value={chatScenarioDraft}
+                      onChange={(event) => setChatScenarioDraft(event.target.value)}
+                    />
+                  </label>
+                  <nav className="st-actions">
+                    <button
+                      className="st-button"
+                      disabled={!snapshot.currentChatId || !metadataIsDirty || Boolean(busyAction)}
+                      type="button"
+                      onClick={() => void handleMetadataSave()}
+                    >
+                      Save metadata
+                    </button>
+                    <button
+                      className="st-button st-button--ghost"
+                      disabled={!snapshot.currentChatId || Boolean(busyAction)}
+                      type="button"
+                      onClick={() => setChatScenarioDraft(legacyBridge?.chat.getMetadata().scenario ?? '')}
+                    >
+                      Reset metadata
+                    </button>
+                  </nav>
+                </section>
+              </aside>
+            </div>
+          </section>
+
+          <details className="st-shell-legacy-panel">
+            <summary>Legacy runtime fallback</summary>
+            <iframe
+              className="st-shell-frame"
+              src={legacySource}
+              title="SillyTavern Legacy Runtime"
+              onLoad={(event) => {
+                const iframeWindow = event.currentTarget.contentWindow;
+                if (!iframeWindow) {
+                  setLoadError('Missing iframe window');
+                  setLegacyBridge(null);
+                  return;
+                }
+
+                const bridge = createLegacyBridge(iframeWindow);
+                if (!bridge) {
+                  setLoadError('SillyTavern context unavailable');
+                  setLegacyBridge(null);
+                  return;
+                }
+
+                setLoadError('');
                 setActionError('');
                 setLegacyBridge(bridge);
                 refreshRuntime(bridge);
               }}
             />
-          </section>
+          </details>
+        </section>
       </section>
     </main>
   );

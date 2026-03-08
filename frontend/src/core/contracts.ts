@@ -79,6 +79,10 @@ export interface CharacterProfile {
   talkativeness: number;
 }
 
+export interface ChatMetadata {
+  scenario: string;
+}
+
 export interface CoreEventBus {
   on(eventName: string, listener: EventListener): () => void;
   once(eventName: string, listener: EventListener): () => void;
@@ -95,6 +99,8 @@ export interface SettingsService {
 
 export interface ChatService {
   getCurrentChatId(): string | undefined;
+  getMetadata(): ChatMetadata;
+  saveMetadata(next: ChatMetadata): Promise<void>;
 }
 
 export interface SessionService {

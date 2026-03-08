@@ -1852,3 +1852,22 @@
 ### Next
 1. Move next into either a fuller composer/generation surface or a more focused chat metadata/editor panel.
 2. Keep using stable runtime actions and backend contracts rather than trying to mirror legacy form DOM state.
+
+## 2026-03-09 - React Migration Wave 7 (Shell Chat Metadata Editor)
+
+### Completed
+- Extended the typed chat bridge with current chat metadata read/write support.
+- Added a React-owned chat metadata panel for editing the active chat scenario override and saving it through the existing runtime metadata path.
+- Expanded bridge tests to cover metadata mapping and save delegation.
+
+### Measurable Impact
+- React now owns another persistent authoring surface tied directly to the active chat session.
+- The shell includes both character-level and chat-level editing workflows, not only global settings and operational controls.
+
+### Insights
+- Chat metadata is a good migration seam because it already has a stable runtime API and does not require partial message-list replacement.
+- Scenario override editing gives React a useful per-chat authoring surface without introducing prompt assembly duplication into the new UI.
+
+### Next
+1. Move next into a fuller composer/generation surface or a more focused message-level tool panel.
+2. Keep preferring stable runtime metadata/action APIs over low-level DOM replication.

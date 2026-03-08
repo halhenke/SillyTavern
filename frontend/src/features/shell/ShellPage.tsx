@@ -128,6 +128,7 @@ export function ShellPage() {
   const [catalog, setCatalog] = useState<SessionCatalog>(DEFAULT_CATALOG);
   const [characterProfile, setCharacterProfile] = useState<CharacterProfile | null>(null);
   const [characterDraft, setCharacterDraft] = useState<CharacterProfile | null>(null);
+  const [chatScenarioDraft, setChatScenarioDraft] = useState('');
   const [sessionQuery, setSessionQuery] = useState('');
   const [chatNameDraft, setChatNameDraft] = useState('');
   const [quietPrompt, setQuietPrompt] = useState('');
@@ -212,6 +213,15 @@ export function ShellPage() {
   useEffect(() => {
     setChatNameDraft(snapshot.currentChatId ?? '');
   }, [snapshot.currentChatId]);
+
+  useEffect(() => {
+    if (!legacyBridge) {
+      setChatScenarioDraft('');
+      return;
+    }
+
+    setChatScenarioDraft(legacyBridge.chat.getMetadata().scenario);
+  }, [legacyBridge, snapshot.currentChatId]);
 
   useEffect(() => {
     let mounted = true;
@@ -371,6 +381,14 @@ export function ShellPage() {
     return JSON.stringify(characterProfile) !== JSON.stringify(characterDraft);
   }, [characterDraft, characterProfile]);
 
+  const metadataIsDirty = useMemo(() => {
+    if (!legacyBridge) {
+      return false;
+    }
+
+    return chatScenarioDraft !== legacyBridge.chat.getMetadata().scenario;
+  }, [chatScenarioDraft, legacyBridge, snapshot.currentChatId]);
+
   async function handleCharacterSave() {
     const bridge = legacyBridge;
     if (!bridge || !characterDraft) {
@@ -395,6 +413,25 @@ export function ShellPage() {
 
   function updateCharacterDraft(next: Partial<CharacterProfile>) {
     setCharacterDraft((current) => (current ? { ...current, ...next } : current));
+  }
+
+  async function handleMetadataSave() {
+    const bridge = legacyBridge;
+    if (!bridge) {
+      return;
+    }
+
+    setActionError('');
+    setBusyAction('metadata-save');
+
+    try {
+      await bridge.chat.saveMetadata({ scenario: chatScenarioDraft });
+      refreshRuntime(bridge);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not save chat metadata');
+    } finally {
+      setBusyAction('');
+    }
   }
 
   return (
@@ -659,6 +696,43 @@ export function ShellPage() {
               </a>
             </nav>
             {actionError ? <p className="st-error">{actionError}</p> : null}
+          </section>
+
+          <section className="st-shell-card">
+            <div className="st-shell-card__header">
+              <h2>Chat metadata</h2>
+              <span className="st-shell-badge st-shell-badge--muted">
+                {snapshot.currentChatId ? (metadataIsDirty ? 'modified' : 'synced') : 'no chat'}
+              </span>
+            </div>
+            <label className="st-field">
+              <span>Scenario override</span>
+              <textarea
+                className="st-shell-textarea"
+                disabled={!snapshot.currentChatId || Boolean(busyAction)}
+                placeholder="Override the active chat scenario for the current session."
+                value={chatScenarioDraft}
+                onChange={(event) => setChatScenarioDraft(event.target.value)}
+              />
+            </label>
+            <nav className="st-actions">
+              <button
+                className="st-button"
+                disabled={!snapshot.currentChatId || !metadataIsDirty || Boolean(busyAction)}
+                type="button"
+                onClick={() => void handleMetadataSave()}
+              >
+                Save metadata
+              </button>
+              <button
+                className="st-button st-button--ghost"
+                disabled={!snapshot.currentChatId || Boolean(busyAction)}
+                type="button"
+                onClick={() => setChatScenarioDraft(legacyBridge?.chat.getMetadata().scenario ?? '')}
+              >
+                Reset metadata
+              </button>
+            </nav>
           </section>
 
           <section className="st-shell-card">

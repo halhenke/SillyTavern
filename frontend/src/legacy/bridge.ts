@@ -1,6 +1,7 @@
 import {
   CharacterProfile,
   CharacterService,
+  ChatMetadata,
   ChatService,
   ExtensionHostService,
   GenerationService,
@@ -87,6 +88,7 @@ type LegacyContext = {
   characterId?: number;
   characters?: LegacyCharacter[];
   clearChat?: () => Promise<void>;
+  chatMetadata?: Record<string, unknown>;
   eventSource?: {
     on(eventName: string, listener: (...args: unknown[]) => void): void;
     once(eventName: string, listener: (...args: unknown[]) => void): void;
@@ -114,6 +116,7 @@ type LegacyContext = {
   powerUserSettings?: LegacyPowerUserSettings;
   reloadCurrentChat?: () => Promise<void>;
   renameChat?: (oldFileName: string, newName: string) => Promise<void>;
+  saveMetadata?: () => Promise<void>;
   saveSettingsDebounced?: () => void;
   saveSettings?: () => Promise<void>;
   getCurrentChatId?: () => string;
@@ -132,6 +135,7 @@ type LegacyContext = {
   selectCharacterById?: (id: number, options?: { switchMenu?: boolean }) => Promise<void>;
   stopGeneration?: () => void;
   unshallowCharacter?: (id: number) => Promise<void>;
+  updateChatMetadata?: (metadata: Record<string, unknown>, reset?: boolean) => void;
 };
 
 type LegacySillyTavern = {
@@ -310,6 +314,12 @@ function getSelectedCharacterProfile(context: LegacyContext): CharacterProfile |
   };
 }
 
+function getChatMetadata(context: LegacyContext): ChatMetadata {
+  return {
+    scenario: typeof context.chatMetadata?.scenario === 'string' ? context.chatMetadata.scenario : '',
+  };
+}
+
 function getSillyTavern(windowObject: Window): LegacySillyTavern | undefined {
   const source = windowObject as Window & { SillyTavern?: LegacySillyTavern };
   return source.SillyTavern;
@@ -345,6 +355,15 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
 
   const chat: ChatService = {
     getCurrentChatId: () => context.getCurrentChatId?.(),
+    getMetadata: () => getChatMetadata(context),
+    saveMetadata: async (next) => {
+      const mergedMetadata = {
+        ...(context.chatMetadata ?? {}),
+        scenario: next.scenario,
+      };
+      context.updateChatMetadata?.(mergedMetadata, true);
+      await context.saveMetadata?.();
+    },
   };
 
   const session: SessionService = {

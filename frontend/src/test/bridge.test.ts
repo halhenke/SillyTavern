@@ -159,7 +159,9 @@ describe('createLegacyBridge', () => {
     const selectCharacterById = vi.fn();
     const openGroupChat = vi.fn();
     const reloadCurrentChat = vi.fn();
+    const saveMetadata = vi.fn();
     const unshallowCharacter = vi.fn();
+    const updateChatMetadata = vi.fn();
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       text: async () => '',
@@ -206,6 +208,9 @@ describe('createLegacyBridge', () => {
               tags: ['mage', 'city'],
             },
           ],
+          chatMetadata: {
+            scenario: 'Current metadata scenario',
+          },
           clearChat,
           eventSource: {
             emit: vi.fn(),
@@ -227,9 +232,11 @@ describe('createLegacyBridge', () => {
           openGroupChat,
           reloadCurrentChat,
           renameChat,
+          saveMetadata,
           getCurrentChatId: () => 'mage-chat',
           selectCharacterById,
           unshallowCharacter,
+          updateChatMetadata,
         }),
       },
     } as unknown as Window;
@@ -276,6 +283,8 @@ describe('createLegacyBridge', () => {
     await bridge?.session.reloadCurrentChat();
     await bridge?.session.clearCurrentChat();
     await bridge?.session.renameCurrentChat('renamed-chat');
+    expect(bridge?.chat.getMetadata()).toEqual({ scenario: 'Current metadata scenario' });
+    await bridge?.chat.saveMetadata({ scenario: 'Updated metadata scenario' });
     await expect(
       bridge?.generation.generateQuietPrompt({
         prompt: 'Summarize the scene',
@@ -328,6 +337,8 @@ describe('createLegacyBridge', () => {
     expect(reloadCurrentChat).toHaveBeenCalledTimes(1);
     expect(clearChat).toHaveBeenCalledTimes(1);
     expect(renameChat).toHaveBeenCalledWith('mage-chat', 'renamed-chat');
+    expect(updateChatMetadata).toHaveBeenCalledWith({ scenario: 'Updated metadata scenario' }, true);
+    expect(saveMetadata).toHaveBeenCalledTimes(1);
     expect(unshallowCharacter).toHaveBeenCalledWith(1);
     expect(generateQuietPrompt).toHaveBeenCalledWith({
       quietPrompt: 'Summarize the scene',

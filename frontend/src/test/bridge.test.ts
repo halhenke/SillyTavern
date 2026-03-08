@@ -162,6 +162,8 @@ describe('createLegacyBridge', () => {
     const saveChat = vi.fn();
     const sendSystemMessage = vi.fn();
     const sendMessageAsUser = vi.fn();
+    const swipeLeft = vi.fn();
+    const swipeRight = vi.fn();
     const substituteParams = vi.fn((text: string) => `[substituted] ${text}`);
     const selectCharacterById = vi.fn();
     const openGroupChat = vi.fn();
@@ -233,6 +235,8 @@ describe('createLegacyBridge', () => {
               mes: 'Assistant line',
               name: 'Mage',
               send_date: '2025-01-03',
+              swipe_id: 1,
+              swipes: ['Assistant line v1', 'Assistant line'],
             },
           ],
           clearChat,
@@ -262,6 +266,10 @@ describe('createLegacyBridge', () => {
           saveMetadata,
           sendMessageAsUser,
           sendSystemMessage,
+          swipe: {
+            left: swipeLeft,
+            right: swipeRight,
+          },
           substituteParams,
           getCurrentChatId: () => 'mage-chat',
           selectCharacterById,
@@ -329,6 +337,8 @@ describe('createLegacyBridge', () => {
         isSystem: false,
         isUser: false,
         name: 'Mage',
+        swipeCount: 2,
+        swipeIndex: 1,
         text: 'Assistant line',
         timestamp: '2025-01-03',
         tokenCount: 42,
@@ -338,6 +348,10 @@ describe('createLegacyBridge', () => {
     await bridge?.chat.saveMetadata({ scenario: 'Updated metadata scenario' });
     await bridge?.chat.addSystemMessage('System memo');
     await bridge?.chat.deleteLastMessage();
+    await bridge?.chat.duplicateMessage(1);
+    await bridge?.chat.deleteMessage(0);
+    await bridge?.chat.swipeLastMessage('left');
+    await bridge?.chat.swipeLastMessage('right');
     await bridge?.chat.updateMessage(1, 'Edited assistant line');
     await bridge?.composer.sendUserMessage('Hello from React');
     await bridge?.composer.sendAndGenerate('Send and go');
@@ -391,21 +405,24 @@ describe('createLegacyBridge', () => {
 
     expect(selectCharacterById).toHaveBeenCalledWith(4, { switchMenu: false });
     expect(openGroupChat).toHaveBeenCalledWith('g-1', 'g-1-chat');
-    expect(reloadCurrentChat).toHaveBeenCalledTimes(1);
     expect(clearChat).toHaveBeenCalledTimes(1);
     expect(renameChat).toHaveBeenCalledWith('mage-chat', 'renamed-chat');
     expect(updateChatMetadata).toHaveBeenCalledWith({ scenario: 'Updated metadata scenario' }, true);
     expect(saveMetadata).toHaveBeenCalledTimes(1);
     expect(sendSystemMessage).toHaveBeenCalledWith('generic', 'System memo');
     expect(deleteLastMessage).toHaveBeenCalledTimes(1);
+    expect(saveChat).toHaveBeenCalledTimes(3);
+    expect(reloadCurrentChat).toHaveBeenCalledTimes(3);
+    expect(swipeLeft).toHaveBeenCalledTimes(1);
+    expect(swipeRight).toHaveBeenCalledTimes(1);
     expect(updateMessageBlock).toHaveBeenCalledWith(
       1,
       expect.objectContaining({ mes: 'Edited assistant line' }),
       { rerenderMessage: true },
     );
+    expect(eventEmit).toHaveBeenCalledWith('message_deleted', 2);
     expect(eventEmit).toHaveBeenCalledWith('message_edited', 1);
     expect(eventEmit).toHaveBeenCalledWith('message_updated', 1);
-    expect(saveChat).toHaveBeenCalledTimes(1);
     expect(sendMessageAsUser).toHaveBeenNthCalledWith(1, 'Hello from React', '');
     expect(sendMessageAsUser).toHaveBeenNthCalledWith(2, 'Send and go', '');
     expect(generate).toHaveBeenNthCalledWith(1, 'normal');

@@ -137,6 +137,10 @@ type LegacyContext = {
   saveMetadata?: () => Promise<void>;
   saveSettingsDebounced?: () => void;
   saveSettings?: () => Promise<void>;
+  swipe?: {
+    left?: () => unknown;
+    right?: () => unknown;
+  };
   getCurrentChatId?: () => string;
   getCharacters?: () => Promise<void>;
   getCharacterCardFields?: (options?: { chid?: number | null }) => {
@@ -346,10 +350,21 @@ function getChatMessages(context: LegacyContext): ChatMessageSummary[] {
     isSystem: Boolean(message.is_system),
     isUser: Boolean(message.is_user),
     name: message.name ?? (message.is_user ? context.name1 ?? 'User' : context.name2 ?? 'Assistant'),
+    swipeCount: Array.isArray((message as { swipes?: unknown[] }).swipes) ? (message as { swipes: unknown[] }).swipes.length : undefined,
+    swipeIndex: typeof (message as { swipe_id?: unknown }).swipe_id === 'number' ? (message as { swipe_id: number }).swipe_id : undefined,
     text: message.mes ?? '',
     timestamp: message.send_date,
     tokenCount: message.extra?.token_count,
   }));
+}
+
+function getChatMessage(context: LegacyContext, id: number) {
+  const message = context.chat?.[id];
+  if (!message) {
+    throw new Error('Message not found');
+  }
+
+  return message;
 }
 
 function getSillyTavern(windowObject: Window): LegacySillyTavern | undefined {
@@ -394,17 +409,45 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
 
       context.sendSystemMessage?.('generic', trimmedText);
     },
+    deleteMessage: async (id) => {
+      getChatMessage(context, id);
+      context.chat?.splice(id, 1);
+      if (context.chatMetadata) {
+        context.chatMetadata.tainted = true;
+      }
+
+      await context.eventSource?.emit?.(context.eventTypes?.MESSAGE_DELETED ?? 'message_deleted', context.chat?.length ?? 0);
+      await context.saveChat?.();
+      await context.reloadCurrentChat?.();
+    },
     deleteLastMessage: async () => {
       await context.deleteLastMessage?.();
+    },
+    duplicateMessage: async (id) => {
+      const message = structuredClone(getChatMessage(context, id)) as NonNullable<LegacyContext['chat']>[number];
+      message.send_date = String(Date.now());
+
+      context.chat?.splice(id + 1, 0, message);
+      if (context.chatMetadata) {
+        context.chatMetadata.tainted = true;
+      }
+
+      await context.saveChat?.();
+      await context.reloadCurrentChat?.();
     },
     getCurrentChatId: () => context.getCurrentChatId?.(),
     getMessages: () => getChatMessages(context),
     getMetadata: () => getChatMetadata(context),
-    updateMessage: async (id, text) => {
-      const message = context.chat?.[id];
-      if (!message) {
-        throw new Error('Message not found');
+    swipeLastMessage: async (direction) => {
+      const action = direction === 'left' ? context.swipe?.left : context.swipe?.right;
+      if (!action) {
+        throw new Error('Swipe controls unavailable');
       }
+
+      await Promise.resolve(action());
+    },
+    updateMessage: async (id, text) => {
+      const message = getChatMessage(context, id);
 
       const nextText = id === 0 ? (context.substituteParams?.(text) ?? text) : text;
       message.mes = nextText;

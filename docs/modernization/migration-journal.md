@@ -1970,3 +1970,33 @@
 ### Next
 1. Move next into assistant-message actions or a safer subset of message duplication/reordering if the runtime seam is clean enough.
 2. Continue preferring event-backed chat mutations over DOM-bound legacy handlers.
+
+## 2026-03-09 - React Migration Wave 12 (Hidden Bridge Runtime and Message Actions)
+
+### Completed
+- Split the embedded legacy runtime into:
+  - a hidden always-mounted bridge iframe used only for React state sync and runtime actions
+  - an on-demand visible fallback iframe that only mounts when the fallback panel is opened
+- Extended the typed chat bridge with:
+  - per-message delete
+  - per-message duplicate
+  - last-message swipe controls
+  - swipe metadata in message summaries
+- Expanded the React message editor surface with:
+  - duplicate and delete actions for the selected message
+  - previous/next swipe controls for the active final assistant turn
+  - swipe status display in the transcript and selected-message panel
+- Expanded bridge tests to cover the new message mutation and swipe actions.
+
+### Measurable Impact
+- The visible legacy iframe is no longer required just to keep the React surface connected; it is now a true fallback panel.
+- More common message-management actions are now React-owned, which further reduces the need to open the legacy UI during normal chat use.
+
+### Insights
+- Separating the hidden bridge runtime from the visible fallback iframe is a better migration step than trying to remove the iframe entirely too early; it preserves extension/runtime behavior while letting React become the only surface the user normally interacts with.
+- Message delete and duplicate are acceptable bridge seams when followed by save-plus-reload, because that keeps the hidden legacy runtime consistent without reintroducing DOM-coupled helpers into React.
+- Swipes are still not a fully general message-level bridge seam; exposing them only for the final assistant turn keeps the contract aligned with how the legacy runtime actually behaves.
+
+### Next
+1. Keep shrinking the visible fallback by moving another runtime-only message or chat action into the bridge instead of adding more shell-only controls.
+2. Start targeting a deeper panel replacement where the visible fallback is only needed for niche tooling, not routine chat management.

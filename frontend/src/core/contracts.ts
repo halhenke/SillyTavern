@@ -90,6 +90,8 @@ export interface ChatMessageSummary {
   isSystem: boolean;
   isUser: boolean;
   name: string;
+  swipeCount?: number;
+  swipeIndex?: number;
   text: string;
   timestamp?: string;
   tokenCount?: number;
@@ -111,10 +113,13 @@ export interface SettingsService {
 
 export interface ChatService {
   addSystemMessage(text: string): Promise<void>;
+  deleteMessage(id: number): Promise<void>;
   deleteLastMessage(): Promise<void>;
+  duplicateMessage(id: number): Promise<void>;
   getCurrentChatId(): string | undefined;
   getMessages(): ChatMessageSummary[];
   getMetadata(): ChatMetadata;
+  swipeLastMessage(direction: 'left' | 'right'): Promise<void>;
   updateMessage(id: number, text: string): Promise<void>;
   saveMetadata(next: ChatMetadata): Promise<void>;
 }

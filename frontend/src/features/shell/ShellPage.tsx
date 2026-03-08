@@ -147,6 +147,7 @@ export function ShellPage() {
   const [actionError, setActionError] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
   const [busyAction, setBusyAction] = useState('');
+  const [showLegacyFallback, setShowLegacyFallback] = useState(false);
   const legacySource = useMemo(() => `/legacy${window.location.search}`, []);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
 
@@ -439,6 +440,14 @@ export function ShellPage() {
     () => Boolean(selectedMessage) && messageEditDraft !== (selectedMessage?.text ?? ''),
     [messageEditDraft, selectedMessage],
   );
+  const selectedMessageIsLast = useMemo(
+    () => Boolean(selectedMessage) && selectedMessage?.id === messages[messages.length - 1]?.id,
+    [messages, selectedMessage],
+  );
+  const selectedMessageCanSwipe = useMemo(
+    () => Boolean(selectedMessage) && !selectedMessage?.isUser && !selectedMessage?.isSystem && selectedMessageIsLast,
+    [selectedMessage, selectedMessageIsLast],
+  );
 
   async function handleCharacterSave() {
     const bridge = legacyBridge;
@@ -534,6 +543,45 @@ export function ShellPage() {
     }
   }
 
+  async function handleMessageDuplicate() {
+    const bridge = legacyBridge;
+    if (!bridge || selectedMessageId === null) {
+      return;
+    }
+
+    setActionError('');
+    setBusyAction('message-duplicate');
+
+    try {
+      await bridge.chat.duplicateMessage(selectedMessageId);
+      setSelectedMessageId(selectedMessageId + 1);
+      refreshRuntime(bridge);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not duplicate message');
+    } finally {
+      setBusyAction('');
+    }
+  }
+
+  async function handleMessageDelete() {
+    const bridge = legacyBridge;
+    if (!bridge || selectedMessageId === null) {
+      return;
+    }
+
+    setActionError('');
+    setBusyAction('message-delete-selected');
+
+    try {
+      await bridge.chat.deleteMessage(selectedMessageId);
+      refreshRuntime(bridge);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not delete message');
+    } finally {
+      setBusyAction('');
+    }
+  }
+
   async function handleMessageEditSave() {
     const bridge = legacyBridge;
     if (!bridge || selectedMessageId === null) {
@@ -548,6 +596,25 @@ export function ShellPage() {
       refreshRuntime(bridge);
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Could not save message');
+    } finally {
+      setBusyAction('');
+    }
+  }
+
+  async function handleSwipe(direction: 'left' | 'right') {
+    const bridge = legacyBridge;
+    if (!bridge) {
+      return;
+    }
+
+    setActionError('');
+    setBusyAction(`message-swipe-${direction}`);
+
+    try {
+      await bridge.chat.swipeLastMessage(direction);
+      refreshRuntime(bridge);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not change swipe');
     } finally {
       setBusyAction('');
     }
@@ -575,6 +642,32 @@ export function ShellPage() {
 
   return (
     <main className="st-screen st-shell">
+      <iframe
+        className="st-shell-bridge-frame"
+        src={legacySource}
+        title="SillyTavern Legacy Bridge Runtime"
+        onLoad={(event) => {
+          const iframeWindow = event.currentTarget.contentWindow;
+          if (!iframeWindow) {
+            setLoadError('Missing iframe window');
+            setLegacyBridge(null);
+            return;
+          }
+
+          const bridge = createLegacyBridge(iframeWindow);
+          if (!bridge) {
+            setLoadError('SillyTavern context unavailable');
+            setLegacyBridge(null);
+            return;
+          }
+
+          setLoadError('');
+          setActionError('');
+          setLegacyBridge(bridge);
+          refreshRuntime(bridge);
+        }}
+      />
+
       <header className="st-shell-header">
         <div>
           <p className="st-shell-eyebrow">React Shell</p>
@@ -1153,6 +1246,7 @@ export function ShellPage() {
                           <strong>{message.name}</strong>
                           <small>
                             #{message.id}
+                            {message.swipeCount ? ` · swipe ${(message.swipeIndex ?? 0) + 1}/${message.swipeCount}` : ''}
                             {message.tokenCount !== undefined ? ` · ${message.tokenCount}t` : ''}
                             {message.timestamp ? ` · ${message.timestamp}` : ''}
                           </small>
@@ -1251,6 +1345,7 @@ export function ShellPage() {
                         </span>
                         <strong>{selectedMessage.name}</strong>
                         <small>
+                          {selectedMessage.swipeCount ? `swipe ${(selectedMessage.swipeIndex ?? 0) + 1}/${selectedMessage.swipeCount} · ` : ''}
                           {selectedMessage.tokenCount !== undefined ? `${selectedMessage.tokenCount}t · ` : ''}
                           {selectedMessage.timestamp ?? 'no timestamp'}
                         </small>
@@ -1277,11 +1372,46 @@ export function ShellPage() {
                           className="st-button st-button--ghost"
                           disabled={!selectedMessage || Boolean(busyAction)}
                           type="button"
+                          onClick={() => void handleMessageDuplicate()}
+                        >
+                          Duplicate
+                        </button>
+                        <button
+                          className="st-button st-button--ghost"
+                          disabled={!selectedMessage || Boolean(busyAction)}
+                          type="button"
+                          onClick={() => void handleMessageDelete()}
+                        >
+                          Delete
+                        </button>
+                        <button
+                          className="st-button st-button--ghost"
+                          disabled={!selectedMessage || Boolean(busyAction)}
+                          type="button"
                           onClick={() => setMessageEditDraft(selectedMessage.text)}
                         >
                           Reset text
                         </button>
                       </nav>
+                      <nav className="st-actions">
+                        <button
+                          className="st-button st-button--ghost"
+                          disabled={!legacyBridge || !selectedMessageCanSwipe || Boolean(busyAction)}
+                          type="button"
+                          onClick={() => void handleSwipe('left')}
+                        >
+                          Previous swipe
+                        </button>
+                        <button
+                          className="st-button st-button--ghost"
+                          disabled={!legacyBridge || !selectedMessageCanSwipe || Boolean(busyAction)}
+                          type="button"
+                          onClick={() => void handleSwipe('right')}
+                        >
+                          Next swipe
+                        </button>
+                      </nav>
+                      <p className="st-note">Swipe controls are only available for the active final assistant turn.</p>
                     </>
                   ) : (
                     <p className="st-note">Select a message in the transcript to edit its text.</p>
@@ -1363,33 +1493,19 @@ export function ShellPage() {
             </div>
           </section>
 
-          <details className="st-shell-legacy-panel">
+          <details className="st-shell-legacy-panel" onToggle={(event) => setShowLegacyFallback(event.currentTarget.open)}>
             <summary>Legacy runtime fallback</summary>
-            <iframe
-              className="st-shell-frame"
-              src={legacySource}
-              title="SillyTavern Legacy Runtime"
-              onLoad={(event) => {
-                const iframeWindow = event.currentTarget.contentWindow;
-                if (!iframeWindow) {
-                  setLoadError('Missing iframe window');
-                  setLegacyBridge(null);
-                  return;
-                }
-
-                const bridge = createLegacyBridge(iframeWindow);
-                if (!bridge) {
-                  setLoadError('SillyTavern context unavailable');
-                  setLegacyBridge(null);
-                  return;
-                }
-
-                setLoadError('');
-                setActionError('');
-                setLegacyBridge(bridge);
-                refreshRuntime(bridge);
-              }}
-            />
+            {showLegacyFallback ? (
+              <iframe
+                className="st-shell-frame"
+                src={legacySource}
+                title="SillyTavern Legacy Runtime"
+              />
+            ) : (
+              <div className="st-shell-legacy-placeholder">
+                <p className="st-note">Legacy UI is unloaded until you open it. The hidden bridge runtime stays mounted for React state sync.</p>
+              </div>
+            )}
           </details>
         </section>
       </section>

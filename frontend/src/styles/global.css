@@ -152,6 +152,15 @@ a {
   gap: 16px;
 }
 
+.st-shell-bridge-frame {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  border: 0;
+}
+
 .st-shell-header {
   max-width: 100%;
   border: 1px solid var(--st-panel-border);
@@ -654,6 +663,10 @@ a {
 
 .st-shell-legacy-panel[open] summary {
   border-bottom: 1px solid var(--st-panel-border);
+}
+
+.st-shell-legacy-placeholder {
+  padding: 16px;
 }
 
 @media (max-width: 800px) {

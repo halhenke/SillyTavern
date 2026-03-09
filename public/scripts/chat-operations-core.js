@@ -683,7 +683,7 @@ async function printMessagesInternal() {
     }
 }
 
-function getFirstMessage(characterName) {
+export function getFirstMessage(characterName) {
     const firstMes = characters[this_chid].first_mes || '';
     const alternateGreetings = characters[this_chid]?.data?.alternate_greetings;
 

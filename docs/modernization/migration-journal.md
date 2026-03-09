@@ -2100,3 +2100,30 @@
 ### Next
 1. Shift from authoring panels to a deeper runtime/editor surface, likely prompt or world-info management, instead of adding more shell-adjacent controls.
 2. Reassess whether the visible fallback iframe should stay exposed by default now that both character and group authoring have React-owned paths.
+
+## 2026-03-10 - React Migration Wave 17 (World Info Panel)
+
+### Completed
+- Added a typed world-info service to the modernization bridge:
+  - [frontend/src/core/contracts.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/core/contracts.ts)
+  - [frontend/src/legacy/bridge.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/legacy/bridge.ts)
+- Exposed world-info catalog and selection helpers through [public/scripts/st-context.js](/Users/hal/.codex/worktrees/dc18/SillyTavern/public/scripts/st-context.js).
+- Added a React-owned `World info` panel in [frontend/src/features/shell/ShellPage.tsx](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/features/shell/ShellPage.tsx) with:
+  - lorebook creation
+  - lorebook list and global-selection toggles
+  - raw JSON loading/editing/saving
+  - lorebook deletion
+- Added the small supporting inline-toggle style in [frontend/src/styles/global.css](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/styles/global.css).
+- Expanded bridge coverage in [frontend/src/test/bridge.test.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/test/bridge.test.ts) to cover world-info catalog, load, create, save, delete, and selection behavior.
+
+### Measurable Impact
+- Common lorebook workflows now have a React-owned path without opening the legacy world-info editor.
+- The visible fallback is needed less for configuration and authoring flows; the remaining heavy legacy dependence is now more concentrated in specialized editor UIs.
+
+### Insights
+- A raw-JSON bridge is the right first React world-info surface because it provides immediate ownership of the persistence workflow without recreating the full entry-level editor in one pass.
+- World-info selection needs explicit getters/setters in the context bridge; returning a one-time snapshot value would not stay coherent as lorebooks change.
+
+### Next
+1. Move into another deep runtime/editor surface, likely prompt management or a more structured world-info entry editor, instead of widening the shell with unrelated controls.
+2. Reevaluate whether the visible fallback iframe should be demoted further now that character, group, and world-info authoring all have React-owned paths.

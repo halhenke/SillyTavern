@@ -22,6 +22,9 @@ import {
   ShellPreferences,
   ShellSnapshot,
   SettingsService,
+  WorldInfoCatalog,
+  WorldInfoDocument,
+  WorldInfoService,
 } from '../core/contracts';
 import { createCoreEventBus } from '../core/eventBus';
 
@@ -127,6 +130,8 @@ type LegacyContext = {
     emit?(eventName: string, ...payload: unknown[]): Promise<void> | void;
   };
   eventTypes?: Record<string, string>;
+  createNewWorldInfo?: (name: string, options?: { interactive?: boolean }) => Promise<boolean>;
+  deleteWorldInfo?: (name: string) => Promise<boolean>;
   generateQuietPrompt?: (options?: {
     quietPrompt?: string;
     quietToLoud?: boolean;
@@ -136,7 +141,9 @@ type LegacyContext = {
   }) => Promise<string>;
   generate?: (type: ComposerGenerationMode, options?: Record<string, unknown>, dryRun?: boolean) => Promise<unknown>;
   groupId?: string;
+  getSelectedWorldInfo?: () => string[];
   getThumbnailUrl?: (type: string, file: string) => string;
+  getWorldNames?: () => string[];
   getRequestHeaders?: () => HeadersInit;
   groups?: LegacyGroup[];
   mainApi?: string;
@@ -155,6 +162,8 @@ type LegacyContext = {
   saveMetadata?: () => Promise<void>;
   saveSettingsDebounced?: () => void;
   saveSettings?: () => Promise<void>;
+  saveWorldInfo?: (name: string, data: unknown, immediately?: boolean) => Promise<void>;
+  setSelectedWorldInfo?: (names: string[]) => Promise<void> | void;
   swipe?: {
     left?: () => unknown;
     right?: () => unknown;
@@ -172,6 +181,7 @@ type LegacyContext = {
     system?: string;
     version?: string;
   };
+  loadWorldInfo?: (name: string) => Promise<unknown>;
   createCharacter?: (profile: CharacterCreateDraft) => Promise<void>;
   defaultAvatar?: string;
   humanizedDateTime?: () => string;
@@ -855,6 +865,64 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
     },
   };
 
+  const worldInfo: WorldInfoService = {
+    createBook: async (name) => {
+      const trimmedName = name.trim();
+      if (!trimmedName) {
+        throw new Error('World info name is required');
+      }
+
+      const created = await context.createNewWorldInfo?.(trimmedName, { interactive: false });
+      if (created === false) {
+        throw new Error('World info creation failed');
+      }
+    },
+    deleteBook: async (name) => {
+      const trimmedName = name.trim();
+      if (!trimmedName) {
+        throw new Error('World info name is required');
+      }
+
+      const deleted = await context.deleteWorldInfo?.(trimmedName);
+      if (deleted === false) {
+        throw new Error('World info deletion failed');
+      }
+    },
+    listBooks: (): WorldInfoCatalog => ({
+      names: context.getWorldNames?.() ?? [],
+      selectedNames: context.getSelectedWorldInfo?.() ?? [],
+    }),
+    loadBook: async (name) => {
+      const trimmedName = name.trim();
+      if (!trimmedName) {
+        return null;
+      }
+
+      const data = await context.loadWorldInfo?.(trimmedName);
+      if (data == null) {
+        return null;
+      }
+
+      const document: WorldInfoDocument = {
+        data,
+        name: trimmedName,
+      };
+
+      return document;
+    },
+    saveBook: async (name, data) => {
+      const trimmedName = name.trim();
+      if (!trimmedName) {
+        throw new Error('World info name is required');
+      }
+
+      await context.saveWorldInfo?.(trimmedName, data, true);
+    },
+    setSelectedBooks: async (names) => {
+      await context.setSelectedWorldInfo?.(names);
+    },
+  };
+
   const extensions: ExtensionHostService = {
     getContext: () => context,
     getEventTypes: () => context.eventTypes ?? {},
@@ -891,6 +959,7 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
     generation,
     character,
     group,
+    worldInfo,
     composer,
     extensions,
   };

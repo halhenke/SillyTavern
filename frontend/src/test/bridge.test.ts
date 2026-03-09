@@ -173,10 +173,28 @@ describe('createLegacyBridge', () => {
     const openCharacterChat = vi.fn();
     const reloadCurrentChat = vi.fn();
     const saveMetadata = vi.fn();
+    const saveWorldInfo = vi.fn();
     const unshallowCharacter = vi.fn();
     const updateChatMetadata = vi.fn();
     const updateMessageBlock = vi.fn();
     const openGroupById = vi.fn();
+    let worldNames = ['Core Lore', 'City Lore'];
+    let selectedWorldNames = ['Core Lore'];
+    const loadWorldInfo = vi.fn(async (name: string) => ({ entries: { 0: { comment: `${name} entry` } } }));
+    const createNewWorldInfo = vi.fn(async (name: string) => {
+      if (!worldNames.includes(name)) {
+        worldNames = [...worldNames, name];
+      }
+      return true;
+    });
+    const deleteWorldInfo = vi.fn(async (name: string) => {
+      worldNames = worldNames.filter((item) => item !== name);
+      selectedWorldNames = selectedWorldNames.filter((item) => item !== name);
+      return true;
+    });
+    const setSelectedWorldInfo = vi.fn(async (names: string[]) => {
+      selectedWorldNames = [...names];
+    });
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = String(input);
       if (url === '/api/chats/search') {
@@ -273,6 +291,7 @@ describe('createLegacyBridge', () => {
           createCharacter,
           deleteLastMessage,
           deleteSwipe,
+          createNewWorldInfo,
           eventSource: {
             emit: eventEmit,
             off: vi.fn(),
@@ -285,7 +304,9 @@ describe('createLegacyBridge', () => {
           getCharacters,
           getCharacterCardFields,
           getRequestHeaders,
+          getSelectedWorldInfo: () => [...selectedWorldNames],
           getThumbnailUrl: vi.fn((type: string, file: string) => `/thumb/${type}/${file}`),
+          getWorldNames: () => [...worldNames],
           defaultAvatar: 'img/ai4.png',
           groupId: 'g-2',
           groups: [
@@ -323,6 +344,8 @@ describe('createLegacyBridge', () => {
           renameChat,
           saveChat,
           saveMetadata,
+          saveWorldInfo,
+          setSelectedWorldInfo,
           sendMessageAsUser,
           sendSystemMessage,
           swipe: {
@@ -331,11 +354,13 @@ describe('createLegacyBridge', () => {
           },
           substituteParams,
           getCurrentChatId: () => 'mage-chat',
+          loadWorldInfo,
           selectCharacterById,
           unshallowCharacter,
           updateChatMetadata,
           updateMessageBlock,
           deleteGroupChatByName,
+          deleteWorldInfo,
         }),
       },
     } as unknown as Window;
@@ -510,6 +535,18 @@ describe('createLegacyBridge', () => {
       memberAvatarFiles: ['hero.png', 'mage.png'],
       name: 'Beta Revised',
     });
+    expect(bridge?.worldInfo.listBooks()).toEqual({
+      names: ['Core Lore', 'City Lore'],
+      selectedNames: ['Core Lore'],
+    });
+    await expect(bridge?.worldInfo.loadBook('Core Lore')).resolves.toEqual({
+      data: { entries: { 0: { comment: 'Core Lore entry' } } },
+      name: 'Core Lore',
+    });
+    await bridge?.worldInfo.setSelectedBooks(['City Lore']);
+    await bridge?.worldInfo.createBook('Travel Lore');
+    await bridge?.worldInfo.saveBook('Travel Lore', { entries: { 0: { comment: 'travel' } } });
+    await bridge?.worldInfo.deleteBook('City Lore');
     await bridge?.character.saveSelectedProfile({
       avatarFile: 'mage.png',
       avatarUrl: '/thumb/avatar/mage.png',
@@ -582,6 +619,11 @@ describe('createLegacyBridge', () => {
       tags: ['new', 'test'],
       talkativeness: 0.55,
     });
+    expect(setSelectedWorldInfo).toHaveBeenCalledWith(['City Lore']);
+    expect(createNewWorldInfo).toHaveBeenCalledWith('Travel Lore', { interactive: false });
+    expect(saveWorldInfo).toHaveBeenCalledWith('Travel Lore', { entries: { 0: { comment: 'travel' } } }, true);
+    expect(deleteWorldInfo).toHaveBeenCalledWith('City Lore');
+    expect(loadWorldInfo).toHaveBeenCalledWith('Core Lore');
     expect(openGroupById).toHaveBeenCalledWith('g-3');
     expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/chats/search');

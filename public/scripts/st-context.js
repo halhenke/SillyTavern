@@ -72,7 +72,7 @@ import { ToolManager } from './tool-calling.js';
 import { accountStorage } from './util/AccountStorage.js';
 import { timestampToMoment, uuidv4 } from './utils.js';
 import { getGlobalVariable, getLocalVariable, setGlobalVariable, setLocalVariable } from './variables.js';
-import { convertCharacterBook, getWorldInfoPrompt, loadWorldInfo, reloadEditor, saveWorldInfo, updateWorldInfoList } from './world-info.js';
+import { convertCharacterBook, createNewWorldInfo, deleteWorldInfo, getWorldInfoPrompt, loadWorldInfo, reloadEditor, saveWorldInfo, selected_world_info, updateWorldInfoList, world_names } from './world-info.js';
 import { ChatCompletionService, TextCompletionService } from './custom-request.js';
 import { ConnectionManagerRequestService } from './extensions/shared.js';
 import { updateReasoningUI, parseReasoningFromString } from './reasoning.js';
@@ -144,6 +144,20 @@ async function createCharacter(profile) {
     }
 
     await createOrEditCharacter(new CustomEvent('newChat'));
+}
+
+function getWorldNames() {
+    return Array.isArray(world_names) ? [...world_names] : [];
+}
+
+function getSelectedWorldInfo() {
+    return Array.isArray(selected_world_info) ? [...selected_world_info] : [];
+}
+
+async function setSelectedWorldInfo(names) {
+    selected_world_info.splice(0, selected_world_info.length, ...names.filter(Boolean));
+    saveSettingsDebounced?.();
+    await updateWorldInfoList();
 }
 
 export function getContext() {
@@ -279,9 +293,14 @@ export function getContext() {
             },
         },
         loadWorldInfo,
+        getWorldNames,
+        getSelectedWorldInfo,
         saveWorldInfo,
+        setSelectedWorldInfo,
         reloadWorldInfoEditor: reloadEditor,
         updateWorldInfoList,
+        createNewWorldInfo,
+        deleteWorldInfo,
         convertCharacterBook,
         getWorldInfoPrompt,
         CONNECT_API_MAP,

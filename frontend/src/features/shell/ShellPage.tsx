@@ -10,6 +10,7 @@ import {
   SessionChatSummary,
   ShellPreferences,
   ShellSnapshot,
+  WorldInfoCatalog,
 } from '../../core/contracts';
 import { LegacyBridge, createLegacyBridge } from '../../legacy/bridge';
 
@@ -66,6 +67,10 @@ const DEFAULT_NEW_GROUP_DRAFT: GroupCreateDraft = {
   hideMutedSprites: false,
   memberAvatarFiles: [],
   name: '',
+};
+const DEFAULT_WORLD_INFO_CATALOG: WorldInfoCatalog = {
+  names: [],
+  selectedNames: [],
 };
 
 const PREFERENCE_CONTROLS: Array<{
@@ -169,6 +174,12 @@ export function ShellPage() {
   const [groupProfile, setGroupProfile] = useState<GroupProfile | null>(null);
   const [groupDraft, setGroupDraft] = useState<GroupProfile | null>(null);
   const [newGroupDraft, setNewGroupDraft] = useState<GroupCreateDraft>(DEFAULT_NEW_GROUP_DRAFT);
+  const [worldInfoCatalog, setWorldInfoCatalog] = useState<WorldInfoCatalog>(DEFAULT_WORLD_INFO_CATALOG);
+  const [activeWorldInfoName, setActiveWorldInfoName] = useState('');
+  const [worldInfoSource, setWorldInfoSource] = useState('');
+  const [worldInfoDraft, setWorldInfoDraft] = useState('');
+  const [worldInfoLoading, setWorldInfoLoading] = useState(false);
+  const [newWorldInfoName, setNewWorldInfoName] = useState('');
   const [messages, setMessages] = useState<ChatMessageSummary[]>(DEFAULT_MESSAGES);
   const [selectedMessageId, setSelectedMessageId] = useState<number | null>(null);
   const [messageEditDraft, setMessageEditDraft] = useState('');
@@ -225,6 +236,15 @@ export function ShellPage() {
     }
   }, []);
 
+  const refreshWorldInfoCatalog = useCallback((bridge: LegacyBridge | null) => {
+    if (!bridge) {
+      setWorldInfoCatalog(DEFAULT_WORLD_INFO_CATALOG);
+      return;
+    }
+
+    setWorldInfoCatalog(bridge.worldInfo.listBooks());
+  }, []);
+
   useEffect(() => {
     refreshRuntime(legacyBridge);
 
@@ -240,6 +260,10 @@ export function ShellPage() {
       window.clearInterval(intervalId);
     };
   }, [legacyBridge, refreshRuntime]);
+
+  useEffect(() => {
+    refreshWorldInfoCatalog(legacyBridge);
+  }, [legacyBridge, refreshWorldInfoCatalog]);
 
   const status = useMemo(() => {
     if (loadError) {
@@ -315,6 +339,14 @@ export function ShellPage() {
     snapshot.currentChatId,
     snapshot.groupId,
   ]);
+
+  useEffect(() => {
+    if (activeWorldInfoName && !worldInfoCatalog.names.includes(activeWorldInfoName)) {
+      setActiveWorldInfoName('');
+      setWorldInfoSource('');
+      setWorldInfoDraft('');
+    }
+  }, [activeWorldInfoName, worldInfoCatalog.names]);
 
   useEffect(() => {
     let mounted = true;
@@ -611,6 +643,11 @@ export function ShellPage() {
     return JSON.stringify(groupProfile) !== JSON.stringify(groupDraft);
   }, [groupDraft, groupProfile]);
 
+  const worldInfoDirty = useMemo(
+    () => Boolean(activeWorldInfoName) && worldInfoDraft !== worldInfoSource,
+    [activeWorldInfoName, worldInfoDraft, worldInfoSource],
+  );
+
   const metadataIsDirty = useMemo(() => {
     if (!legacyBridge) {
       return false;
@@ -761,6 +798,129 @@ export function ShellPage() {
       setActionError(error instanceof Error ? error.message : 'Could not save group');
     } finally {
       setBusyAction('');
+    }
+  }
+
+  async function handleWorldInfoLoad(name: string) {
+    const bridge = legacyBridge;
+    if (!bridge) {
+      return;
+    }
+
+    setActionError('');
+    setWorldInfoLoading(true);
+
+    try {
+      const document = await bridge.worldInfo.loadBook(name);
+      const nextSource = document ? JSON.stringify(document.data, null, 2) : '';
+      setActiveWorldInfoName(name);
+      setWorldInfoSource(nextSource);
+      setWorldInfoDraft(nextSource);
+      refreshWorldInfoCatalog(bridge);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not load world info');
+    } finally {
+      setWorldInfoLoading(false);
+    }
+  }
+
+  async function handleWorldInfoCreate() {
+    const bridge = legacyBridge;
+    const trimmedName = newWorldInfoName.trim();
+    if (!bridge) {
+      return;
+    }
+
+    if (!trimmedName) {
+      setActionError('World info name is required');
+      return;
+    }
+
+    setActionError('');
+    setBusyAction('worldinfo-create');
+
+    try {
+      await bridge.worldInfo.createBook(trimmedName);
+      setNewWorldInfoName('');
+      refreshWorldInfoCatalog(bridge);
+      await handleWorldInfoLoad(trimmedName);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not create world info');
+    } finally {
+      setBusyAction('');
+    }
+  }
+
+  async function handleWorldInfoSave() {
+    const bridge = legacyBridge;
+    if (!bridge || !activeWorldInfoName) {
+      return;
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(worldInfoDraft);
+    } catch {
+      setActionError('World info JSON is invalid');
+      return;
+    }
+
+    setActionError('');
+    setBusyAction('worldinfo-save');
+
+    try {
+      await bridge.worldInfo.saveBook(activeWorldInfoName, parsed);
+      const nextSource = JSON.stringify(parsed, null, 2);
+      setWorldInfoSource(nextSource);
+      setWorldInfoDraft(nextSource);
+      refreshWorldInfoCatalog(bridge);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not save world info');
+    } finally {
+      setBusyAction('');
+    }
+  }
+
+  async function handleWorldInfoDelete(name: string) {
+    const bridge = legacyBridge;
+    if (!bridge) {
+      return;
+    }
+
+    setActionError('');
+    setBusyAction('worldinfo-delete');
+
+    try {
+      await bridge.worldInfo.deleteBook(name);
+      refreshWorldInfoCatalog(bridge);
+      if (activeWorldInfoName === name) {
+        setActiveWorldInfoName('');
+        setWorldInfoSource('');
+        setWorldInfoDraft('');
+      }
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not delete world info');
+    } finally {
+      setBusyAction('');
+    }
+  }
+
+  async function handleWorldInfoSelectionToggle(name: string, checked: boolean) {
+    const bridge = legacyBridge;
+    if (!bridge) {
+      return;
+    }
+
+    const nextSelectedNames = checked
+      ? [...worldInfoCatalog.selectedNames, name]
+      : worldInfoCatalog.selectedNames.filter((item) => item !== name);
+
+    setActionError('');
+    try {
+      await bridge.worldInfo.setSelectedBooks(nextSelectedNames);
+      refreshWorldInfoCatalog(bridge);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not update world info selection');
     }
   }
 
@@ -1631,6 +1791,119 @@ export function ShellPage() {
                 value={quietPromptResult}
               />
             </label>
+          </section>
+
+          <section className="st-shell-card">
+            <div className="st-shell-card__header">
+              <h2>World info</h2>
+              <span className="st-shell-badge st-shell-badge--muted">
+                {worldInfoLoading ? 'loading' : `${worldInfoCatalog.names.length} books`}
+              </span>
+            </div>
+            <label className="st-field">
+              <span>New lorebook name</span>
+              <input
+                disabled={Boolean(busyAction)}
+                type="text"
+                value={newWorldInfoName}
+                onChange={(event) => setNewWorldInfoName(event.target.value)}
+              />
+            </label>
+            <nav className="st-actions">
+              <button
+                className="st-button"
+                disabled={!legacyBridge || !newWorldInfoName.trim() || Boolean(busyAction)}
+                type="button"
+                onClick={() => void handleWorldInfoCreate()}
+              >
+                Create lorebook
+              </button>
+            </nav>
+            <div className="st-shell-settings-group">
+              <div className="st-shell-settings-group__header">
+                <h3>Available lorebooks</h3>
+                <span className="st-note">{worldInfoCatalog.selectedNames.length} globally selected</span>
+              </div>
+              <div className="st-shell-history-list">
+                {worldInfoCatalog.names.length ? (
+                  worldInfoCatalog.names.map((name) => {
+                    const selected = worldInfoCatalog.selectedNames.includes(name);
+                    const active = activeWorldInfoName === name;
+                    return (
+                      <article className="st-shell-history-item" key={name}>
+                        <div className="st-shell-history-item__header">
+                          <span className={`st-shell-history-role${selected ? '' : ' st-shell-history-role--system'}`}>
+                            {selected ? 'active' : 'idle'}
+                          </span>
+                          <strong>{name}</strong>
+                          <small>{active ? 'loaded in editor' : 'not loaded'}</small>
+                        </div>
+                        <nav className="st-actions">
+                          <label className="st-shell-toggle st-shell-toggle--inline">
+                            <span>
+                              <strong>Global</strong>
+                              <small>Use this lorebook in world-info scans.</small>
+                            </span>
+                            <input
+                              checked={selected}
+                              disabled={!legacyBridge || Boolean(busyAction)}
+                              type="checkbox"
+                              onChange={(event) => void handleWorldInfoSelectionToggle(name, event.target.checked)}
+                            />
+                          </label>
+                          <button
+                            className="st-button st-button--ghost"
+                            disabled={!legacyBridge || Boolean(busyAction)}
+                            type="button"
+                            onClick={() => void handleWorldInfoLoad(name)}
+                          >
+                            Load
+                          </button>
+                          <button
+                            className="st-button st-button--ghost"
+                            disabled={!legacyBridge || Boolean(busyAction)}
+                            type="button"
+                            onClick={() => void handleWorldInfoDelete(name)}
+                          >
+                            Delete
+                          </button>
+                        </nav>
+                      </article>
+                    );
+                  })
+                ) : (
+                  <p className="st-note">No lorebooks found.</p>
+                )}
+              </div>
+            </div>
+            <label className="st-field">
+              <span>{activeWorldInfoName ? `Editor: ${activeWorldInfoName}` : 'Lorebook JSON editor'}</span>
+              <textarea
+                className="st-shell-textarea st-shell-textarea--result"
+                disabled={!activeWorldInfoName || worldInfoLoading || Boolean(busyAction)}
+                placeholder="Load a lorebook to inspect or edit its raw JSON."
+                value={worldInfoDraft}
+                onChange={(event) => setWorldInfoDraft(event.target.value)}
+              />
+            </label>
+            <nav className="st-actions">
+              <button
+                className="st-button"
+                disabled={!legacyBridge || !activeWorldInfoName || !worldInfoDirty || Boolean(busyAction)}
+                type="button"
+                onClick={() => void handleWorldInfoSave()}
+              >
+                Save lorebook
+              </button>
+              <button
+                className="st-button st-button--ghost"
+                disabled={!activeWorldInfoName || Boolean(busyAction)}
+                type="button"
+                onClick={() => setWorldInfoDraft(worldInfoSource)}
+              >
+                Reset JSON
+              </button>
+            </nav>
           </section>
 
           <section className="st-shell-card">

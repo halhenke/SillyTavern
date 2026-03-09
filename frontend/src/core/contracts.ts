@@ -129,6 +129,16 @@ export interface GroupCreateDraft {
   generationMode: number;
 }
 
+export interface WorldInfoCatalog {
+  names: string[];
+  selectedNames: string[];
+}
+
+export interface WorldInfoDocument {
+  data: unknown;
+  name: string;
+}
+
 export interface ChatMetadata {
   scenario: string;
 }
@@ -206,6 +216,15 @@ export interface GroupService {
   saveSelectedProfile(profile: GroupProfile): Promise<void>;
 }
 
+export interface WorldInfoService {
+  createBook(name: string): Promise<void>;
+  deleteBook(name: string): Promise<void>;
+  listBooks(): WorldInfoCatalog;
+  loadBook(name: string): Promise<WorldInfoDocument | null>;
+  saveBook(name: string, data: unknown): Promise<void>;
+  setSelectedBooks(names: string[]): Promise<void>;
+}
+
 export interface ComposerService {
   sendAndGenerate(text: string): Promise<void>;
   sendUserMessage(text: string): Promise<void>;
@@ -225,6 +244,7 @@ export interface ModernizationBridge {
   generation: GenerationService;
   character: CharacterService;
   group: GroupService;
+  worldInfo: WorldInfoService;
   composer: ComposerService;
   extensions: ExtensionHostService;
 }

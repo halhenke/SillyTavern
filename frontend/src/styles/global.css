@@ -582,6 +582,10 @@ a {
   accent-color: var(--st-accent);
 }
 
+.st-shell-toggle--inline {
+  padding: 10px 12px;
+}
+
 .st-shell-session-grid {
   display: grid;
   gap: 14px;

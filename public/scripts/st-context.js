@@ -77,6 +77,74 @@ import { ChatCompletionService, TextCompletionService } from './custom-request.j
 import { ConnectionManagerRequestService } from './extensions/shared.js';
 import { updateReasoningUI, parseReasoningFromString } from './reasoning.js';
 import { IGNORE_SYMBOL } from './constants.js';
+import { createOrEditCharacter, syncCropData, syncFavChChecked } from './character-core.js';
+
+function setCharacterFormValue(id, value) {
+    const element = document.getElementById(id);
+    if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement) {
+        element.value = String(value ?? '');
+    }
+}
+
+async function createCharacter(profile) {
+    const name = String(profile?.name ?? '').trim();
+    if (!name) {
+        throw new Error('Character name is required');
+    }
+
+    create_save.name = name;
+    create_save.description = String(profile?.description ?? '');
+    create_save.creator_notes = String(profile?.creatorNotes ?? '');
+    create_save.post_history_instructions = String(profile?.postHistoryInstructions ?? '');
+    create_save.character_version = String(profile?.characterVersion ?? '');
+    create_save.system_prompt = String(profile?.systemPrompt ?? '');
+    create_save.tags = Array.isArray(profile?.tags) ? profile.tags.filter(Boolean).join(', ') : '';
+    create_save.creator = String(profile?.creator ?? '');
+    create_save.personality = String(profile?.personality ?? '');
+    create_save.first_message = String(profile?.firstMessage ?? '');
+    create_save.avatar = null;
+    create_save.scenario = String(profile?.scenario ?? '');
+    create_save.mes_example = String(profile?.mesExamples ?? '');
+    create_save.world = '';
+    create_save.talkativeness = Number.isFinite(profile?.talkativeness) ? profile.talkativeness : 0.5;
+    create_save.alternate_greetings = [];
+    create_save.depth_prompt_prompt = '';
+    create_save.depth_prompt_depth = 4;
+    create_save.depth_prompt_role = 'system';
+    create_save.extensions = {};
+    create_save.extra_books = [];
+
+    syncCropData(undefined);
+    syncFavChChecked(false);
+
+    const form = document.getElementById('form_create');
+    form?.setAttribute('actiontype', 'createcharacter');
+
+    setCharacterFormValue('character_name_pole', create_save.name);
+    setCharacterFormValue('description_textarea', create_save.description);
+    setCharacterFormValue('creator_notes_textarea', create_save.creator_notes);
+    setCharacterFormValue('post_history_instructions_textarea', create_save.post_history_instructions);
+    setCharacterFormValue('character_version_textarea', create_save.character_version);
+    setCharacterFormValue('system_prompt_textarea', create_save.system_prompt);
+    setCharacterFormValue('tags_textarea', create_save.tags);
+    setCharacterFormValue('creator_textarea', create_save.creator);
+    setCharacterFormValue('personality_textarea', create_save.personality);
+    setCharacterFormValue('firstmessage_textarea', create_save.first_message);
+    setCharacterFormValue('scenario_pole', create_save.scenario);
+    setCharacterFormValue('mes_example_textarea', create_save.mes_example);
+    setCharacterFormValue('talkativeness_slider', create_save.talkativeness);
+    setCharacterFormValue('depth_prompt_prompt', create_save.depth_prompt_prompt);
+    setCharacterFormValue('depth_prompt_depth', create_save.depth_prompt_depth);
+    setCharacterFormValue('depth_prompt_role', create_save.depth_prompt_role);
+    setCharacterFormValue('character_world', create_save.world);
+
+    const avatarInput = document.getElementById('add_avatar_button');
+    if (avatarInput instanceof HTMLInputElement) {
+        avatarInput.value = '';
+    }
+
+    await createOrEditCharacter(new CustomEvent('newChat'));
+}
 
 export function getContext() {
     return {
@@ -181,6 +249,7 @@ export function getContext() {
         tagMap: tag_map,
         menuType: menu_type,
         createCharacterData: create_save,
+        createCharacter,
         /** @deprecated Legacy snake-case naming, compatibility with old extensions */
         event_types: event_types,
         Popup,

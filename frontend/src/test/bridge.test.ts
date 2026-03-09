@@ -142,6 +142,7 @@ describe('createLegacyBridge', () => {
 
   it('maps session catalog and delegates character and group actions', async () => {
     const clearChat = vi.fn();
+    const createCharacter = vi.fn();
     const deleteLastMessage = vi.fn();
     const deleteGroupChatByName = vi.fn();
     const deleteSwipe = vi.fn();
@@ -261,6 +262,7 @@ describe('createLegacyBridge', () => {
             },
           ],
           clearChat,
+          createCharacter,
           deleteLastMessage,
           deleteSwipe,
           eventSource: {
@@ -423,6 +425,21 @@ describe('createLegacyBridge', () => {
       tags: ['mage', 'city'],
       talkativeness: 0.65,
     });
+    await bridge?.character.createProfile({
+      characterVersion: 'v1',
+      creator: 'Hal',
+      creatorNotes: 'Draft notes',
+      description: 'Freshly created character',
+      firstMessage: 'Hello there.',
+      mesExamples: '<START>\nHello',
+      name: 'Newcomer',
+      personality: 'Warm',
+      postHistoryInstructions: 'Keep the tone grounded',
+      scenario: 'At the inn',
+      systemPrompt: 'Respond in character',
+      tags: ['new', 'test'],
+      talkativeness: 0.55,
+    });
     await bridge?.character.saveSelectedProfile({
       avatarFile: 'mage.png',
       avatarUrl: '/thumb/avatar/mage.png',
@@ -480,6 +497,21 @@ describe('createLegacyBridge', () => {
       responseLength: 240,
       trimToSentence: true,
     });
+    expect(createCharacter).toHaveBeenCalledWith({
+      characterVersion: 'v1',
+      creator: 'Hal',
+      creatorNotes: 'Draft notes',
+      description: 'Freshly created character',
+      firstMessage: 'Hello there.',
+      mesExamples: '<START>\nHello',
+      name: 'Newcomer',
+      personality: 'Warm',
+      postHistoryInstructions: 'Keep the tone grounded',
+      scenario: 'At the inn',
+      systemPrompt: 'Respond in character',
+      tags: ['new', 'test'],
+      talkativeness: 0.55,
+    });
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/chats/search');
     expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/characters/edit');
@@ -493,6 +525,6 @@ describe('createLegacyBridge', () => {
     expect((requestInit.body as FormData).get('description')).toBe('Updated description');
     expect((requestInit.body as FormData).get('system_prompt')).toBe('Stay precise');
     expect((requestInit.body as FormData).get('tags')).toBe('mage, mentor');
-    expect(getCharacters).toHaveBeenCalledTimes(1);
+    expect(getCharacters).toHaveBeenCalledTimes(2);
   });
 });

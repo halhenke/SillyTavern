@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { CharacterProfile, ChatMessageSummary, SessionCatalog, SessionChatSummary, ShellPreferences, ShellSnapshot } from '../../core/contracts';
+import { CharacterCreateDraft, CharacterProfile, ChatMessageSummary, SessionCatalog, SessionChatSummary, ShellPreferences, ShellSnapshot } from '../../core/contracts';
 import { LegacyBridge, createLegacyBridge } from '../../legacy/bridge';
 
 const DEFAULT_PREFERENCES: ShellPreferences = {
@@ -32,6 +32,21 @@ const DEFAULT_CATALOG: SessionCatalog = {
 };
 
 const DEFAULT_MESSAGES: ChatMessageSummary[] = [];
+const DEFAULT_NEW_CHARACTER_DRAFT: CharacterCreateDraft = {
+  characterVersion: '',
+  creator: '',
+  creatorNotes: '',
+  description: '',
+  firstMessage: '',
+  mesExamples: '',
+  name: '',
+  personality: '',
+  postHistoryInstructions: '',
+  scenario: '',
+  systemPrompt: '',
+  tags: [],
+  talkativeness: 0.5,
+};
 
 const PREFERENCE_CONTROLS: Array<{
   key: keyof ShellPreferences;
@@ -130,6 +145,7 @@ export function ShellPage() {
   const [catalog, setCatalog] = useState<SessionCatalog>(DEFAULT_CATALOG);
   const [characterProfile, setCharacterProfile] = useState<CharacterProfile | null>(null);
   const [characterDraft, setCharacterDraft] = useState<CharacterProfile | null>(null);
+  const [newCharacterDraft, setNewCharacterDraft] = useState<CharacterCreateDraft>(DEFAULT_NEW_CHARACTER_DRAFT);
   const [messages, setMessages] = useState<ChatMessageSummary[]>(DEFAULT_MESSAGES);
   const [selectedMessageId, setSelectedMessageId] = useState<number | null>(null);
   const [messageEditDraft, setMessageEditDraft] = useState('');
@@ -589,6 +605,39 @@ export function ShellPage() {
 
   function updateCharacterDraft(next: Partial<CharacterProfile>) {
     setCharacterDraft((current) => (current ? { ...current, ...next } : current));
+  }
+
+  function updateNewCharacterDraft(next: Partial<CharacterCreateDraft>) {
+    setNewCharacterDraft((current) => ({ ...current, ...next }));
+  }
+
+  async function handleCharacterCreate() {
+    const bridge = legacyBridge;
+    const trimmedName = newCharacterDraft.name.trim();
+    if (!bridge) {
+      return;
+    }
+
+    if (!trimmedName) {
+      setActionError('Character name is required');
+      return;
+    }
+
+    setActionError('');
+    setBusyAction('character-create');
+
+    try {
+      await bridge.character.createProfile({
+        ...newCharacterDraft,
+        name: trimmedName,
+      });
+      setNewCharacterDraft(DEFAULT_NEW_CHARACTER_DRAFT);
+      refreshRuntime(bridge);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not create character');
+    } finally {
+      setBusyAction('');
+    }
   }
 
   async function handleMetadataSave() {
@@ -1162,6 +1211,162 @@ export function ShellPage() {
                 value={quietPromptResult}
               />
             </label>
+          </section>
+
+          <section className="st-shell-card">
+            <div className="st-shell-card__header">
+              <h2>New character</h2>
+              <span className="st-shell-badge st-shell-badge--muted">
+                {busyAction === 'character-create' ? 'creating' : 'blank draft'}
+              </span>
+            </div>
+            <div className="st-shell-editor-grid">
+              <label className="st-field">
+                <span>Name</span>
+                <input
+                  disabled={Boolean(busyAction)}
+                  type="text"
+                  value={newCharacterDraft.name}
+                  onChange={(event) => updateNewCharacterDraft({ name: event.target.value })}
+                />
+              </label>
+              <label className="st-field">
+                <span>Character version</span>
+                <input
+                  disabled={Boolean(busyAction)}
+                  type="text"
+                  value={newCharacterDraft.characterVersion}
+                  onChange={(event) => updateNewCharacterDraft({ characterVersion: event.target.value })}
+                />
+              </label>
+              <label className="st-field">
+                <span>Creator</span>
+                <input
+                  disabled={Boolean(busyAction)}
+                  type="text"
+                  value={newCharacterDraft.creator}
+                  onChange={(event) => updateNewCharacterDraft({ creator: event.target.value })}
+                />
+              </label>
+              <label className="st-field">
+                <span>Talkativeness</span>
+                <input
+                  disabled={Boolean(busyAction)}
+                  max={1}
+                  min={0}
+                  step={0.05}
+                  type="range"
+                  value={newCharacterDraft.talkativeness}
+                  onChange={(event) => updateNewCharacterDraft({ talkativeness: Number(event.target.value) })}
+                />
+              </label>
+            </div>
+            <label className="st-field">
+              <span>Description</span>
+              <textarea
+                className="st-shell-textarea"
+                disabled={Boolean(busyAction)}
+                value={newCharacterDraft.description}
+                onChange={(event) => updateNewCharacterDraft({ description: event.target.value })}
+              />
+            </label>
+            <label className="st-field">
+              <span>Personality</span>
+              <textarea
+                className="st-shell-textarea"
+                disabled={Boolean(busyAction)}
+                value={newCharacterDraft.personality}
+                onChange={(event) => updateNewCharacterDraft({ personality: event.target.value })}
+              />
+            </label>
+            <label className="st-field">
+              <span>Scenario</span>
+              <textarea
+                className="st-shell-textarea"
+                disabled={Boolean(busyAction)}
+                value={newCharacterDraft.scenario}
+                onChange={(event) => updateNewCharacterDraft({ scenario: event.target.value })}
+              />
+            </label>
+            <label className="st-field">
+              <span>First message</span>
+              <textarea
+                className="st-shell-textarea"
+                disabled={Boolean(busyAction)}
+                value={newCharacterDraft.firstMessage}
+                onChange={(event) => updateNewCharacterDraft({ firstMessage: event.target.value })}
+              />
+            </label>
+            <label className="st-field">
+              <span>Example messages</span>
+              <textarea
+                className="st-shell-textarea st-shell-textarea--result"
+                disabled={Boolean(busyAction)}
+                value={newCharacterDraft.mesExamples}
+                onChange={(event) => updateNewCharacterDraft({ mesExamples: event.target.value })}
+              />
+            </label>
+            <label className="st-field">
+              <span>System prompt</span>
+              <textarea
+                className="st-shell-textarea"
+                disabled={Boolean(busyAction)}
+                value={newCharacterDraft.systemPrompt}
+                onChange={(event) => updateNewCharacterDraft({ systemPrompt: event.target.value })}
+              />
+            </label>
+            <label className="st-field">
+              <span>Post-history instructions</span>
+              <textarea
+                className="st-shell-textarea"
+                disabled={Boolean(busyAction)}
+                value={newCharacterDraft.postHistoryInstructions}
+                onChange={(event) => updateNewCharacterDraft({ postHistoryInstructions: event.target.value })}
+              />
+            </label>
+            <label className="st-field">
+              <span>Creator notes</span>
+              <textarea
+                className="st-shell-textarea"
+                disabled={Boolean(busyAction)}
+                value={newCharacterDraft.creatorNotes}
+                onChange={(event) => updateNewCharacterDraft({ creatorNotes: event.target.value })}
+              />
+            </label>
+            <label className="st-field">
+              <span>Tags</span>
+              <input
+                disabled={Boolean(busyAction)}
+                type="text"
+                value={newCharacterDraft.tags.join(', ')}
+                onChange={(event) =>
+                  updateNewCharacterDraft({
+                    tags: event.target.value
+                      .split(',')
+                      .map((item) => item.trim())
+                      .filter(Boolean),
+                  })
+                }
+              />
+            </label>
+            <nav className="st-actions">
+              <button
+                className="st-button"
+                disabled={!legacyBridge || !newCharacterDraft.name.trim() || Boolean(busyAction)}
+                type="button"
+                onClick={() => void handleCharacterCreate()}
+              >
+                Create character
+              </button>
+              <button
+                className="st-button st-button--ghost"
+                disabled={Boolean(busyAction)}
+                type="button"
+                onClick={() => setNewCharacterDraft(DEFAULT_NEW_CHARACTER_DRAFT)}
+              >
+                Reset draft
+              </button>
+            </nav>
           </section>
 
           <section className="st-shell-card">

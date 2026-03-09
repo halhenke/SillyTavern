@@ -1,4 +1,5 @@
 import {
+  CharacterCreateDraft,
   CharacterProfile,
   CharacterService,
   ChatMetadata,
@@ -158,6 +159,7 @@ type LegacyContext = {
     system?: string;
     version?: string;
   };
+  createCharacter?: (profile: CharacterCreateDraft) => Promise<void>;
   substituteParams?: (text: string) => string;
   selectCharacterById?: (id: number, options?: { switchMenu?: boolean }) => Promise<void>;
   stopGeneration?: () => void;
@@ -642,6 +644,22 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
   };
 
   const character: CharacterService = {
+    createProfile: async (profile) => {
+      const trimmedName = profile.name.trim();
+      if (!trimmedName) {
+        throw new Error('Character name is required');
+      }
+
+      if (!context.createCharacter) {
+        throw new Error('Character creation unavailable');
+      }
+
+      await context.createCharacter({
+        ...profile,
+        name: trimmedName,
+      });
+      await context.getCharacters?.();
+    },
     getSelectedProfile: async () => {
       const selected = getSelectedCharacter(context);
       if (!selected) {

@@ -2053,3 +2053,28 @@
 ### Next
 1. Keep reducing visible fallback usage by replacing another legacy popup or panel rather than returning to small one-off controls.
 2. Revisit whether the visible fallback should stay mounted at all in normal development once a couple more workflow panels are React-owned.
+
+## 2026-03-10 - React Migration Wave 15 (Character Creation Panel)
+
+### Completed
+- Added a typed character-creation bridge path so React can create a new character through the hidden runtime without opening the legacy create panel:
+  - [frontend/src/core/contracts.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/core/contracts.ts)
+  - [frontend/src/legacy/bridge.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/legacy/bridge.ts)
+  - [public/scripts/st-context.js](/Users/hal/.codex/worktrees/dc18/SillyTavern/public/scripts/st-context.js)
+- Added a React-owned `New character` panel in [frontend/src/features/shell/ShellPage.tsx](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/features/shell/ShellPage.tsx) with:
+  - blank-draft creation workflow
+  - core card fields needed for initial authoring
+  - reset and create actions
+- Expanded bridge coverage in [frontend/src/test/bridge.test.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/test/bridge.test.ts) to cover typed character creation.
+
+### Measurable Impact
+- Creating a fresh character no longer requires opening the legacy character-create menu for the common text-only flow.
+- The React shell now covers both creation and editing of core character-card data.
+
+### Insights
+- Running character creation through the existing hidden-runtime workflow is preferable to reimplementing the backend submission path in React because selection, refresh, and legacy side effects stay centralized.
+- Character management is now substantial enough in React that the legacy right-side character form is becoming a fallback rather than the primary authoring path.
+
+### Next
+1. Continue replacing another routine authoring panel rather than widening the shell with more isolated buttons.
+2. Reassess whether the visible fallback iframe should default to closed once character and chat authoring paths are mostly React-owned.

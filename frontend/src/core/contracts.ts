@@ -88,6 +88,22 @@ export interface CharacterProfile {
   talkativeness: number;
 }
 
+export interface CharacterCreateDraft {
+  characterVersion: string;
+  creator: string;
+  creatorNotes: string;
+  description: string;
+  firstMessage: string;
+  mesExamples: string;
+  name: string;
+  personality: string;
+  postHistoryInstructions: string;
+  scenario: string;
+  systemPrompt: string;
+  tags: string[];
+  talkativeness: number;
+}
+
 export interface ChatMetadata {
   scenario: string;
 }
@@ -154,6 +170,7 @@ export interface GenerationService {
 }
 
 export interface CharacterService {
+  createProfile(profile: CharacterCreateDraft): Promise<void>;
   getSelectedProfile(): Promise<CharacterProfile | null>;
   saveSelectedProfile(profile: CharacterProfile): Promise<void>;
 }

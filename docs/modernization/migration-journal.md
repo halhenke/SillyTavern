@@ -2205,3 +2205,22 @@
 ### Next
 1. Reassess whether the visible fallback iframe should now be hidden behind an even narrower escape hatch.
 2. Move to another high-value authoring surface only if it reduces real legacy dependency rather than adding more shell-adjacent controls.
+
+## 2026-03-10 - React Migration Wave 21 (Legacy Fallback Drawer)
+
+### Completed
+- Replaced the inline visible fallback iframe in [frontend/src/features/shell/ShellPage.tsx](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/features/shell/ShellPage.tsx) with an explicit on-demand modal drawer.
+- Added supporting overlay/header styles in [frontend/src/styles/global.css](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/styles/global.css).
+- Kept the hidden bridge iframe unchanged, so React state sync still depends on the same runtime contract while the visible legacy UI is demoted further.
+
+### Measurable Impact
+- The legacy runtime no longer occupies inline page space during normal use.
+- React is now visually and structurally the default runtime surface, with legacy UI available only through an explicit escape hatch.
+
+### Insights
+- At this stage the highest-value maintainability move is reducing reliance on visible legacy presence, not continuing to add side panels indefinitely.
+- Separating the hidden bridge runtime from the visible fallback window keeps compatibility intact while making it clearer which UI is authoritative for common workflows.
+
+### Next
+1. Continue only with slices that either remove real legacy dependence or let us eventually remove the visible fallback entirely.
+2. Treat new runtime regressions as first-priority fixes before widening the React surface further.

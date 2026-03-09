@@ -185,6 +185,12 @@ a {
   box-shadow: var(--st-shadow);
 }
 
+.st-shell-header-actions {
+  display: grid;
+  gap: 10px;
+  justify-items: end;
+}
+
 .st-shell-header h1 {
   margin: 0 0 6px;
 }
@@ -693,28 +699,38 @@ a {
   box-shadow: var(--st-shadow);
 }
 
-.st-shell-legacy-panel {
+.st-shell-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(6, 9, 14, 0.72);
+  backdrop-filter: blur(10px);
+}
+
+.st-shell-modal {
+  width: min(1400px, 100%);
+  max-height: calc(100vh - 48px);
+  display: grid;
+  gap: 16px;
+  padding: 18px;
   border: 1px solid var(--st-panel-border);
-  border-radius: 18px;
-  background: rgba(16, 21, 29, 0.88);
+  border-radius: 22px;
+  background: rgba(16, 21, 29, 0.96);
   box-shadow: var(--st-shadow);
-  overflow: hidden;
 }
 
-.st-shell-legacy-panel summary {
-  cursor: pointer;
-  padding: 14px 16px;
-  font-weight: 700;
-  color: var(--st-text);
-  background: rgba(24, 31, 41, 0.88);
+.st-shell-modal__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
 }
 
-.st-shell-legacy-panel[open] summary {
-  border-bottom: 1px solid var(--st-panel-border);
-}
-
-.st-shell-legacy-placeholder {
-  padding: 16px;
+.st-shell-modal__header h2 {
+  margin: 0 0 6px;
 }
 
 @media (max-width: 800px) {
@@ -724,6 +740,11 @@ a {
 
   .st-shell-header {
     flex-direction: column;
+  }
+
+  .st-shell-header-actions {
+    width: 100%;
+    justify-items: stretch;
   }
 
   .st-shell-layout {
@@ -760,5 +781,18 @@ a {
 
   .st-shell-frame {
     min-height: 480px;
+  }
+
+  .st-shell-modal-backdrop {
+    padding: 12px;
+  }
+
+  .st-shell-modal {
+    max-height: calc(100vh - 24px);
+    padding: 14px;
+  }
+
+  .st-shell-modal__header {
+    flex-direction: column;
   }
 }

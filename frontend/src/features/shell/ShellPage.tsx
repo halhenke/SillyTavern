@@ -582,6 +582,21 @@ export function ShellPage() {
     setMessageEditDraft(active.text);
   }, [messages, selectedMessageId]);
 
+  useEffect(() => {
+    if (!showLegacyFallback) {
+      return;
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setShowLegacyFallback(false);
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showLegacyFallback]);
+
   async function handlePreferenceChange(
     key: keyof ShellPreferences,
     value: ShellPreferences[keyof ShellPreferences],
@@ -1429,7 +1444,16 @@ export function ShellPage() {
             control surface on top of it.
           </p>
         </div>
-        <div className={statusTone}>{status}</div>
+        <div className="st-shell-header-actions">
+          <div className={statusTone}>{status}</div>
+          <button
+            className="st-button st-button--ghost"
+            type="button"
+            onClick={() => setShowLegacyFallback(true)}
+          >
+            Open legacy fallback
+          </button>
+        </div>
       </header>
 
       <section className="st-shell-layout">
@@ -3351,22 +3375,61 @@ export function ShellPage() {
             </div>
           </section>
 
-          <details className="st-shell-legacy-panel" onToggle={(event) => setShowLegacyFallback(event.currentTarget.open)}>
-            <summary>Legacy runtime fallback</summary>
-            {showLegacyFallback ? (
-              <iframe
-                className="st-shell-frame"
-                src={legacySource}
-                title="SillyTavern Legacy Runtime"
-              />
-            ) : (
-              <div className="st-shell-legacy-placeholder">
-                <p className="st-note">Legacy UI is unloaded until you open it. The hidden bridge runtime stays mounted for React state sync.</p>
-              </div>
-            )}
-          </details>
+          <section className="st-shell-card st-shell-card--compact">
+            <div className="st-shell-card__header">
+              <h2>Legacy fallback</h2>
+              <span className="st-shell-badge st-shell-badge--muted">on demand</span>
+            </div>
+            <p className="st-note">
+              The visible legacy UI is no longer mounted inline. Use the fallback only for parity checks or niche tools that React does not own yet.
+            </p>
+            <nav className="st-actions">
+              <button
+                className="st-button st-button--ghost"
+                type="button"
+                onClick={() => setShowLegacyFallback(true)}
+              >
+                Open legacy runtime
+              </button>
+            </nav>
+          </section>
         </section>
       </section>
+
+      {showLegacyFallback ? (
+        <div
+          aria-hidden="true"
+          className="st-shell-modal-backdrop"
+          onClick={() => setShowLegacyFallback(false)}
+        >
+          <section
+            aria-label="Legacy runtime fallback"
+            aria-modal="true"
+            className="st-shell-modal"
+            role="dialog"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="st-shell-modal__header">
+              <div>
+                <h2>Legacy runtime fallback</h2>
+                <p className="st-note">Bridge runtime stays mounted in the background. This window is only for manual fallback work.</p>
+              </div>
+              <button
+                className="st-button st-button--ghost"
+                type="button"
+                onClick={() => setShowLegacyFallback(false)}
+              >
+                Close
+              </button>
+            </div>
+            <iframe
+              className="st-shell-frame"
+              src={legacySource}
+              title="SillyTavern Legacy Runtime"
+            />
+          </section>
+        </div>
+      ) : null}
     </main>
   );
 }

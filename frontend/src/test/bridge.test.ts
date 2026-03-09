@@ -163,6 +163,7 @@ describe('createLegacyBridge', () => {
     }));
     const renameChat = vi.fn();
     const saveChat = vi.fn();
+    const movePromptTemplate = vi.fn();
     const savePromptTemplate = vi.fn();
     const sendSystemMessage = vi.fn();
     const sendMessageAsUser = vi.fn();
@@ -400,6 +401,7 @@ describe('createLegacyBridge', () => {
           renameChat,
           saveChat,
           saveMetadata,
+          movePromptTemplate,
           savePromptTemplate,
           saveWorldInfo,
           setSelectedWorldInfo,
@@ -631,6 +633,7 @@ describe('createLegacyBridge', () => {
     ]);
     await bridge?.extensions.setExtensionEnabled('system-tool', true);
     expect(bridge?.prompts.listPrompts()).toEqual(promptTemplates);
+    await bridge?.prompts.movePrompt('jailbreak', 'up');
     await bridge?.prompts.savePrompt({
       content: 'Keep the tone precise.',
       enabled: true,
@@ -721,6 +724,7 @@ describe('createLegacyBridge', () => {
     expect(saveWorldInfo).toHaveBeenCalledWith('Travel Lore', { entries: { 0: { comment: 'travel' } } }, true);
     expect(deleteWorldInfo).toHaveBeenCalledWith('City Lore');
     expect(loadWorldInfo).toHaveBeenCalledWith('Core Lore');
+    expect(movePromptTemplate).toHaveBeenCalledWith('jailbreak', 'up');
     expect(savePromptTemplate).toHaveBeenCalledWith({
       content: 'Keep the tone precise.',
       enabled: true,

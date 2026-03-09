@@ -813,6 +813,10 @@ export function ShellPage() {
     () => promptTemplates.find((prompt) => prompt.identifier === activePromptId) ?? null,
     [activePromptId, promptTemplates],
   );
+  const activePromptIndex = useMemo(
+    () => promptTemplates.findIndex((prompt) => prompt.identifier === activePromptId),
+    [activePromptId, promptTemplates],
+  );
   const promptDirty = useMemo(() => {
     if (!activePrompt || !promptDraft) {
       return false;
@@ -1178,6 +1182,25 @@ export function ShellPage() {
       refreshPromptTemplates(bridge);
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Could not save prompt');
+    } finally {
+      setBusyAction('');
+    }
+  }
+
+  async function handlePromptMove(direction: 'down' | 'up') {
+    const bridge = legacyBridge;
+    if (!bridge || !activePrompt) {
+      return;
+    }
+
+    setActionError('');
+    setBusyAction(`prompt-move-${direction}`);
+
+    try {
+      await bridge.prompts.movePrompt(activePrompt.identifier, direction);
+      refreshPromptTemplates(bridge);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not reorder prompt');
     } finally {
       setBusyAction('');
     }
@@ -2525,6 +2548,22 @@ export function ShellPage() {
                   />
                 </label>
                 <nav className="st-actions">
+                  <button
+                    className="st-button st-button--ghost"
+                    disabled={!legacyBridge || activePromptIndex <= 0 || Boolean(busyAction)}
+                    type="button"
+                    onClick={() => void handlePromptMove('up')}
+                  >
+                    Move up
+                  </button>
+                  <button
+                    className="st-button st-button--ghost"
+                    disabled={!legacyBridge || activePromptIndex < 0 || activePromptIndex >= promptTemplates.length - 1 || Boolean(busyAction)}
+                    type="button"
+                    onClick={() => void handlePromptMove('down')}
+                  >
+                    Move down
+                  </button>
                   <button
                     className="st-button"
                     disabled={!legacyBridge || !promptDirty || Boolean(busyAction)}

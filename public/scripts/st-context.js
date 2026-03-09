@@ -282,6 +282,37 @@ async function savePromptTemplate(template) {
     saveSettingsDebounced?.();
 }
 
+async function movePromptTemplate(identifier, direction) {
+    const manager = getPromptManagerInstance();
+    if (!manager) {
+        throw new Error('Prompt manager unavailable');
+    }
+
+    const trimmedIdentifier = String(identifier ?? '').trim();
+    if (!trimmedIdentifier) {
+        throw new Error('Prompt identifier is required');
+    }
+
+    const promptOrder = manager.getPromptOrderForCharacter(manager.activeCharacter);
+    const currentIndex = promptOrder.findIndex((entry) => entry.identifier === trimmedIdentifier);
+    if (currentIndex === -1) {
+        throw new Error(`Prompt ${trimmedIdentifier} not found in active order`);
+    }
+
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= promptOrder.length) {
+        return;
+    }
+
+    const currentEntry = promptOrder[currentIndex];
+    const targetEntry = promptOrder[targetIndex];
+    promptOrder[currentIndex] = targetEntry;
+    promptOrder[targetIndex] = currentEntry;
+
+    manager.render(false);
+    saveSettingsDebounced?.();
+}
+
 function getSelectedWorldInfo() {
     return Array.isArray(selected_world_info) ? [...selected_world_info] : [];
 }
@@ -430,6 +461,7 @@ export function getContext() {
         getPromptTemplates,
         getWorldNames,
         getSelectedWorldInfo,
+        movePromptTemplate,
         saveWorldInfo,
         savePromptTemplate,
         setSelectedWorldInfo,

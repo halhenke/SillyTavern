@@ -166,6 +166,7 @@ type LegacyContext = {
   saveMetadata?: () => Promise<void>;
   saveSettingsDebounced?: () => void;
   saveSettings?: () => Promise<void>;
+  movePromptTemplate?: (identifier: string, direction: 'down' | 'up') => Promise<void>;
   savePromptTemplate?: (prompt: PromptTemplate) => Promise<void>;
   saveWorldInfo?: (name: string, data: unknown, immediately?: boolean) => Promise<void>;
   setExtensionEnabled?: (name: string, enabled: boolean) => Promise<void>;
@@ -932,6 +933,18 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
 
   const prompts: PromptService = {
     listPrompts: () => context.getPromptTemplates?.() ?? [],
+    movePrompt: async (identifier, direction) => {
+      const trimmedIdentifier = identifier.trim();
+      if (!trimmedIdentifier) {
+        throw new Error('Prompt identifier is required');
+      }
+
+      if (!context.movePromptTemplate) {
+        throw new Error('Prompt reordering unavailable');
+      }
+
+      await context.movePromptTemplate(trimmedIdentifier, direction);
+    },
     savePrompt: async (prompt) => {
       const trimmedIdentifier = prompt.identifier.trim();
       if (!trimmedIdentifier) {

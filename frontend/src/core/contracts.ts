@@ -253,6 +253,7 @@ export interface WorldInfoService {
 
 export interface PromptService {
   listPrompts(): PromptTemplate[];
+  movePrompt(identifier: string, direction: 'down' | 'up'): Promise<void>;
   savePrompt(prompt: PromptTemplate): Promise<void>;
 }
 

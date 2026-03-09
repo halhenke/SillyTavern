@@ -2224,3 +2224,25 @@
 ### Next
 1. Continue only with slices that either remove real legacy dependence or let us eventually remove the visible fallback entirely.
 2. Treat new runtime regressions as first-priority fixes before widening the React surface further.
+
+## 2026-03-10 - React Migration Wave 22 (Prompt Reordering Controls)
+
+### Completed
+- Extended the typed prompt-management service with explicit reorder actions:
+  - [frontend/src/core/contracts.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/core/contracts.ts)
+  - [frontend/src/legacy/bridge.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/legacy/bridge.ts)
+- Exposed bounded prompt move helpers in [public/scripts/st-context.js](/Users/hal/.codex/worktrees/dc18/SillyTavern/public/scripts/st-context.js) using the existing prompt-order list rather than the legacy sortable UI.
+- Added React `Move up` / `Move down` controls to the prompt panel in [frontend/src/features/shell/ShellPage.tsx](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/features/shell/ShellPage.tsx).
+- Expanded bridge coverage in [frontend/src/test/bridge.test.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/test/bridge.test.ts) to cover prompt reorder delegation.
+
+### Measurable Impact
+- Prompt ordering now has a React-owned path for common adjustments.
+- The legacy prompt manager is needed less for day-to-day prompt work; remaining dependency is mostly import/export and richer popup-based editing.
+
+### Insights
+- Directly swapping prompt-order entries is safer than trying to mimic the old sortable widget behavior in React. The runtime already stores prompt order as plain data; React does not need the widget.
+- This continues the useful pattern for the modernization: move high-value interactions onto stable data seams, not DOM-driven legacy behavior.
+
+### Next
+1. Prioritize runtime smoke testing and regression cleanup over widening the React surface further.
+2. Only take another migration slice if it removes a real remaining need for the visible fallback or unlocks deleting legacy UI.

@@ -143,6 +143,7 @@ describe('createLegacyBridge', () => {
   it('maps session catalog and delegates character and group actions', async () => {
     const clearChat = vi.fn();
     const deleteLastMessage = vi.fn();
+    const deleteSwipe = vi.fn();
     const eventEmit = vi.fn();
     const generateQuietPrompt = vi.fn().mockResolvedValue('quiet result');
     const generate = vi.fn();
@@ -241,6 +242,7 @@ describe('createLegacyBridge', () => {
           ],
           clearChat,
           deleteLastMessage,
+          deleteSwipe,
           eventSource: {
             emit: eventEmit,
             off: vi.fn(),
@@ -348,10 +350,12 @@ describe('createLegacyBridge', () => {
     await bridge?.chat.saveMetadata({ scenario: 'Updated metadata scenario' });
     await bridge?.chat.addSystemMessage('System memo');
     await bridge?.chat.deleteLastMessage();
+    await bridge?.chat.moveMessage(1, 'up');
     await bridge?.chat.duplicateMessage(1);
     await bridge?.chat.deleteMessage(0);
     await bridge?.chat.swipeLastMessage('left');
     await bridge?.chat.swipeLastMessage('right');
+    await bridge?.chat.deleteCurrentSwipe();
     await bridge?.chat.updateMessage(1, 'Edited assistant line');
     await bridge?.composer.sendUserMessage('Hello from React');
     await bridge?.composer.sendAndGenerate('Send and go');
@@ -411,8 +415,9 @@ describe('createLegacyBridge', () => {
     expect(saveMetadata).toHaveBeenCalledTimes(1);
     expect(sendSystemMessage).toHaveBeenCalledWith('generic', 'System memo');
     expect(deleteLastMessage).toHaveBeenCalledTimes(1);
-    expect(saveChat).toHaveBeenCalledTimes(3);
-    expect(reloadCurrentChat).toHaveBeenCalledTimes(3);
+    expect(deleteSwipe).toHaveBeenCalledTimes(1);
+    expect(saveChat).toHaveBeenCalledTimes(4);
+    expect(reloadCurrentChat).toHaveBeenCalledTimes(4);
     expect(swipeLeft).toHaveBeenCalledTimes(1);
     expect(swipeRight).toHaveBeenCalledTimes(1);
     expect(updateMessageBlock).toHaveBeenCalledWith(

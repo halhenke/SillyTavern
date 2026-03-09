@@ -103,6 +103,7 @@ type LegacyContext = {
   clearChat?: () => Promise<void>;
   chatMetadata?: Record<string, unknown>;
   deleteLastMessage?: () => Promise<void>;
+  deleteSwipe?: () => Promise<unknown>;
   eventSource?: {
     on(eventName: string, listener: (...args: unknown[]) => void): void;
     once(eventName: string, listener: (...args: unknown[]) => void): void;
@@ -409,6 +410,13 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
 
       context.sendSystemMessage?.('generic', trimmedText);
     },
+    deleteCurrentSwipe: async () => {
+      if (!context.deleteSwipe) {
+        throw new Error('Swipe deletion unavailable');
+      }
+
+      await context.deleteSwipe();
+    },
     deleteMessage: async (id) => {
       getChatMessage(context, id);
       context.chat?.splice(id, 1);
@@ -438,6 +446,25 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
     getCurrentChatId: () => context.getCurrentChatId?.(),
     getMessages: () => getChatMessages(context),
     getMetadata: () => getChatMetadata(context),
+    moveMessage: async (id, direction) => {
+      const targetId = direction === 'up' ? id - 1 : id + 1;
+      const currentMessage = getChatMessage(context, id);
+      const targetMessage = getChatMessage(context, targetId);
+      const chatState = context.chat;
+      if (!chatState) {
+        throw new Error('Chat state unavailable');
+      }
+
+      chatState[targetId] = currentMessage;
+      chatState[id] = targetMessage;
+
+      if (context.chatMetadata) {
+        context.chatMetadata.tainted = true;
+      }
+
+      await context.saveChat?.();
+      await context.reloadCurrentChat?.();
+    },
     swipeLastMessage: async (direction) => {
       const action = direction === 'left' ? context.swipe?.left : context.swipe?.right;
       if (!action) {

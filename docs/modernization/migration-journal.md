@@ -2000,3 +2000,27 @@
 ### Next
 1. Keep shrinking the visible fallback by moving another runtime-only message or chat action into the bridge instead of adding more shell-only controls.
 2. Start targeting a deeper panel replacement where the visible fallback is only needed for niche tooling, not routine chat management.
+
+## 2026-03-10 - React Migration Wave 13 (Message Reordering and Swipe Deletion)
+
+### Completed
+- Extended the typed chat bridge with:
+  - message reordering (`moveMessage(..., 'up' | 'down')`)
+  - current-swipe deletion for the final assistant turn
+- Exposed `deleteSwipe` in [public/scripts/st-context.js](/Users/hal/.codex/worktrees/dc18/SillyTavern/public/scripts/st-context.js) so React can use the existing runtime action instead of recreating swipe deletion logic.
+- Expanded the React message editor surface with:
+  - move up / move down controls for the selected message
+  - delete current swipe alongside the existing previous/next swipe controls
+- Expanded bridge tests to cover reorder and swipe-deletion behavior.
+
+### Measurable Impact
+- More of the legacy message editor toolset is now available from the React workspace.
+- Opening the visible fallback iframe is less necessary for day-to-day chat cleanup and iteration flows.
+
+### Insights
+- Save-and-reload is still the right bridge pattern for reorder operations because it keeps runtime state and message ids coherent without pulling legacy DOM bookkeeping into React.
+- Reusing the existing runtime `deleteSwipe()` path is preferable to duplicating swipe mutation logic in the bridge; it preserves current swipe invariants and future changes stay centralized.
+
+### Next
+1. Continue removing routine reasons to open the visible fallback by migrating another bounded message or chat-management action.
+2. After that, shift focus from incremental editor tools to replacing one deeper legacy panel outright.

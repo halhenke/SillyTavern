@@ -444,9 +444,17 @@ export function ShellPage() {
     () => Boolean(selectedMessage) && selectedMessage?.id === messages[messages.length - 1]?.id,
     [messages, selectedMessage],
   );
+  const selectedMessageIsFirst = useMemo(
+    () => selectedMessage?.id === 0,
+    [selectedMessage],
+  );
   const selectedMessageCanSwipe = useMemo(
     () => Boolean(selectedMessage) && !selectedMessage?.isUser && !selectedMessage?.isSystem && selectedMessageIsLast,
     [selectedMessage, selectedMessageIsLast],
+  );
+  const selectedMessageCanDeleteSwipe = useMemo(
+    () => selectedMessageCanSwipe && (selectedMessage?.swipeCount ?? 0) > 1,
+    [selectedMessage, selectedMessageCanSwipe],
   );
 
   async function handleCharacterSave() {
@@ -582,6 +590,26 @@ export function ShellPage() {
     }
   }
 
+  async function handleMessageMove(direction: 'down' | 'up') {
+    const bridge = legacyBridge;
+    if (!bridge || selectedMessageId === null) {
+      return;
+    }
+
+    setActionError('');
+    setBusyAction(`message-move-${direction}`);
+
+    try {
+      await bridge.chat.moveMessage(selectedMessageId, direction);
+      setSelectedMessageId(direction === 'up' ? selectedMessageId - 1 : selectedMessageId + 1);
+      refreshRuntime(bridge);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not move message');
+    } finally {
+      setBusyAction('');
+    }
+  }
+
   async function handleMessageEditSave() {
     const bridge = legacyBridge;
     if (!bridge || selectedMessageId === null) {
@@ -615,6 +643,25 @@ export function ShellPage() {
       refreshRuntime(bridge);
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Could not change swipe');
+    } finally {
+      setBusyAction('');
+    }
+  }
+
+  async function handleDeleteSwipe() {
+    const bridge = legacyBridge;
+    if (!bridge) {
+      return;
+    }
+
+    setActionError('');
+    setBusyAction('message-delete-swipe');
+
+    try {
+      await bridge.chat.deleteCurrentSwipe();
+      refreshRuntime(bridge);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not delete swipe');
     } finally {
       setBusyAction('');
     }
@@ -1370,6 +1417,22 @@ export function ShellPage() {
                         </button>
                         <button
                           className="st-button st-button--ghost"
+                          disabled={!selectedMessage || selectedMessageIsFirst || Boolean(busyAction)}
+                          type="button"
+                          onClick={() => void handleMessageMove('up')}
+                        >
+                          Move up
+                        </button>
+                        <button
+                          className="st-button st-button--ghost"
+                          disabled={!selectedMessage || selectedMessageIsLast || Boolean(busyAction)}
+                          type="button"
+                          onClick={() => void handleMessageMove('down')}
+                        >
+                          Move down
+                        </button>
+                        <button
+                          className="st-button st-button--ghost"
                           disabled={!selectedMessage || Boolean(busyAction)}
                           type="button"
                           onClick={() => void handleMessageDuplicate()}
@@ -1409,6 +1472,14 @@ export function ShellPage() {
                           onClick={() => void handleSwipe('right')}
                         >
                           Next swipe
+                        </button>
+                        <button
+                          className="st-button st-button--ghost"
+                          disabled={!legacyBridge || !selectedMessageCanDeleteSwipe || Boolean(busyAction)}
+                          type="button"
+                          onClick={() => void handleDeleteSwipe()}
+                        >
+                          Delete swipe
                         </button>
                       </nav>
                       <p className="st-note">Swipe controls are only available for the active final assistant turn.</p>

@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { CharacterCreateDraft, CharacterProfile, ChatMessageSummary, SessionCatalog, SessionChatSummary, ShellPreferences, ShellSnapshot } from '../../core/contracts';
+import {
+  CharacterCreateDraft,
+  CharacterProfile,
+  ChatMessageSummary,
+  GroupCreateDraft,
+  GroupProfile,
+  SessionCatalog,
+  SessionChatSummary,
+  ShellPreferences,
+  ShellSnapshot,
+} from '../../core/contracts';
 import { LegacyBridge, createLegacyBridge } from '../../legacy/bridge';
 
 const DEFAULT_PREFERENCES: ShellPreferences = {
@@ -46,6 +56,16 @@ const DEFAULT_NEW_CHARACTER_DRAFT: CharacterCreateDraft = {
   systemPrompt: '',
   tags: [],
   talkativeness: 0.5,
+};
+const DEFAULT_NEW_GROUP_DRAFT: GroupCreateDraft = {
+  activationStrategy: 0,
+  allowSelfResponses: false,
+  autoModeDelay: 5,
+  favorite: false,
+  generationMode: 0,
+  hideMutedSprites: false,
+  memberAvatarFiles: [],
+  name: '',
 };
 
 const PREFERENCE_CONTROLS: Array<{
@@ -146,6 +166,9 @@ export function ShellPage() {
   const [characterProfile, setCharacterProfile] = useState<CharacterProfile | null>(null);
   const [characterDraft, setCharacterDraft] = useState<CharacterProfile | null>(null);
   const [newCharacterDraft, setNewCharacterDraft] = useState<CharacterCreateDraft>(DEFAULT_NEW_CHARACTER_DRAFT);
+  const [groupProfile, setGroupProfile] = useState<GroupProfile | null>(null);
+  const [groupDraft, setGroupDraft] = useState<GroupProfile | null>(null);
+  const [newGroupDraft, setNewGroupDraft] = useState<GroupCreateDraft>(DEFAULT_NEW_GROUP_DRAFT);
   const [messages, setMessages] = useState<ChatMessageSummary[]>(DEFAULT_MESSAGES);
   const [selectedMessageId, setSelectedMessageId] = useState<number | null>(null);
   const [messageEditDraft, setMessageEditDraft] = useState('');
@@ -259,6 +282,11 @@ export function ShellPage() {
     };
   }, [catalog, sessionQuery]);
 
+  const groupMemberOptions = useMemo(
+    () => catalog.characters.filter((character) => Boolean(character.avatarFile)),
+    [catalog.characters],
+  );
+
   useEffect(() => {
     setChatNameDraft(snapshot.currentChatId ?? '');
   }, [snapshot.currentChatId]);
@@ -315,6 +343,34 @@ export function ShellPage() {
       mounted = false;
     };
   }, [legacyBridge, snapshot.characterId]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadGroupProfile() {
+      if (!legacyBridge || !snapshot.groupId) {
+        if (mounted) {
+          setGroupProfile(null);
+          setGroupDraft(null);
+        }
+        return;
+      }
+
+      const profile = await legacyBridge.group.getSelectedProfile();
+      if (!mounted) {
+        return;
+      }
+
+      setGroupProfile(profile);
+      setGroupDraft(profile);
+    }
+
+    void loadGroupProfile();
+
+    return () => {
+      mounted = false;
+    };
+  }, [legacyBridge, snapshot.groupId]);
 
   useEffect(() => {
     if (!snapshot.preferences.autoScrollChatToBottom) {
@@ -547,6 +603,14 @@ export function ShellPage() {
     return JSON.stringify(characterProfile) !== JSON.stringify(characterDraft);
   }, [characterDraft, characterProfile]);
 
+  const groupIsDirty = useMemo(() => {
+    if (!groupProfile || !groupDraft) {
+      return false;
+    }
+
+    return JSON.stringify(groupProfile) !== JSON.stringify(groupDraft);
+  }, [groupDraft, groupProfile]);
+
   const metadataIsDirty = useMemo(() => {
     if (!legacyBridge) {
       return false;
@@ -611,6 +675,14 @@ export function ShellPage() {
     setNewCharacterDraft((current) => ({ ...current, ...next }));
   }
 
+  function updateGroupDraft(next: Partial<GroupProfile>) {
+    setGroupDraft((current) => (current ? { ...current, ...next } : current));
+  }
+
+  function updateNewGroupDraft(next: Partial<GroupCreateDraft>) {
+    setNewGroupDraft((current) => ({ ...current, ...next }));
+  }
+
   async function handleCharacterCreate() {
     const bridge = legacyBridge;
     const trimmedName = newCharacterDraft.name.trim();
@@ -635,6 +707,58 @@ export function ShellPage() {
       refreshRuntime(bridge);
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Could not create character');
+    } finally {
+      setBusyAction('');
+    }
+  }
+
+  async function handleGroupCreate() {
+    const bridge = legacyBridge;
+    if (!bridge) {
+      return;
+    }
+
+    if (!newGroupDraft.memberAvatarFiles.length) {
+      setActionError('At least one group member is required');
+      return;
+    }
+
+    setActionError('');
+    setBusyAction('group-create');
+
+    try {
+      await bridge.group.createProfile(newGroupDraft);
+      setNewGroupDraft(DEFAULT_NEW_GROUP_DRAFT);
+      refreshRuntime(bridge);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not create group');
+    } finally {
+      setBusyAction('');
+    }
+  }
+
+  async function handleGroupSave() {
+    const bridge = legacyBridge;
+    if (!bridge || !groupDraft) {
+      return;
+    }
+
+    if (!groupDraft.memberAvatarFiles.length) {
+      setActionError('At least one group member is required');
+      return;
+    }
+
+    setActionError('');
+    setBusyAction('group-save');
+
+    try {
+      await bridge.group.saveSelectedProfile(groupDraft);
+      const refreshedProfile = await bridge.group.getSelectedProfile();
+      setGroupProfile(refreshedProfile);
+      setGroupDraft(refreshedProfile);
+      refreshRuntime(bridge);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not save group');
     } finally {
       setBusyAction('');
     }
@@ -1132,6 +1256,302 @@ export function ShellPage() {
               </a>
             </nav>
             {actionError ? <p className="st-error">{actionError}</p> : null}
+          </section>
+
+          <section className="st-shell-card">
+            <div className="st-shell-card__header">
+              <h2>New group</h2>
+              <span className="st-shell-badge st-shell-badge--muted">
+                {busyAction === 'group-create' ? 'creating' : `${newGroupDraft.memberAvatarFiles.length} members`}
+              </span>
+            </div>
+            <div className="st-shell-editor-grid">
+              <label className="st-field">
+                <span>Name</span>
+                <input
+                  disabled={Boolean(busyAction)}
+                  type="text"
+                  value={newGroupDraft.name}
+                  onChange={(event) => updateNewGroupDraft({ name: event.target.value })}
+                />
+              </label>
+              <label className="st-field">
+                <span>Auto mode delay</span>
+                <input
+                  disabled={Boolean(busyAction)}
+                  min={1}
+                  step={1}
+                  type="number"
+                  value={newGroupDraft.autoModeDelay}
+                  onChange={(event) => updateNewGroupDraft({ autoModeDelay: Number(event.target.value) || 1 })}
+                />
+              </label>
+              <label className="st-field">
+                <span>Activation strategy</span>
+                <select
+                  disabled={Boolean(busyAction)}
+                  value={newGroupDraft.activationStrategy}
+                  onChange={(event) => updateNewGroupDraft({ activationStrategy: Number(event.target.value) })}
+                >
+                  <option value={0}>Natural</option>
+                  <option value={1}>List</option>
+                  <option value={2}>Manual</option>
+                  <option value={3}>Pooled</option>
+                </select>
+              </label>
+              <label className="st-field">
+                <span>Generation mode</span>
+                <select
+                  disabled={Boolean(busyAction)}
+                  value={newGroupDraft.generationMode}
+                  onChange={(event) => updateNewGroupDraft({ generationMode: Number(event.target.value) })}
+                >
+                  <option value={0}>Swap</option>
+                  <option value={1}>Append</option>
+                  <option value={2}>Append disabled</option>
+                </select>
+              </label>
+            </div>
+            <div className="st-shell-toggles">
+              <label className="st-shell-toggle">
+                <span>
+                  <strong>Allow self responses</strong>
+                  <small>Permit the same member to answer consecutively.</small>
+                </span>
+                <input
+                  checked={newGroupDraft.allowSelfResponses}
+                  disabled={Boolean(busyAction)}
+                  type="checkbox"
+                  onChange={(event) => updateNewGroupDraft({ allowSelfResponses: event.target.checked })}
+                />
+              </label>
+              <label className="st-shell-toggle">
+                <span>
+                  <strong>Hide muted sprites</strong>
+                  <small>Collapse muted group members in the runtime presentation.</small>
+                </span>
+                <input
+                  checked={newGroupDraft.hideMutedSprites}
+                  disabled={Boolean(busyAction)}
+                  type="checkbox"
+                  onChange={(event) => updateNewGroupDraft({ hideMutedSprites: event.target.checked })}
+                />
+              </label>
+              <label className="st-shell-toggle">
+                <span>
+                  <strong>Favorite group</strong>
+                  <small>Keep the group easy to reach in favorite-oriented flows.</small>
+                </span>
+                <input
+                  checked={newGroupDraft.favorite}
+                  disabled={Boolean(busyAction)}
+                  type="checkbox"
+                  onChange={(event) => updateNewGroupDraft({ favorite: event.target.checked })}
+                />
+              </label>
+            </div>
+            <div className="st-shell-settings-group">
+              <div className="st-shell-settings-group__header">
+                <h3>Members</h3>
+                <span className="st-note">{newGroupDraft.memberAvatarFiles.length} selected</span>
+              </div>
+              <div className="st-shell-member-picker">
+                {groupMemberOptions.map((character) => {
+                  const avatarFile = character.avatarFile;
+                  if (!avatarFile) {
+                    return null;
+                  }
+
+                  const selected = newGroupDraft.memberAvatarFiles.includes(avatarFile);
+                  return (
+                    <label className={`st-shell-member-option${selected ? ' st-shell-member-option--selected' : ''}`} key={`new-group-${avatarFile}`}>
+                      <input
+                        checked={selected}
+                        disabled={Boolean(busyAction)}
+                        type="checkbox"
+                        onChange={(event) =>
+                          updateNewGroupDraft({
+                            memberAvatarFiles: event.target.checked
+                              ? [...newGroupDraft.memberAvatarFiles, avatarFile]
+                              : newGroupDraft.memberAvatarFiles.filter((value) => value !== avatarFile),
+                          })
+                        }
+                      />
+                      <span>{character.name}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+            <nav className="st-actions">
+              <button
+                className="st-button"
+                disabled={!legacyBridge || !newGroupDraft.memberAvatarFiles.length || Boolean(busyAction)}
+                type="button"
+                onClick={() => void handleGroupCreate()}
+              >
+                Create group
+              </button>
+              <button
+                className="st-button st-button--ghost"
+                disabled={Boolean(busyAction)}
+                type="button"
+                onClick={() => setNewGroupDraft(DEFAULT_NEW_GROUP_DRAFT)}
+              >
+                Reset group draft
+              </button>
+            </nav>
+          </section>
+
+          <section className="st-shell-card">
+            <div className="st-shell-card__header">
+              <h2>Group editor</h2>
+              <span className="st-shell-badge st-shell-badge--muted">
+                {groupDraft ? (groupIsDirty ? 'modified' : 'synced') : 'no group'}
+              </span>
+            </div>
+            {groupDraft ? (
+              <>
+                <div className="st-shell-editor-grid">
+                  <label className="st-field">
+                    <span>Name</span>
+                    <input
+                      disabled={Boolean(busyAction)}
+                      type="text"
+                      value={groupDraft.name}
+                      onChange={(event) => updateGroupDraft({ name: event.target.value })}
+                    />
+                  </label>
+                  <label className="st-field">
+                    <span>Auto mode delay</span>
+                    <input
+                      disabled={Boolean(busyAction)}
+                      min={1}
+                      step={1}
+                      type="number"
+                      value={groupDraft.autoModeDelay}
+                      onChange={(event) => updateGroupDraft({ autoModeDelay: Number(event.target.value) || 1 })}
+                    />
+                  </label>
+                  <label className="st-field">
+                    <span>Activation strategy</span>
+                    <select
+                      disabled={Boolean(busyAction)}
+                      value={groupDraft.activationStrategy}
+                      onChange={(event) => updateGroupDraft({ activationStrategy: Number(event.target.value) })}
+                    >
+                      <option value={0}>Natural</option>
+                      <option value={1}>List</option>
+                      <option value={2}>Manual</option>
+                      <option value={3}>Pooled</option>
+                    </select>
+                  </label>
+                  <label className="st-field">
+                    <span>Generation mode</span>
+                    <select
+                      disabled={Boolean(busyAction)}
+                      value={groupDraft.generationMode}
+                      onChange={(event) => updateGroupDraft({ generationMode: Number(event.target.value) })}
+                    >
+                      <option value={0}>Swap</option>
+                      <option value={1}>Append</option>
+                      <option value={2}>Append disabled</option>
+                    </select>
+                  </label>
+                </div>
+                <div className="st-shell-toggles">
+                  <label className="st-shell-toggle">
+                    <span>
+                      <strong>Allow self responses</strong>
+                      <small>Permit the same member to answer consecutively.</small>
+                    </span>
+                    <input
+                      checked={groupDraft.allowSelfResponses}
+                      disabled={Boolean(busyAction)}
+                      type="checkbox"
+                      onChange={(event) => updateGroupDraft({ allowSelfResponses: event.target.checked })}
+                    />
+                  </label>
+                  <label className="st-shell-toggle">
+                    <span>
+                      <strong>Hide muted sprites</strong>
+                      <small>Collapse muted group members in the runtime presentation.</small>
+                    </span>
+                    <input
+                      checked={groupDraft.hideMutedSprites}
+                      disabled={Boolean(busyAction)}
+                      type="checkbox"
+                      onChange={(event) => updateGroupDraft({ hideMutedSprites: event.target.checked })}
+                    />
+                  </label>
+                  <label className="st-shell-toggle">
+                    <span>
+                      <strong>Favorite group</strong>
+                      <small>Keep this group pinned in favorite-oriented flows.</small>
+                    </span>
+                    <input
+                      checked={groupDraft.favorite}
+                      disabled={Boolean(busyAction)}
+                      type="checkbox"
+                      onChange={(event) => updateGroupDraft({ favorite: event.target.checked })}
+                    />
+                  </label>
+                </div>
+                <div className="st-shell-settings-group">
+                  <div className="st-shell-settings-group__header">
+                    <h3>Members</h3>
+                    <span className="st-note">{groupDraft.memberAvatarFiles.length} selected</span>
+                  </div>
+                  <div className="st-shell-member-picker">
+                    {groupMemberOptions.map((character) => {
+                      const avatarFile = character.avatarFile;
+                      if (!avatarFile) {
+                        return null;
+                      }
+
+                      const selected = groupDraft.memberAvatarFiles.includes(avatarFile);
+                      return (
+                        <label className={`st-shell-member-option${selected ? ' st-shell-member-option--selected' : ''}`} key={`group-${groupDraft.id}-${avatarFile}`}>
+                          <input
+                            checked={selected}
+                            disabled={Boolean(busyAction)}
+                            type="checkbox"
+                            onChange={(event) =>
+                              updateGroupDraft({
+                                memberAvatarFiles: event.target.checked
+                                  ? [...groupDraft.memberAvatarFiles, avatarFile]
+                                  : groupDraft.memberAvatarFiles.filter((value) => value !== avatarFile),
+                              })
+                            }
+                          />
+                          <span>{character.name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+                <nav className="st-actions">
+                  <button
+                    className="st-button"
+                    disabled={!legacyBridge || !groupIsDirty || !groupDraft.memberAvatarFiles.length || Boolean(busyAction)}
+                    type="button"
+                    onClick={() => void handleGroupSave()}
+                  >
+                    Save group
+                  </button>
+                  <button
+                    className="st-button st-button--ghost"
+                    disabled={!groupProfile || Boolean(busyAction)}
+                    type="button"
+                    onClick={() => setGroupDraft(groupProfile)}
+                  >
+                    Reset group draft
+                  </button>
+                </nav>
+              </>
+            ) : (
+              <p className="st-note">Open a group to inspect or edit its core group settings.</p>
+            )}
           </section>
 
           <section className="st-shell-card">

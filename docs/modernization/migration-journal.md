@@ -2078,3 +2078,25 @@
 ### Next
 1. Continue replacing another routine authoring panel rather than widening the shell with more isolated buttons.
 2. Reassess whether the visible fallback iframe should default to closed once character and chat authoring paths are mostly React-owned.
+
+## 2026-03-10 - React Migration Wave 16 (Group Management Panels)
+
+### Completed
+- Extended the typed modernization bridge with explicit group-management contracts and richer character catalog entries:
+  - [frontend/src/core/contracts.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/core/contracts.ts)
+  - [frontend/src/legacy/bridge.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/legacy/bridge.ts)
+- Exposed the remaining runtime hooks needed for React-driven group creation/opening in [public/scripts/st-context.js](/Users/hal/.codex/worktrees/dc18/SillyTavern/public/scripts/st-context.js).
+- Added React-owned `New group` and `Group editor` panels in [frontend/src/features/shell/ShellPage.tsx](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/features/shell/ShellPage.tsx), with supporting UI styling in [frontend/src/styles/global.css](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/styles/global.css).
+- Expanded bridge coverage in [frontend/src/test/bridge.test.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/test/bridge.test.ts) to cover group profile loading, creation, and saving.
+
+### Measurable Impact
+- Group creation and core group editing no longer require the legacy group-edit panel for the common text/settings workflow.
+- The React shell now covers both major authoring surfaces that were still routinely pulling usage back into the visible fallback: characters and groups.
+
+### Insights
+- Direct bridge-level fetches for groups are acceptable here because group creation and editing already map cleanly to stable backend endpoints and a compact serializable group shape.
+- Adding `avatarFile` to the session catalog was the key simplification for React member pickers; it avoids leaking more group-editor DOM behavior into the bridge.
+
+### Next
+1. Shift from authoring panels to a deeper runtime/editor surface, likely prompt or world-info management, instead of adding more shell-adjacent controls.
+2. Reassess whether the visible fallback iframe should stay exposed by default now that both character and group authoring have React-owned paths.

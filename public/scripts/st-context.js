@@ -1,7 +1,7 @@
 import { menu_type } from './runtime/app-state-adapter.js';
 import { CONNECT_API_MAP, main_api } from './runtime/api-adapter.js';
 import { characters, getCharacters } from './runtime/character-adapter.js';
-import { chat_metadata, getCurrentChatId, name1, name2, this_chid } from './runtime/chat-adapter.js';
+import { chat_metadata, default_avatar, getCurrentChatId, name1, name2, this_chid } from './runtime/chat-adapter.js';
 import {
     activateSendButtons,
     addOneMessage,
@@ -51,7 +51,7 @@ import {
     saveMetadataDebounced,
     writeExtensionField,
 } from './extensions.js';
-import { deleteGroupChatByName, groups, openGroupChat, selected_group, unshallowGroupMembers } from './group-chats.js';
+import { deleteGroupChatByName, groups, openGroupById, openGroupChat, selected_group, unshallowGroupMembers } from './group-chats.js';
 import { addLocaleData, getCurrentLocale, t, translate } from './i18n.js';
 import { hideLoader, showLoader } from './loader.js';
 import { MacrosParser } from './macros.js';
@@ -151,7 +151,9 @@ export function getContext() {
         accountStorage,
         chat,
         characters,
+        defaultAvatar: default_avatar,
         groups,
+        humanizedDateTime,
         name1,
         name2,
         characterId: this_chid,
@@ -190,6 +192,7 @@ export function getContext() {
         saveChat: saveChatConditional,
         deleteGroupChatByName,
         openCharacterChat,
+        openGroupById,
         openGroupChat,
         saveMetadata,
         sendSystemMessage,

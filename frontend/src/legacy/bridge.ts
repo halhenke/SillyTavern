@@ -2,6 +2,9 @@ import {
   CharacterCreateDraft,
   CharacterProfile,
   CharacterService,
+  GroupCreateDraft,
+  GroupProfile,
+  GroupService,
   ChatMetadata,
   ChatMessageSummary,
   ChatService,
@@ -83,9 +86,19 @@ type LegacyCharacter = {
 };
 
 type LegacyGroup = {
+  activation_strategy?: number;
+  allow_self_responses?: boolean;
+  auto_mode_delay?: number;
+  avatar_url?: string;
+  chat_metadata?: Record<string, unknown>;
+  chats?: string[];
   chat_id?: string;
+  disabled_members?: string[];
+  fav?: boolean;
+  generation_mode?: number;
+  hideMutedSprites?: boolean;
   id?: string;
-  members?: unknown[];
+  members?: string[];
   name?: string;
 };
 
@@ -160,6 +173,9 @@ type LegacyContext = {
     version?: string;
   };
   createCharacter?: (profile: CharacterCreateDraft) => Promise<void>;
+  defaultAvatar?: string;
+  humanizedDateTime?: () => string;
+  openGroupById?: (groupId: string) => Promise<boolean | void>;
   substituteParams?: (text: string) => string;
   selectCharacterById?: (id: number, options?: { switchMenu?: boolean }) => Promise<void>;
   stopGeneration?: () => void;
@@ -270,6 +286,7 @@ function getCharacterAvatarUrl(context: LegacyContext, avatar?: string) {
 
 function getCharacterSummary(context: LegacyContext, character: LegacyCharacter, index: number): ShellCharacterSummary {
   return {
+    avatarFile: character.avatar,
     avatarUrl: getCharacterAvatarUrl(context, character.avatar),
     chatId: character.chat,
     id: index,
@@ -288,6 +305,40 @@ function getGroupSummary(context: LegacyContext, group: LegacyGroup): ShellGroup
     id: group.id,
     isSelected: context.groupId === group.id,
     memberCount: Array.isArray(group.members) ? group.members.length : 0,
+    name: group.name?.trim() || `Group ${group.id}`,
+  };
+}
+
+function getSelectedGroup(context: LegacyContext) {
+  const groupId = context.groupId;
+  if (!groupId) {
+    return null;
+  }
+
+  const group = context.groups?.find((item) => item.id === groupId);
+  if (!group?.id) {
+    return null;
+  }
+
+  return group;
+}
+
+function getSelectedGroupProfile(context: LegacyContext): GroupProfile | null {
+  const group = getSelectedGroup(context);
+  if (!group?.id) {
+    return null;
+  }
+
+  return {
+    activationStrategy: Number(group.activation_strategy ?? 0),
+    allowSelfResponses: Boolean(group.allow_self_responses),
+    autoModeDelay: Number(group.auto_mode_delay ?? 5),
+    chatId: group.chat_id,
+    favorite: Boolean(group.fav),
+    generationMode: Number(group.generation_mode ?? 0),
+    hideMutedSprites: Boolean(group.hideMutedSprites),
+    id: group.id,
+    memberAvatarFiles: Array.isArray(group.members) ? [...group.members] : [],
     name: group.name?.trim() || `Group ${group.id}`,
   };
 }
@@ -721,6 +772,89 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
     },
   };
 
+  const group: GroupService = {
+    createProfile: async (profile) => {
+      const memberAvatarFiles = profile.memberAvatarFiles.filter(Boolean);
+      if (!memberAvatarFiles.length) {
+        throw new Error('At least one group member is required');
+      }
+
+      const memberNames = (context.characters ?? [])
+        .filter((character) => character.avatar && memberAvatarFiles.includes(character.avatar))
+        .map((character) => character.name?.trim())
+        .filter((name): name is string => Boolean(name));
+      const groupName = profile.name.trim() || `Group: ${memberNames.join(', ')}`;
+      const chatName = context.humanizedDateTime?.() ?? new Date().toISOString();
+      const response = await fetch('/api/groups/create', {
+        method: 'POST',
+        headers: context.getRequestHeaders?.(),
+        body: JSON.stringify({
+          activation_strategy: profile.activationStrategy,
+          allow_self_responses: profile.allowSelfResponses,
+          auto_mode_delay: profile.autoModeDelay,
+          avatar_url: context.defaultAvatar ?? '',
+          chat_id: chatName,
+          chat_metadata: {},
+          chats: [chatName],
+          disabled_members: [],
+          fav: profile.favorite,
+          generation_mode: profile.generationMode,
+          hideMutedSprites: profile.hideMutedSprites,
+          members: memberAvatarFiles,
+          name: groupName,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Group creation failed');
+      }
+
+      const createdGroup = (await response.json()) as { id?: string };
+      await context.getCharacters?.();
+
+      if (createdGroup.id) {
+        await context.openGroupById?.(createdGroup.id);
+      }
+    },
+    getSelectedProfile: async () => getSelectedGroupProfile(context),
+    saveSelectedProfile: async (profile) => {
+      const currentGroup = getSelectedGroup(context);
+      if (!currentGroup?.id) {
+        throw new Error('No selected group to save');
+      }
+
+      const nextGroup: LegacyGroup = {
+        ...structuredClone(currentGroup),
+        activation_strategy: profile.activationStrategy,
+        allow_self_responses: profile.allowSelfResponses,
+        auto_mode_delay: profile.autoModeDelay,
+        fav: profile.favorite,
+        generation_mode: profile.generationMode,
+        hideMutedSprites: profile.hideMutedSprites,
+        members: [...profile.memberAvatarFiles],
+        name: profile.name.trim() || currentGroup.name || `Group ${currentGroup.id}`,
+      };
+
+      if (currentGroup.id === context.groupId) {
+        nextGroup.chat_metadata = structuredClone(context.chatMetadata ?? {});
+      }
+
+      const response = await fetch('/api/groups/edit', {
+        method: 'POST',
+        headers: context.getRequestHeaders?.(),
+        body: JSON.stringify(nextGroup),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Group save failed');
+      }
+
+      await context.getCharacters?.();
+    },
+  };
+
   const extensions: ExtensionHostService = {
     getContext: () => context,
     getEventTypes: () => context.eventTypes ?? {},
@@ -756,6 +890,7 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
     session,
     generation,
     character,
+    group,
     composer,
     extensions,
   };

@@ -310,6 +310,32 @@ a {
   font-size: 0.95rem;
 }
 
+.st-shell-member-picker {
+  display: grid;
+  gap: 8px;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.st-shell-member-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(54, 66, 85, 0.72);
+  border-radius: 14px;
+  background: rgba(16, 21, 29, 0.6);
+}
+
+.st-shell-member-option--selected {
+  border-color: rgba(94, 199, 165, 0.4);
+  background: rgba(94, 199, 165, 0.12);
+}
+
+.st-shell-member-option span {
+  font-weight: 600;
+}
+
 .st-shell-search {
   margin-bottom: 14px;
 }

@@ -176,6 +176,7 @@ describe('createLegacyBridge', () => {
     const unshallowCharacter = vi.fn();
     const updateChatMetadata = vi.fn();
     const updateMessageBlock = vi.fn();
+    const openGroupById = vi.fn();
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = String(input);
       if (url === '/api/chats/search') {
@@ -190,6 +191,13 @@ describe('createLegacyBridge', () => {
               preview_message: 'Archive preview',
             },
           ],
+        });
+      }
+
+      if (url === '/api/groups/create') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ id: 'g-3' }),
         });
       }
 
@@ -278,11 +286,37 @@ describe('createLegacyBridge', () => {
           getCharacterCardFields,
           getRequestHeaders,
           getThumbnailUrl: vi.fn((type: string, file: string) => `/thumb/${type}/${file}`),
+          defaultAvatar: 'img/ai4.png',
           groupId: 'g-2',
           groups: [
-            { chat_id: 'g-1-chat', id: 'g-1', members: ['a', 'b'], name: 'Alpha Team' },
-            { chat_id: 'g-2-chat', id: 'g-2', members: ['x'], name: 'Beta Team' },
+            {
+              activation_strategy: 1,
+              allow_self_responses: true,
+              auto_mode_delay: 9,
+              chat_id: 'g-1-chat',
+              fav: false,
+              generation_mode: 0,
+              hideMutedSprites: false,
+              id: 'g-1',
+              members: ['hero.png', 'mage.png'],
+              name: 'Alpha Team',
+            },
+            {
+              activation_strategy: 2,
+              allow_self_responses: false,
+              auto_mode_delay: 7,
+              chat_id: 'g-2-chat',
+              chat_metadata: { scenario: 'Current metadata scenario' },
+              fav: true,
+              generation_mode: 1,
+              hideMutedSprites: true,
+              id: 'g-2',
+              members: ['mage.png'],
+              name: 'Beta Team',
+            },
           ],
+          humanizedDateTime: () => 'chat-2025',
+          openGroupById,
           openGroupChat,
           openCharacterChat,
           reloadCurrentChat,
@@ -311,6 +345,7 @@ describe('createLegacyBridge', () => {
     expect(bridge?.session.getCatalog()).toEqual({
       characters: [
         {
+          avatarFile: 'hero.png',
           avatarUrl: '/thumb/avatar/hero.png',
           chatId: 'hero-chat',
           id: 0,
@@ -318,6 +353,7 @@ describe('createLegacyBridge', () => {
           name: 'Hero',
         },
         {
+          avatarFile: 'mage.png',
           avatarUrl: '/thumb/avatar/mage.png',
           chatId: 'mage-chat',
           id: 1,
@@ -440,6 +476,40 @@ describe('createLegacyBridge', () => {
       tags: ['new', 'test'],
       talkativeness: 0.55,
     });
+    await expect(bridge?.group.getSelectedProfile()).resolves.toEqual({
+      activationStrategy: 2,
+      allowSelfResponses: false,
+      autoModeDelay: 7,
+      chatId: 'g-2-chat',
+      favorite: true,
+      generationMode: 1,
+      hideMutedSprites: true,
+      id: 'g-2',
+      memberAvatarFiles: ['mage.png'],
+      name: 'Beta Team',
+    });
+    await bridge?.group.createProfile({
+      activationStrategy: 3,
+      allowSelfResponses: true,
+      autoModeDelay: 11,
+      favorite: true,
+      generationMode: 2,
+      hideMutedSprites: false,
+      memberAvatarFiles: ['hero.png', 'mage.png'],
+      name: 'Council',
+    });
+    await bridge?.group.saveSelectedProfile({
+      activationStrategy: 0,
+      allowSelfResponses: true,
+      autoModeDelay: 5,
+      chatId: 'g-2-chat',
+      favorite: false,
+      generationMode: 0,
+      hideMutedSprites: false,
+      id: 'g-2',
+      memberAvatarFiles: ['hero.png', 'mage.png'],
+      name: 'Beta Revised',
+    });
     await bridge?.character.saveSelectedProfile({
       avatarFile: 'mage.png',
       avatarUrl: '/thumb/avatar/mage.png',
@@ -512,10 +582,53 @@ describe('createLegacyBridge', () => {
       tags: ['new', 'test'],
       talkativeness: 0.55,
     });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(openGroupById).toHaveBeenCalledWith('g-3');
+    expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/chats/search');
-    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/characters/edit');
-    const requestInit = (fetchMock.mock.calls[1] as unknown as [string, RequestInit] | undefined)?.[1];
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/groups/create');
+    expect(fetchMock.mock.calls[2]?.[0]).toBe('/api/groups/edit');
+    expect(fetchMock.mock.calls[3]?.[0]).toBe('/api/characters/edit');
+    const createGroupRequest = (fetchMock.mock.calls[1] as unknown as [string, RequestInit] | undefined)?.[1];
+    if (!createGroupRequest) {
+      throw new Error('Expected group create request init');
+    }
+    expect(createGroupRequest.method).toBe('POST');
+    expect(createGroupRequest.headers).toEqual({ 'X-CSRF-Token': 'token' });
+    expect(JSON.parse(String(createGroupRequest.body))).toEqual({
+      activation_strategy: 3,
+      allow_self_responses: true,
+      auto_mode_delay: 11,
+      avatar_url: 'img/ai4.png',
+      chat_id: 'chat-2025',
+      chat_metadata: {},
+      chats: ['chat-2025'],
+      disabled_members: [],
+      fav: true,
+      generation_mode: 2,
+      hideMutedSprites: false,
+      members: ['hero.png', 'mage.png'],
+      name: 'Council',
+    });
+    const saveGroupRequest = (fetchMock.mock.calls[2] as unknown as [string, RequestInit] | undefined)?.[1];
+    if (!saveGroupRequest) {
+      throw new Error('Expected group save request init');
+    }
+    expect(saveGroupRequest.method).toBe('POST');
+    expect(saveGroupRequest.headers).toEqual({ 'X-CSRF-Token': 'token' });
+    expect(JSON.parse(String(saveGroupRequest.body))).toEqual(expect.objectContaining({
+      activation_strategy: 0,
+      allow_self_responses: true,
+      auto_mode_delay: 5,
+      chat_id: 'g-2-chat',
+      chat_metadata: { scenario: 'Current metadata scenario', tainted: true },
+      fav: false,
+      generation_mode: 0,
+      hideMutedSprites: false,
+      id: 'g-2',
+      members: ['hero.png', 'mage.png'],
+      name: 'Beta Revised',
+    }));
+    const requestInit = (fetchMock.mock.calls[3] as unknown as [string, RequestInit] | undefined)?.[1];
     if (!requestInit) {
       throw new Error('Expected character save request init');
     }
@@ -525,6 +638,6 @@ describe('createLegacyBridge', () => {
     expect((requestInit.body as FormData).get('description')).toBe('Updated description');
     expect((requestInit.body as FormData).get('system_prompt')).toBe('Stay precise');
     expect((requestInit.body as FormData).get('tags')).toBe('mage, mentor');
-    expect(getCharacters).toHaveBeenCalledTimes(2);
+    expect(getCharacters).toHaveBeenCalledTimes(4);
   });
 });

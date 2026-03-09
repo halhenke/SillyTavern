@@ -32,6 +32,7 @@ export interface ShellSnapshot {
 }
 
 export interface ShellCharacterSummary {
+  avatarFile?: string;
   avatarUrl?: string;
   chatId?: string;
   id: number;
@@ -102,6 +103,30 @@ export interface CharacterCreateDraft {
   systemPrompt: string;
   tags: string[];
   talkativeness: number;
+}
+
+export interface GroupProfile {
+  activationStrategy: number;
+  allowSelfResponses: boolean;
+  autoModeDelay: number;
+  chatId?: string;
+  favorite: boolean;
+  hideMutedSprites: boolean;
+  id: string;
+  memberAvatarFiles: string[];
+  name: string;
+  generationMode: number;
+}
+
+export interface GroupCreateDraft {
+  activationStrategy: number;
+  allowSelfResponses: boolean;
+  autoModeDelay: number;
+  favorite: boolean;
+  hideMutedSprites: boolean;
+  memberAvatarFiles: string[];
+  name: string;
+  generationMode: number;
 }
 
 export interface ChatMetadata {
@@ -175,6 +200,12 @@ export interface CharacterService {
   saveSelectedProfile(profile: CharacterProfile): Promise<void>;
 }
 
+export interface GroupService {
+  createProfile(profile: GroupCreateDraft): Promise<void>;
+  getSelectedProfile(): Promise<GroupProfile | null>;
+  saveSelectedProfile(profile: GroupProfile): Promise<void>;
+}
+
 export interface ComposerService {
   sendAndGenerate(text: string): Promise<void>;
   sendUserMessage(text: string): Promise<void>;
@@ -193,6 +224,7 @@ export interface ModernizationBridge {
   session: SessionService;
   generation: GenerationService;
   character: CharacterService;
+  group: GroupService;
   composer: ComposerService;
   extensions: ExtensionHostService;
 }

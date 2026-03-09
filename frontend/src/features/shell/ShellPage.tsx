@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { CharacterProfile, ChatMessageSummary, SessionCatalog, ShellPreferences, ShellSnapshot } from '../../core/contracts';
+import { CharacterProfile, ChatMessageSummary, SessionCatalog, SessionChatSummary, ShellPreferences, ShellSnapshot } from '../../core/contracts';
 import { LegacyBridge, createLegacyBridge } from '../../legacy/bridge';
 
 const DEFAULT_PREFERENCES: ShellPreferences = {
@@ -133,6 +133,11 @@ export function ShellPage() {
   const [messages, setMessages] = useState<ChatMessageSummary[]>(DEFAULT_MESSAGES);
   const [selectedMessageId, setSelectedMessageId] = useState<number | null>(null);
   const [messageEditDraft, setMessageEditDraft] = useState('');
+  const [sessionHistory, setSessionHistory] = useState<SessionChatSummary[]>([]);
+  const [sessionHistoryQuery, setSessionHistoryQuery] = useState('');
+  const [sessionHistoryRenameDraft, setSessionHistoryRenameDraft] = useState('');
+  const [sessionHistoryRenameTarget, setSessionHistoryRenameTarget] = useState<string | null>(null);
+  const [sessionHistoryLoading, setSessionHistoryLoading] = useState(false);
   const [chatScenarioDraft, setChatScenarioDraft] = useState('');
   const [composerText, setComposerText] = useState('');
   const [systemNoteDraft, setSystemNoteDraft] = useState('');
@@ -162,6 +167,23 @@ export function ShellPage() {
     setSnapshot(bridge.settings.getShellSnapshot());
     setCatalog(bridge.session.getCatalog());
     setMessages(bridge.chat.getMessages());
+  }, []);
+
+  const refreshSessionHistory = useCallback(async (bridge: LegacyBridge | null, query: string) => {
+    if (!bridge) {
+      setSessionHistory([]);
+      return;
+    }
+
+    setSessionHistoryLoading(true);
+    try {
+      const nextHistory = await bridge.session.getSessionHistory(query);
+      setSessionHistory(nextHistory);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not load session history');
+    } finally {
+      setSessionHistoryLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -233,6 +255,22 @@ export function ShellPage() {
 
     setChatScenarioDraft(legacyBridge.chat.getMetadata().scenario);
   }, [legacyBridge, snapshot.currentChatId]);
+
+  useEffect(() => {
+    if (!legacyBridge) {
+      setSessionHistory([]);
+      return;
+    }
+
+    void refreshSessionHistory(legacyBridge, sessionHistoryQuery);
+  }, [
+    legacyBridge,
+    refreshSessionHistory,
+    sessionHistoryQuery,
+    snapshot.characterId,
+    snapshot.currentChatId,
+    snapshot.groupId,
+  ]);
 
   useEffect(() => {
     let mounted = true;
@@ -380,6 +418,76 @@ export function ShellPage() {
       refreshRuntime(legacyBridge);
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Could not update session');
+    } finally {
+      setBusyAction('');
+    }
+  }
+
+  async function handleSessionHistoryOpen(fileName: string) {
+    const bridge = legacyBridge;
+    if (!bridge) {
+      return;
+    }
+
+    setActionError('');
+    setBusyAction('history-open');
+
+    try {
+      await bridge.session.openChatFile(fileName);
+      setSessionHistoryRenameTarget(null);
+      refreshRuntime(bridge);
+      await refreshSessionHistory(bridge, sessionHistoryQuery);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not open chat');
+    } finally {
+      setBusyAction('');
+    }
+  }
+
+  async function handleSessionHistoryDelete(fileName: string) {
+    const bridge = legacyBridge;
+    if (!bridge) {
+      return;
+    }
+
+    setActionError('');
+    setBusyAction('history-delete');
+
+    try {
+      await bridge.session.deleteChatFile(fileName);
+      setSessionHistoryRenameTarget((current) => (current === fileName ? null : current));
+      refreshRuntime(bridge);
+      await refreshSessionHistory(bridge, sessionHistoryQuery);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not delete chat');
+    } finally {
+      setBusyAction('');
+    }
+  }
+
+  async function handleSessionHistoryRenameSave() {
+    const bridge = legacyBridge;
+    if (!bridge || !sessionHistoryRenameTarget) {
+      return;
+    }
+
+    const trimmedName = sessionHistoryRenameDraft.trim();
+    if (!trimmedName) {
+      setActionError('Chat name is required');
+      return;
+    }
+
+    setActionError('');
+    setBusyAction('history-rename');
+
+    try {
+      await bridge.session.renameChatFile(sessionHistoryRenameTarget, trimmedName);
+      setSessionHistoryRenameTarget(null);
+      setSessionHistoryRenameDraft('');
+      refreshRuntime(bridge);
+      await refreshSessionHistory(bridge, sessionHistoryQuery);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not rename chat');
     } finally {
       setBusyAction('');
     }
@@ -1522,6 +1630,114 @@ export function ShellPage() {
                       Delete last message
                     </button>
                   </nav>
+                </section>
+
+                <section className="st-shell-card st-shell-card--compact">
+                  <div className="st-shell-card__header">
+                    <h3>Session history</h3>
+                    <span className="st-shell-badge st-shell-badge--muted">
+                      {sessionHistoryLoading ? 'loading' : `${sessionHistory.length} chats`}
+                    </span>
+                  </div>
+                  <label className="st-field">
+                    <span>Search chats</span>
+                    <input
+                      disabled={!legacyBridge || Boolean(busyAction)}
+                      type="search"
+                      placeholder="Filter the current character or group chat history."
+                      value={sessionHistoryQuery}
+                      onChange={(event) => setSessionHistoryQuery(event.target.value)}
+                    />
+                  </label>
+                  <div className="st-shell-history-list st-shell-session-history-list">
+                    {sessionHistory.length ? (
+                      sessionHistory.map((chatItem) => {
+                        const isRenaming = sessionHistoryRenameTarget === chatItem.fileName;
+                        return (
+                          <article className="st-shell-history-item" key={chatItem.fileName}>
+                            <div className="st-shell-history-item__header">
+                              <span className={`st-shell-history-role${chatItem.isActive ? '' : ' st-shell-history-role--system'}`}>
+                                {chatItem.isActive ? 'active' : 'saved'}
+                              </span>
+                              <strong>{chatItem.fileName}</strong>
+                              <small>
+                                {chatItem.messageCount} messages
+                                {chatItem.fileSize ? ` · ${chatItem.fileSize}` : ''}
+                                {chatItem.lastMessageAt ? ` · ${chatItem.lastMessageAt}` : ''}
+                              </small>
+                            </div>
+                            <p>{chatItem.previewMessage || 'No preview available.'}</p>
+                            {isRenaming ? (
+                              <>
+                                <label className="st-field">
+                                  <span>New chat name</span>
+                                  <input
+                                    disabled={Boolean(busyAction)}
+                                    type="text"
+                                    value={sessionHistoryRenameDraft}
+                                    onChange={(event) => setSessionHistoryRenameDraft(event.target.value)}
+                                  />
+                                </label>
+                                <nav className="st-actions">
+                                  <button
+                                    className="st-button"
+                                    disabled={!sessionHistoryRenameDraft.trim() || Boolean(busyAction)}
+                                    type="button"
+                                    onClick={() => void handleSessionHistoryRenameSave()}
+                                  >
+                                    Save name
+                                  </button>
+                                  <button
+                                    className="st-button st-button--ghost"
+                                    disabled={Boolean(busyAction)}
+                                    type="button"
+                                    onClick={() => {
+                                      setSessionHistoryRenameTarget(null);
+                                      setSessionHistoryRenameDraft('');
+                                    }}
+                                  >
+                                    Cancel
+                                  </button>
+                                </nav>
+                              </>
+                            ) : (
+                              <nav className="st-actions">
+                                <button
+                                  className="st-button"
+                                  disabled={!legacyBridge || Boolean(busyAction)}
+                                  type="button"
+                                  onClick={() => void handleSessionHistoryOpen(chatItem.fileName)}
+                                >
+                                  Open
+                                </button>
+                                <button
+                                  className="st-button st-button--ghost"
+                                  disabled={!legacyBridge || Boolean(busyAction)}
+                                  type="button"
+                                  onClick={() => {
+                                    setSessionHistoryRenameTarget(chatItem.fileName);
+                                    setSessionHistoryRenameDraft(chatItem.fileName);
+                                  }}
+                                >
+                                  Rename
+                                </button>
+                                <button
+                                  className="st-button st-button--ghost"
+                                  disabled={!legacyBridge || Boolean(busyAction)}
+                                  type="button"
+                                  onClick={() => void handleSessionHistoryDelete(chatItem.fileName)}
+                                >
+                                  Delete
+                                </button>
+                              </nav>
+                            )}
+                          </article>
+                        );
+                      })
+                    ) : (
+                      <p className="st-note">No saved chats found for the current session.</p>
+                    )}
+                  </div>
                 </section>
 
                 <section className="st-shell-card st-shell-card--compact">

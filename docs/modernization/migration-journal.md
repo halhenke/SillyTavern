@@ -2024,3 +2024,32 @@
 ### Next
 1. Continue removing routine reasons to open the visible fallback by migrating another bounded message or chat-management action.
 2. After that, shift focus from incremental editor tools to replacing one deeper legacy panel outright.
+
+## 2026-03-10 - React Migration Wave 14 (Session History Panel)
+
+### Completed
+- Added a typed session-history bridge for the current selected character or group with:
+  - history search via the existing `/api/chats/search` flow
+  - open specific chat file
+  - rename specific chat file
+  - delete specific chat file
+- Exposed the existing character/group chat deletion helpers through [public/scripts/st-context.js](/Users/hal/.codex/worktrees/dc18/SillyTavern/public/scripts/st-context.js) instead of duplicating deletion rules in React.
+- Added a React-owned session history panel in the main runtime rail with:
+  - search
+  - open
+  - inline rename
+  - delete
+  - active-chat highlighting
+- Expanded bridge tests to cover session-history loading and current-session open/rename/delete behavior.
+
+### Measurable Impact
+- The old past-chats popup is no longer the only practical way to manage saved chats for the active session.
+- This is a deeper legacy panel replacement, not just another isolated action button.
+
+### Insights
+- Session history is a better panel target than continuing to widen message-editor controls because it replaces a whole legacy popup workflow with a typed service boundary.
+- Keeping history scoped to the current selected session avoids premature generalization while still removing one of the more common fallback-iframe use cases.
+
+### Next
+1. Keep reducing visible fallback usage by replacing another legacy popup or panel rather than returning to small one-off controls.
+2. Revisit whether the visible fallback should stay mounted at all in normal development once a couple more workflow panels are React-owned.

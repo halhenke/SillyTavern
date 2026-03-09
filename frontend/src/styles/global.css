@@ -473,6 +473,10 @@ a {
   overflow: auto;
 }
 
+.st-shell-session-history-list {
+  max-height: 560px;
+}
+
 .st-shell-history-item {
   border: 1px solid rgba(54, 66, 85, 0.72);
   border-radius: 14px;

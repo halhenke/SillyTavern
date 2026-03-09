@@ -52,6 +52,15 @@ export interface SessionCatalog {
   groups: ShellGroupSummary[];
 }
 
+export interface SessionChatSummary {
+  fileName: string;
+  fileSize?: string;
+  isActive: boolean;
+  lastMessageAt?: string;
+  messageCount: number;
+  previewMessage: string;
+}
+
 export interface QuietPromptOptions {
   prompt: string;
   quietToLoud?: boolean;
@@ -129,8 +138,12 @@ export interface ChatService {
 export interface SessionService {
   clearCurrentChat(): Promise<void>;
   getCatalog(): SessionCatalog;
+  getSessionHistory(query?: string): Promise<SessionChatSummary[]>;
+  deleteChatFile(fileName: string): Promise<void>;
+  openChatFile(fileName: string): Promise<void>;
   openGroup(groupId: string, chatId?: string): Promise<void>;
   reloadCurrentChat(): Promise<void>;
+  renameChatFile(oldFileName: string, newName: string): Promise<void>;
   renameCurrentChat(nextName: string): Promise<void>;
   selectCharacter(id: number): Promise<void>;
 }

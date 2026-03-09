@@ -143,6 +143,7 @@ describe('createLegacyBridge', () => {
   it('maps session catalog and delegates character and group actions', async () => {
     const clearChat = vi.fn();
     const deleteLastMessage = vi.fn();
+    const deleteGroupChatByName = vi.fn();
     const deleteSwipe = vi.fn();
     const eventEmit = vi.fn();
     const generateQuietPrompt = vi.fn().mockResolvedValue('quiet result');
@@ -168,14 +169,33 @@ describe('createLegacyBridge', () => {
     const substituteParams = vi.fn((text: string) => `[substituted] ${text}`);
     const selectCharacterById = vi.fn();
     const openGroupChat = vi.fn();
+    const openCharacterChat = vi.fn();
     const reloadCurrentChat = vi.fn();
     const saveMetadata = vi.fn();
     const unshallowCharacter = vi.fn();
     const updateChatMetadata = vi.fn();
     const updateMessageBlock = vi.fn();
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      text: async () => '',
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/chats/search') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => [
+            {
+              file_name: 'beta-archive',
+              file_size: '12 KB',
+              last_mes: '2025-01-04',
+              message_count: 4,
+              preview_message: 'Archive preview',
+            },
+          ],
+        });
+      }
+
+      return Promise.resolve({
+        ok: true,
+        text: async () => '',
+      });
     });
     vi.stubGlobal('fetch', fetchMock);
 
@@ -262,6 +282,7 @@ describe('createLegacyBridge', () => {
             { chat_id: 'g-2-chat', id: 'g-2', members: ['x'], name: 'Beta Team' },
           ],
           openGroupChat,
+          openCharacterChat,
           reloadCurrentChat,
           renameChat,
           saveChat,
@@ -278,6 +299,7 @@ describe('createLegacyBridge', () => {
           unshallowCharacter,
           updateChatMetadata,
           updateMessageBlock,
+          deleteGroupChatByName,
         }),
       },
     } as unknown as Window;
@@ -319,10 +341,24 @@ describe('createLegacyBridge', () => {
       ],
     });
 
+    await expect(bridge?.session.getSessionHistory('beta')).resolves.toEqual([
+      {
+        fileName: 'beta-archive',
+        fileSize: '12 KB',
+        isActive: false,
+        lastMessageAt: '2025-01-04',
+        messageCount: 4,
+        previewMessage: 'Archive preview',
+      },
+    ]);
+
     await bridge?.session.selectCharacter(4);
     await bridge?.session.openGroup('g-1', 'g-1-chat');
+    await bridge?.session.openChatFile('beta-archive');
     await bridge?.session.reloadCurrentChat();
     await bridge?.session.clearCurrentChat();
+    await bridge?.session.renameChatFile('beta-archive', 'beta-renamed');
+    await bridge?.session.deleteChatFile('beta-archive');
     await bridge?.session.renameCurrentChat('renamed-chat');
     expect(bridge?.chat.getMessages()).toEqual([
       {
@@ -409,8 +445,12 @@ describe('createLegacyBridge', () => {
 
     expect(selectCharacterById).toHaveBeenCalledWith(4, { switchMenu: false });
     expect(openGroupChat).toHaveBeenCalledWith('g-1', 'g-1-chat');
+    expect(openGroupChat).toHaveBeenCalledWith('g-2', 'beta-archive');
+    expect(openCharacterChat).not.toHaveBeenCalled();
     expect(clearChat).toHaveBeenCalledTimes(1);
+    expect(renameChat).toHaveBeenCalledWith('beta-archive', 'beta-renamed');
     expect(renameChat).toHaveBeenCalledWith('mage-chat', 'renamed-chat');
+    expect(deleteGroupChatByName).toHaveBeenCalledWith('g-2', 'beta-archive');
     expect(updateChatMetadata).toHaveBeenCalledWith({ scenario: 'Updated metadata scenario' }, true);
     expect(saveMetadata).toHaveBeenCalledTimes(1);
     expect(sendSystemMessage).toHaveBeenCalledWith('generic', 'System memo');
@@ -440,9 +480,13 @@ describe('createLegacyBridge', () => {
       responseLength: 240,
       trimToSentence: true,
     });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/characters/edit');
-    const requestInit = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/chats/search');
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/characters/edit');
+    const requestInit = (fetchMock.mock.calls[1] as unknown as [string, RequestInit] | undefined)?.[1];
+    if (!requestInit) {
+      throw new Error('Expected character save request init');
+    }
     expect(requestInit.method).toBe('POST');
     expect(requestInit.headers).toEqual({ 'X-CSRF-Token': 'token' });
     expect((requestInit.body as FormData).get('ch_name')).toBe('Archmage');

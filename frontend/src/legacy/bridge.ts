@@ -11,6 +11,7 @@ import {
   ModernizationBridge,
   QuietPromptOptions,
   SessionCatalog,
+  SessionChatSummary,
   SessionService,
   ShellCharacterSummary,
   ShellGroupSummary,
@@ -103,6 +104,7 @@ type LegacyContext = {
   clearChat?: () => Promise<void>;
   chatMetadata?: Record<string, unknown>;
   deleteLastMessage?: () => Promise<void>;
+  deleteCharacterChatByName?: (characterId: string, fileName: string) => Promise<void>;
   deleteSwipe?: () => Promise<unknown>;
   eventSource?: {
     on(eventName: string, listener: (...args: unknown[]) => void): void;
@@ -128,6 +130,7 @@ type LegacyContext = {
   name1?: string;
   name2?: string;
   openGroupChat?: (groupId: string, chatId?: string) => Promise<void>;
+  openCharacterChat?: (fileName: string) => Promise<void>;
   onlineStatus?: string;
   powerUserSettings?: LegacyPowerUserSettings;
   reloadCurrentChat?: () => Promise<void>;
@@ -161,6 +164,7 @@ type LegacyContext = {
   unshallowCharacter?: (id: number) => Promise<void>;
   updateChatMetadata?: (metadata: Record<string, unknown>, reset?: boolean) => void;
   updateMessageBlock?: (messageId: number, message: unknown, options?: { rerenderMessage?: boolean }) => unknown;
+  deleteGroupChatByName?: (groupId: string, chatName: string) => Promise<void>;
 };
 
 type LegacySillyTavern = {
@@ -309,6 +313,14 @@ function getSelectedCharacter(context: LegacyContext) {
   return { character, characterId };
 }
 
+function getCurrentSessionCharacter(context: LegacyContext) {
+  if (context.groupId !== undefined && context.groupId !== null) {
+    return null;
+  }
+
+  return getSelectedCharacter(context);
+}
+
 function getSelectedCharacterProfile(context: LegacyContext): CharacterProfile | null {
   const selected = getSelectedCharacter(context);
   if (!selected) {
@@ -343,6 +355,52 @@ function getChatMetadata(context: LegacyContext): ChatMetadata {
   return {
     scenario: typeof context.chatMetadata?.scenario === 'string' ? context.chatMetadata.scenario : '',
   };
+}
+
+type LegacyChatSearchResult = {
+  file_name: string;
+  file_size?: string;
+  last_mes?: string;
+  message_count?: number;
+  preview_message?: string;
+};
+
+async function getSessionHistory(context: LegacyContext, query = ''): Promise<SessionChatSummary[]> {
+  const selectedCharacter = getCurrentSessionCharacter(context);
+  const selectedGroupId = context.groupId;
+
+  if (!selectedCharacter && !selectedGroupId) {
+    return [];
+  }
+
+  const response = await fetch('/api/chats/search', {
+    method: 'POST',
+    headers: context.getRequestHeaders?.(),
+    body: JSON.stringify({
+      query,
+      avatar_url: selectedGroupId ? null : selectedCharacter?.character.avatar ?? null,
+      group_id: selectedGroupId ?? null,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Could not load session history');
+  }
+
+  const data = (await response.json()) as LegacyChatSearchResult[];
+  const currentChatId = context.getCurrentChatId?.();
+
+  return data.map((chat) => {
+    const fileName = String(chat.file_name ?? '').replace(/\.jsonl$/, '');
+    return {
+      fileName,
+      fileSize: chat.file_size,
+      isActive: currentChatId === fileName,
+      lastMessageAt: chat.last_mes,
+      messageCount: Number(chat.message_count ?? 0),
+      previewMessage: String(chat.preview_message ?? ''),
+    };
+  });
 }
 
 function getChatMessages(context: LegacyContext): ChatMessageSummary[] {
@@ -498,12 +556,57 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
     clearCurrentChat: async () => {
       await context.clearChat?.();
     },
+    deleteChatFile: async (fileName) => {
+      const trimmedFileName = fileName.trim();
+      if (!trimmedFileName) {
+        throw new Error('Chat file name is required');
+      }
+
+      if (context.groupId) {
+        if (!context.deleteGroupChatByName) {
+          throw new Error('Group chat deletion unavailable');
+        }
+
+        await context.deleteGroupChatByName(context.groupId, trimmedFileName);
+        return;
+      }
+
+      const selectedCharacter = getCurrentSessionCharacter(context);
+      if (!selectedCharacter || !context.deleteCharacterChatByName) {
+        throw new Error('Character chat deletion unavailable');
+      }
+
+      await context.deleteCharacterChatByName(String(selectedCharacter.characterId), trimmedFileName);
+    },
     getCatalog: () => getSessionCatalog(context),
+    getSessionHistory: async (query) => getSessionHistory(context, query),
+    openChatFile: async (fileName) => {
+      const trimmedFileName = fileName.trim();
+      if (!trimmedFileName) {
+        throw new Error('Chat file name is required');
+      }
+
+      if (context.groupId) {
+        await context.openGroupChat?.(context.groupId, trimmedFileName);
+        return;
+      }
+
+      await context.openCharacterChat?.(trimmedFileName);
+    },
     openGroup: async (groupId, chatId) => {
       await context.openGroupChat?.(groupId, chatId);
     },
     reloadCurrentChat: async () => {
       await context.reloadCurrentChat?.();
+    },
+    renameChatFile: async (oldFileName, newName) => {
+      const trimmedOldName = oldFileName.trim();
+      const trimmedNewName = newName.trim();
+      if (!trimmedOldName || !trimmedNewName) {
+        throw new Error('Both chat names are required');
+      }
+
+      await context.renameChat?.(trimmedOldName, trimmedNewName);
     },
     renameCurrentChat: async (nextName) => {
       const currentChatId = context.getCurrentChatId?.();

@@ -41,7 +41,7 @@ import { messageFormatting, updateMessageBlock } from './runtime/message-adapter
 import { getRequestHeaders, getThumbnailUrl } from './runtime/network-adapter.js';
 import { extractMessageFromData, substituteParams, substituteParamsExtended } from './runtime/parser-adapter.js';
 import { saveMetadata, saveSettingsDebounced } from './runtime/settings-adapter.js';
-import { selectCharacterById, sendSystemMessage, unshallowCharacter } from './runtime/session-adapter.js';
+import { deleteCharacterChatByName, selectCharacterById, sendSystemMessage, unshallowCharacter } from './runtime/session-adapter.js';
 import { callPopup } from './runtime/ui-adapter.js';
 import {
     extension_settings,
@@ -51,7 +51,7 @@ import {
     saveMetadataDebounced,
     writeExtensionField,
 } from './extensions.js';
-import { groups, openGroupChat, selected_group, unshallowGroupMembers } from './group-chats.js';
+import { deleteGroupChatByName, groups, openGroupChat, selected_group, unshallowGroupMembers } from './group-chats.js';
 import { addLocaleData, getCurrentLocale, t, translate } from './i18n.js';
 import { hideLoader, showLoader } from './loader.js';
 import { MacrosParser } from './macros.js';
@@ -104,6 +104,7 @@ export function getContext() {
         eventSource,
         eventTypes: event_types,
         addOneMessage,
+        deleteCharacterChatByName,
         deleteLastMessage,
         deleteSwipe,
         generate: Generate,
@@ -119,6 +120,7 @@ export function getContext() {
         setExtensionPrompt,
         updateChatMetadata,
         saveChat: saveChatConditional,
+        deleteGroupChatByName,
         openCharacterChat,
         openGroupChat,
         saveMetadata,

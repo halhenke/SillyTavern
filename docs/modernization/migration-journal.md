@@ -2181,3 +2181,27 @@
 ### Next
 1. Return to a deeper authoring/editor surface, likely structured world-info entry editing, rather than widening admin controls indefinitely.
 2. Reevaluate whether the visible fallback iframe should become even more hidden now that prompt and extension configuration are React-owned.
+
+## 2026-03-10 - React Migration Wave 20 (Structured World Info Entry Editor)
+
+### Completed
+- Added a React-owned structured lorebook-entry editor on top of the existing raw JSON world-info bridge in [frontend/src/features/shell/ShellPage.tsx](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/features/shell/ShellPage.tsx).
+- Added lightweight supporting styles in [frontend/src/styles/global.css](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/styles/global.css) for active entry state and select controls.
+- Kept the raw JSON editor in place as an explicit fallback for unsupported or niche fields instead of widening the bridge contract.
+
+### Measurable Impact
+- Common lorebook-entry workflows now have a React-owned path:
+  - list entries
+  - select an entry
+  - edit core trigger/content fields
+  - create an entry
+  - delete an entry
+- The legacy world-info entry editor is no longer required for routine entry authoring.
+
+### Insights
+- World-info entry editing is better handled as a UI layer over the existing JSON document than as a new backend/service contract. The persistence seam was already good; the missing piece was structured editing.
+- Keeping the raw JSON view alongside the structured editor avoids a false sense of completeness. React owns the common path, while advanced and less-common fields still remain reachable without blocking migration.
+
+### Next
+1. Reassess whether the visible fallback iframe should now be hidden behind an even narrower escape hatch.
+2. Move to another high-value authoring surface only if it reduces real legacy dependency rather than adding more shell-adjacent controls.

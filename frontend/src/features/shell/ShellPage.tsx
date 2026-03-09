@@ -77,6 +77,76 @@ const DEFAULT_WORLD_INFO_CATALOG: WorldInfoCatalog = {
 const DEFAULT_PROMPT_TEMPLATES: PromptTemplate[] = [];
 const DEFAULT_INSTALLED_EXTENSIONS: InstalledExtensionSummary[] = [];
 
+type WorldInfoEntry = {
+  comment: string;
+  constant: boolean;
+  content: string;
+  disable: boolean;
+  displayIndex?: number;
+  key: string[];
+  keysecondary: string[];
+  order: number;
+  position: number;
+  selective: boolean;
+  uid: number;
+} & Record<string, unknown>;
+
+type WorldInfoData = {
+  entries: Record<string, WorldInfoEntry>;
+} & Record<string, unknown>;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function normalizeWorldInfoEntry(rawEntry: unknown, fallbackUid: number): WorldInfoEntry {
+  const source = isRecord(rawEntry) ? rawEntry : {};
+  return {
+    ...source,
+    comment: typeof source.comment === 'string' ? source.comment : '',
+    constant: Boolean(source.constant),
+    content: typeof source.content === 'string' ? source.content : '',
+    disable: Boolean(source.disable),
+    displayIndex: Number.isFinite(source.displayIndex) ? Number(source.displayIndex) : undefined,
+    key: Array.isArray(source.key) ? source.key.map((value) => String(value)) : [],
+    keysecondary: Array.isArray(source.keysecondary) ? source.keysecondary.map((value) => String(value)) : [],
+    order: Number.isFinite(source.order) ? Number(source.order) : 100,
+    position: Number.isFinite(source.position) ? Number(source.position) : 0,
+    selective: source.selective === undefined ? true : Boolean(source.selective),
+    uid: Number.isFinite(source.uid) ? Number(source.uid) : fallbackUid,
+  };
+}
+
+function parseWorldInfoData(source: string): { data: WorldInfoData; entries: WorldInfoEntry[] } | null {
+  if (!source.trim()) {
+    return null;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(source);
+  } catch {
+    return null;
+  }
+
+  if (!isRecord(parsed) || !isRecord(parsed.entries)) {
+    return null;
+  }
+
+  const entries = Object.entries(parsed.entries)
+    .map(([uid, entry]) => normalizeWorldInfoEntry(entry, Number(uid)))
+    .sort((left, right) => {
+      const leftIndex = left.displayIndex ?? left.uid;
+      const rightIndex = right.displayIndex ?? right.uid;
+      return leftIndex - rightIndex || left.uid - right.uid;
+    });
+
+  return {
+    data: parsed as WorldInfoData,
+    entries,
+  };
+}
+
 const PREFERENCE_CONTROLS: Array<{
   key: keyof ShellPreferences;
   label: string;
@@ -180,6 +250,7 @@ export function ShellPage() {
   const [newGroupDraft, setNewGroupDraft] = useState<GroupCreateDraft>(DEFAULT_NEW_GROUP_DRAFT);
   const [worldInfoCatalog, setWorldInfoCatalog] = useState<WorldInfoCatalog>(DEFAULT_WORLD_INFO_CATALOG);
   const [activeWorldInfoName, setActiveWorldInfoName] = useState('');
+  const [activeWorldInfoEntryId, setActiveWorldInfoEntryId] = useState('');
   const [worldInfoSource, setWorldInfoSource] = useState('');
   const [worldInfoDraft, setWorldInfoDraft] = useState('');
   const [worldInfoLoading, setWorldInfoLoading] = useState(false);
@@ -346,6 +417,12 @@ export function ShellPage() {
     () => catalog.characters.filter((character) => Boolean(character.avatarFile)),
     [catalog.characters],
   );
+  const parsedWorldInfo = useMemo(() => parseWorldInfoData(worldInfoDraft), [worldInfoDraft]);
+  const structuredWorldInfoEntries = useMemo(() => parsedWorldInfo?.entries ?? [], [parsedWorldInfo]);
+  const activeWorldInfoEntry = useMemo(
+    () => structuredWorldInfoEntries.find((entry) => String(entry.uid) === activeWorldInfoEntryId) ?? null,
+    [activeWorldInfoEntryId, structuredWorldInfoEntries],
+  );
 
   useEffect(() => {
     setChatNameDraft(snapshot.currentChatId ?? '');
@@ -379,10 +456,26 @@ export function ShellPage() {
   useEffect(() => {
     if (activeWorldInfoName && !worldInfoCatalog.names.includes(activeWorldInfoName)) {
       setActiveWorldInfoName('');
+      setActiveWorldInfoEntryId('');
       setWorldInfoSource('');
       setWorldInfoDraft('');
     }
   }, [activeWorldInfoName, worldInfoCatalog.names]);
+
+  useEffect(() => {
+    if (!structuredWorldInfoEntries.length) {
+      setActiveWorldInfoEntryId('');
+      return;
+    }
+
+    const nextEntry = structuredWorldInfoEntries.find((entry) => String(entry.uid) === activeWorldInfoEntryId) ?? structuredWorldInfoEntries[0];
+    if (!nextEntry) {
+      setActiveWorldInfoEntryId('');
+      return;
+    }
+
+    setActiveWorldInfoEntryId(String(nextEntry.uid));
+  }, [activeWorldInfoEntryId, structuredWorldInfoEntries]);
 
   useEffect(() => {
     if (!promptTemplates.length) {
@@ -964,6 +1057,7 @@ export function ShellPage() {
       refreshWorldInfoCatalog(bridge);
       if (activeWorldInfoName === name) {
         setActiveWorldInfoName('');
+        setActiveWorldInfoEntryId('');
         setWorldInfoSource('');
         setWorldInfoDraft('');
       }
@@ -991,6 +1085,68 @@ export function ShellPage() {
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Could not update world info selection');
     }
+  }
+
+  function updateStructuredWorldInfo(mutator: (data: WorldInfoData) => void) {
+    const parsed = parseWorldInfoData(worldInfoDraft);
+    if (!parsed) {
+      setActionError('World info JSON must be valid before using the structured editor');
+      return;
+    }
+
+    const nextData = structuredClone(parsed.data);
+    mutator(nextData);
+    setWorldInfoDraft(JSON.stringify(nextData, null, 2));
+    setActionError('');
+  }
+
+  function updateWorldInfoEntry(updates: Partial<WorldInfoEntry>) {
+    if (!activeWorldInfoEntry) {
+      return;
+    }
+
+    updateStructuredWorldInfo((data) => {
+      const entryKey = String(activeWorldInfoEntry.uid);
+      const currentEntry = normalizeWorldInfoEntry(data.entries[entryKey], activeWorldInfoEntry.uid);
+      data.entries[entryKey] = {
+        ...currentEntry,
+        ...updates,
+        uid: activeWorldInfoEntry.uid,
+      };
+    });
+  }
+
+  function handleWorldInfoEntryCreate() {
+    updateStructuredWorldInfo((data) => {
+      const existingEntries = Object.values(data.entries).map((entry) => normalizeWorldInfoEntry(entry, 0));
+      const nextUid = existingEntries.length ? Math.max(...existingEntries.map((entry) => entry.uid)) + 1 : 0;
+      const nextDisplayIndex = existingEntries.length
+        ? Math.max(...existingEntries.map((entry) => entry.displayIndex ?? entry.uid)) + 1
+        : 0;
+      data.entries[String(nextUid)] = {
+        comment: '',
+        constant: false,
+        content: '',
+        disable: false,
+        displayIndex: nextDisplayIndex,
+        key: [],
+        keysecondary: [],
+        order: 100,
+        position: 0,
+        selective: true,
+        uid: nextUid,
+      };
+      setActiveWorldInfoEntryId(String(nextUid));
+    });
+  }
+
+  function handleWorldInfoEntryDelete(uid: number) {
+    updateStructuredWorldInfo((data) => {
+      delete data.entries[String(uid)];
+      if (String(uid) === activeWorldInfoEntryId) {
+        setActiveWorldInfoEntryId('');
+      }
+    });
   }
 
   async function handlePromptSave() {
@@ -1983,6 +2139,178 @@ export function ShellPage() {
                   <p className="st-note">No lorebooks found.</p>
                 )}
               </div>
+            </div>
+            <div className="st-shell-settings-group">
+              <div className="st-shell-settings-group__header">
+                <h3>Structured entry editor</h3>
+                <span className="st-note">
+                  {parsedWorldInfo ? `${structuredWorldInfoEntries.length} entries` : 'load a valid lorebook JSON to edit entries here'}
+                </span>
+              </div>
+              <nav className="st-actions">
+                <button
+                  className="st-button"
+                  disabled={!activeWorldInfoName || !parsedWorldInfo || Boolean(busyAction)}
+                  type="button"
+                  onClick={() => handleWorldInfoEntryCreate()}
+                >
+                  Add entry
+                </button>
+              </nav>
+              {parsedWorldInfo ? (
+                <>
+                  <div className="st-shell-history-list">
+                    {structuredWorldInfoEntries.length ? (
+                      structuredWorldInfoEntries.map((entry) => {
+                        const active = String(entry.uid) === activeWorldInfoEntryId;
+                        return (
+                          <article className={`st-shell-history-item${active ? ' st-shell-history-item--active' : ''}`} key={`${activeWorldInfoName}-${entry.uid}`}>
+                            <div className="st-shell-history-item__header">
+                              <span className={`st-shell-history-role${entry.disable ? ' st-shell-history-role--system' : ''}`}>
+                                {entry.disable ? 'disabled' : 'active'}
+                              </span>
+                              <strong>{entry.comment || `Entry ${entry.uid}`}</strong>
+                              <small>{`uid ${entry.uid}`}</small>
+                            </div>
+                            <p>{entry.content.slice(0, 160) || 'No entry content.'}</p>
+                            <nav className="st-actions">
+                              <button
+                                className="st-button st-button--ghost"
+                                disabled={Boolean(busyAction)}
+                                type="button"
+                                onClick={() => setActiveWorldInfoEntryId(String(entry.uid))}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                className="st-button st-button--ghost"
+                                disabled={Boolean(busyAction)}
+                                type="button"
+                                onClick={() => handleWorldInfoEntryDelete(entry.uid)}
+                              >
+                                Delete
+                              </button>
+                            </nav>
+                          </article>
+                        );
+                      })
+                    ) : (
+                      <p className="st-note">No entries in this lorebook yet.</p>
+                    )}
+                  </div>
+                  {activeWorldInfoEntry ? (
+                    <>
+                      <div className="st-shell-editor-grid">
+                        <label className="st-field">
+                          <span>Comment</span>
+                          <input
+                            disabled={Boolean(busyAction)}
+                            type="text"
+                            value={activeWorldInfoEntry.comment}
+                            onChange={(event) => updateWorldInfoEntry({ comment: event.target.value })}
+                          />
+                        </label>
+                        <label className="st-field">
+                          <span>Primary keys</span>
+                          <input
+                            disabled={Boolean(busyAction)}
+                            type="text"
+                            value={activeWorldInfoEntry.key.join(', ')}
+                            onChange={(event) =>
+                              updateWorldInfoEntry({
+                                key: event.target.value.split(/[\n,]/).map((value) => value.trim()).filter(Boolean),
+                              })
+                            }
+                          />
+                        </label>
+                        <label className="st-field">
+                          <span>Secondary keys</span>
+                          <input
+                            disabled={Boolean(busyAction)}
+                            type="text"
+                            value={activeWorldInfoEntry.keysecondary.join(', ')}
+                            onChange={(event) =>
+                              updateWorldInfoEntry({
+                                keysecondary: event.target.value.split(/[\n,]/).map((value) => value.trim()).filter(Boolean),
+                              })
+                            }
+                          />
+                        </label>
+                        <label className="st-field">
+                          <span>Order</span>
+                          <input
+                            disabled={Boolean(busyAction)}
+                            type="number"
+                            value={activeWorldInfoEntry.order}
+                            onChange={(event) => updateWorldInfoEntry({ order: Number(event.target.value) })}
+                          />
+                        </label>
+                        <label className="st-field">
+                          <span>Position</span>
+                          <select
+                            disabled={Boolean(busyAction)}
+                            value={activeWorldInfoEntry.position}
+                            onChange={(event) => updateWorldInfoEntry({ position: Number(event.target.value) })}
+                          >
+                            <option value={0}>Before character</option>
+                            <option value={1}>After character</option>
+                            <option value={4}>At depth</option>
+                          </select>
+                        </label>
+                      </div>
+                      <div className="st-shell-toggles">
+                        <label className="st-shell-toggle">
+                          <span>
+                            <strong>Disabled</strong>
+                            <small>Keep this entry out of activation scans.</small>
+                          </span>
+                          <input
+                            checked={activeWorldInfoEntry.disable}
+                            disabled={Boolean(busyAction)}
+                            type="checkbox"
+                            onChange={(event) => updateWorldInfoEntry({ disable: event.target.checked })}
+                          />
+                        </label>
+                        <label className="st-shell-toggle">
+                          <span>
+                            <strong>Constant</strong>
+                            <small>Always include this entry when the lorebook is active.</small>
+                          </span>
+                          <input
+                            checked={activeWorldInfoEntry.constant}
+                            disabled={Boolean(busyAction)}
+                            type="checkbox"
+                            onChange={(event) => updateWorldInfoEntry({ constant: event.target.checked })}
+                          />
+                        </label>
+                        <label className="st-shell-toggle">
+                          <span>
+                            <strong>Selective</strong>
+                            <small>Require the secondary keys logic when applicable.</small>
+                          </span>
+                          <input
+                            checked={activeWorldInfoEntry.selective}
+                            disabled={Boolean(busyAction)}
+                            type="checkbox"
+                            onChange={(event) => updateWorldInfoEntry({ selective: event.target.checked })}
+                          />
+                        </label>
+                      </div>
+                      <label className="st-field">
+                        <span>Entry content</span>
+                        <textarea
+                          className="st-shell-textarea"
+                          disabled={Boolean(busyAction)}
+                          value={activeWorldInfoEntry.content}
+                          onChange={(event) => updateWorldInfoEntry({ content: event.target.value })}
+                        />
+                      </label>
+                    </>
+                  ) : null}
+                </>
+              ) : (
+                <p className="st-note">The structured editor is available when the loaded lorebook JSON has a standard `entries` object.</p>
+              )}
             </div>
             <label className="st-field">
               <span>{activeWorldInfoName ? `Editor: ${activeWorldInfoName}` : 'Lorebook JSON editor'}</span>

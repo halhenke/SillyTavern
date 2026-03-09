@@ -153,6 +153,18 @@ export interface PromptTemplate {
   systemPrompt: boolean;
 }
 
+export interface InstalledExtensionSummary {
+  dependencies: string[];
+  displayName: string;
+  enabled: boolean;
+  homePage?: string;
+  jsFile?: string;
+  name: string;
+  requires: string[];
+  type: string;
+  version: string;
+}
+
 export interface ChatMetadata {
   scenario: string;
 }
@@ -253,6 +265,8 @@ export interface ComposerService {
 export interface ExtensionHostService {
   getContext(): unknown;
   getEventTypes(): Record<string, string>;
+  listInstalledExtensions(): Promise<InstalledExtensionSummary[]>;
+  setExtensionEnabled(name: string, enabled: boolean): Promise<void>;
 }
 
 export interface ModernizationBridge {

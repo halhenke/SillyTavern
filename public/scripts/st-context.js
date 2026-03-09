@@ -44,7 +44,11 @@ import { saveMetadata, saveSettingsDebounced } from './runtime/settings-adapter.
 import { deleteCharacterChatByName, selectCharacterById, sendSystemMessage, unshallowCharacter } from './runtime/session-adapter.js';
 import { callPopup } from './runtime/ui-adapter.js';
 import {
+    disableExtension,
+    enableExtension,
+    extensionNames,
     extension_settings,
+    extensionTypes,
     ModuleWorkerWrapper,
     renderExtensionTemplate,
     renderExtensionTemplateAsync,
@@ -152,6 +156,61 @@ function getWorldNames() {
 
 function getPromptManagerInstance() {
     return chatPromptManager ?? setupChatCompletionPromptManager(oai_settings);
+}
+
+async function listInstalledExtensions() {
+    const names = Array.isArray(extensionNames) ? [...extensionNames] : [];
+    const manifests = await Promise.all(names.map(async (name) => {
+        try {
+            const response = await fetch(`/scripts/extensions/${name}/manifest.json`);
+            if (!response.ok) {
+                return null;
+            }
+
+            const manifest = await response.json();
+            return {
+                dependencies: Array.isArray(manifest?.dependencies) ? manifest.dependencies : [],
+                displayName: String(manifest?.display_name ?? name),
+                enabled: !extension_settings.disabledExtensions.includes(name),
+                homePage: typeof manifest?.homePage === 'string' ? manifest.homePage : undefined,
+                jsFile: typeof manifest?.js === 'string' ? manifest.js : undefined,
+                name,
+                requires: Array.isArray(manifest?.requires) ? manifest.requires : [],
+                type: String(extensionTypes?.[name] ?? ''),
+                version: String(manifest?.version ?? ''),
+            };
+        } catch {
+            return {
+                dependencies: [],
+                displayName: name,
+                enabled: !extension_settings.disabledExtensions.includes(name),
+                homePage: undefined,
+                jsFile: undefined,
+                name,
+                requires: [],
+                type: String(extensionTypes?.[name] ?? ''),
+                version: '',
+            };
+        }
+    }));
+
+    return manifests
+        .filter(Boolean)
+        .sort((left, right) => left.displayName.localeCompare(right.displayName));
+}
+
+async function setExtensionEnabled(name, enabled) {
+    const trimmedName = String(name ?? '').trim();
+    if (!trimmedName) {
+        throw new Error('Extension name is required');
+    }
+
+    if (enabled) {
+        await enableExtension(trimmedName, false);
+        return;
+    }
+
+    await disableExtension(trimmedName, false);
 }
 
 function getPromptTemplates() {
@@ -320,6 +379,8 @@ export function getContext() {
         showLoader,
         hideLoader,
         mainApi: main_api,
+        listInstalledExtensions,
+        setExtensionEnabled,
         extensionSettings: extension_settings,
         ModuleWorkerWrapper,
         getTokenizerModel,

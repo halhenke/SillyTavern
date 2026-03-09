@@ -12,6 +12,7 @@ import {
   ComposerService,
   ExtensionHostService,
   GenerationService,
+  InstalledExtensionSummary,
   ModernizationBridge,
   PromptService,
   PromptTemplate,
@@ -148,6 +149,7 @@ type LegacyContext = {
   getWorldNames?: () => string[];
   getRequestHeaders?: () => HeadersInit;
   groups?: LegacyGroup[];
+  listInstalledExtensions?: () => Promise<InstalledExtensionSummary[]>;
   mainApi?: string;
   maxContext?: number;
   name1?: string;
@@ -166,6 +168,7 @@ type LegacyContext = {
   saveSettings?: () => Promise<void>;
   savePromptTemplate?: (prompt: PromptTemplate) => Promise<void>;
   saveWorldInfo?: (name: string, data: unknown, immediately?: boolean) => Promise<void>;
+  setExtensionEnabled?: (name: string, enabled: boolean) => Promise<void>;
   setSelectedWorldInfo?: (names: string[]) => Promise<void> | void;
   swipe?: {
     left?: () => unknown;
@@ -952,6 +955,19 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
   const extensions: ExtensionHostService = {
     getContext: () => context,
     getEventTypes: () => context.eventTypes ?? {},
+    listInstalledExtensions: async () => context.listInstalledExtensions?.() ?? [],
+    setExtensionEnabled: async (name, enabled) => {
+      const trimmedName = name.trim();
+      if (!trimmedName) {
+        throw new Error('Extension name is required');
+      }
+
+      if (!context.setExtensionEnabled) {
+        throw new Error('Extension toggling unavailable');
+      }
+
+      await context.setExtensionEnabled(trimmedName, enabled);
+    },
   };
 
   const composer: ComposerService = {

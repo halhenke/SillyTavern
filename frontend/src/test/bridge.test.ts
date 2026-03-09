@@ -182,6 +182,30 @@ describe('createLegacyBridge', () => {
     let worldNames = ['Core Lore', 'City Lore'];
     let selectedWorldNames = ['Core Lore'];
     const loadWorldInfo = vi.fn(async (name: string) => ({ entries: { 0: { comment: `${name} entry` } } }));
+    const listInstalledExtensions = vi.fn(async () => [
+      {
+        dependencies: ['quick-reply'],
+        displayName: 'Fancy Extension',
+        enabled: true,
+        homePage: 'https://example.com/fancy',
+        jsFile: 'index.js',
+        name: 'fancy-extension',
+        requires: ['caption'],
+        type: 'local',
+        version: '1.2.3',
+      },
+      {
+        dependencies: [],
+        displayName: 'System Tool',
+        enabled: false,
+        homePage: undefined,
+        jsFile: 'main.js',
+        name: 'system-tool',
+        requires: [],
+        type: 'system',
+        version: '0.9.0',
+      },
+    ]);
     const createNewWorldInfo = vi.fn(async (name: string) => {
       if (!worldNames.includes(name)) {
         worldNames = [...worldNames, name];
@@ -196,6 +220,7 @@ describe('createLegacyBridge', () => {
     const setSelectedWorldInfo = vi.fn(async (names: string[]) => {
       selectedWorldNames = [...names];
     });
+    const setExtensionEnabled = vi.fn();
     const promptTemplates = [
       {
         content: 'Write the next reply.',
@@ -333,6 +358,7 @@ describe('createLegacyBridge', () => {
           getCharacters,
           getCharacterCardFields,
           getRequestHeaders,
+          listInstalledExtensions,
           getPromptTemplates: () => promptTemplates,
           getSelectedWorldInfo: () => [...selectedWorldNames],
           getThumbnailUrl: vi.fn((type: string, file: string) => `/thumb/${type}/${file}`),
@@ -377,6 +403,7 @@ describe('createLegacyBridge', () => {
           savePromptTemplate,
           saveWorldInfo,
           setSelectedWorldInfo,
+          setExtensionEnabled,
           sendMessageAsUser,
           sendSystemMessage,
           swipe: {
@@ -578,6 +605,31 @@ describe('createLegacyBridge', () => {
     await bridge?.worldInfo.createBook('Travel Lore');
     await bridge?.worldInfo.saveBook('Travel Lore', { entries: { 0: { comment: 'travel' } } });
     await bridge?.worldInfo.deleteBook('City Lore');
+    await expect(bridge?.extensions.listInstalledExtensions()).resolves.toEqual([
+      {
+        dependencies: ['quick-reply'],
+        displayName: 'Fancy Extension',
+        enabled: true,
+        homePage: 'https://example.com/fancy',
+        jsFile: 'index.js',
+        name: 'fancy-extension',
+        requires: ['caption'],
+        type: 'local',
+        version: '1.2.3',
+      },
+      {
+        dependencies: [],
+        displayName: 'System Tool',
+        enabled: false,
+        homePage: undefined,
+        jsFile: 'main.js',
+        name: 'system-tool',
+        requires: [],
+        type: 'system',
+        version: '0.9.0',
+      },
+    ]);
+    await bridge?.extensions.setExtensionEnabled('system-tool', true);
     expect(bridge?.prompts.listPrompts()).toEqual(promptTemplates);
     await bridge?.prompts.savePrompt({
       content: 'Keep the tone precise.',
@@ -682,6 +734,7 @@ describe('createLegacyBridge', () => {
       role: 'system',
       systemPrompt: false,
     });
+    expect(setExtensionEnabled).toHaveBeenCalledWith('system-tool', true);
     expect(openGroupById).toHaveBeenCalledWith('g-3');
     expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/chats/search');

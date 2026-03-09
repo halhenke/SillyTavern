@@ -2154,3 +2154,30 @@
 ### Next
 1. Replace another deep editor surface, likely prompt-book/world-info entry editing or extension management, instead of returning to small chat controls.
 2. Reassess whether the visible fallback iframe should become fully opt-in once a couple more authoring panels are React-owned.
+
+## 2026-03-10 - React Migration Wave 19 (Extension Management Panel)
+
+### Completed
+- Extended the typed extension bridge surface to include installed-extension listing and enable/disable toggles:
+  - [frontend/src/core/contracts.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/core/contracts.ts)
+  - [frontend/src/legacy/bridge.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/legacy/bridge.ts)
+- Exposed bounded extension-management helpers through [public/scripts/st-context.js](/Users/hal/.codex/worktrees/dc18/SillyTavern/public/scripts/st-context.js):
+  - installed extension catalog
+  - enable/disable without reopening the legacy popup
+- Added a React-owned `Extensions` panel in [frontend/src/features/shell/ShellPage.tsx](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/features/shell/ShellPage.tsx) with:
+  - installed extension list
+  - enabled/disabled state display
+  - toggle controls with explicit reload-required messaging
+- Expanded bridge coverage in [frontend/src/test/bridge.test.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/test/bridge.test.ts) to cover extension listing and toggling.
+
+### Measurable Impact
+- Routine extension enable/disable no longer requires opening the legacy extensions popup.
+- The visible fallback is used less for configuration/admin surfaces; remaining legacy dependency is now concentrated in update/delete/branch operations and richer editor tools.
+
+### Insights
+- Extension toggles are a safe React seam because the legacy code already persists them through `enableExtension(..., false)` and `disableExtension(..., false)`; the main caveat is that changes remain reload-bound.
+- Treating reload as explicit UI state is better than trying to partially emulate extension reactivation in React, which would blur responsibility between the shell and the legacy runtime.
+
+### Next
+1. Return to a deeper authoring/editor surface, likely structured world-info entry editing, rather than widening admin controls indefinitely.
+2. Reevaluate whether the visible fallback iframe should become even more hidden now that prompt and extension configuration are React-owned.

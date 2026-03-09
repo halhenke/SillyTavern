@@ -6,6 +6,7 @@ import {
   ChatMessageSummary,
   GroupCreateDraft,
   GroupProfile,
+  InstalledExtensionSummary,
   PromptTemplate,
   SessionCatalog,
   SessionChatSummary,
@@ -74,6 +75,7 @@ const DEFAULT_WORLD_INFO_CATALOG: WorldInfoCatalog = {
   selectedNames: [],
 };
 const DEFAULT_PROMPT_TEMPLATES: PromptTemplate[] = [];
+const DEFAULT_INSTALLED_EXTENSIONS: InstalledExtensionSummary[] = [];
 
 const PREFERENCE_CONTROLS: Array<{
   key: keyof ShellPreferences;
@@ -185,6 +187,8 @@ export function ShellPage() {
   const [promptTemplates, setPromptTemplates] = useState<PromptTemplate[]>(DEFAULT_PROMPT_TEMPLATES);
   const [activePromptId, setActivePromptId] = useState('');
   const [promptDraft, setPromptDraft] = useState<PromptTemplate | null>(null);
+  const [installedExtensions, setInstalledExtensions] = useState<InstalledExtensionSummary[]>(DEFAULT_INSTALLED_EXTENSIONS);
+  const [extensionReloadRequired, setExtensionReloadRequired] = useState(false);
   const [messages, setMessages] = useState<ChatMessageSummary[]>(DEFAULT_MESSAGES);
   const [selectedMessageId, setSelectedMessageId] = useState<number | null>(null);
   const [messageEditDraft, setMessageEditDraft] = useState('');
@@ -259,6 +263,16 @@ export function ShellPage() {
     setPromptTemplates(bridge.prompts.listPrompts());
   }, []);
 
+  const refreshInstalledExtensions = useCallback(async (bridge: LegacyBridge | null) => {
+    if (!bridge) {
+      setInstalledExtensions(DEFAULT_INSTALLED_EXTENSIONS);
+      return;
+    }
+
+    const extensions = await bridge.extensions.listInstalledExtensions();
+    setInstalledExtensions(extensions);
+  }, []);
+
   useEffect(() => {
     refreshRuntime(legacyBridge);
 
@@ -282,6 +296,10 @@ export function ShellPage() {
   useEffect(() => {
     refreshPromptTemplates(legacyBridge);
   }, [legacyBridge, refreshPromptTemplates, snapshot.characterId, snapshot.groupId]);
+
+  useEffect(() => {
+    void refreshInstalledExtensions(legacyBridge);
+  }, [legacyBridge, refreshInstalledExtensions]);
 
   const status = useMemo(() => {
     if (loadError) {
@@ -989,6 +1007,26 @@ export function ShellPage() {
       refreshPromptTemplates(bridge);
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Could not save prompt');
+    } finally {
+      setBusyAction('');
+    }
+  }
+
+  async function handleExtensionToggle(name: string, enabled: boolean) {
+    const bridge = legacyBridge;
+    if (!bridge) {
+      return;
+    }
+
+    setActionError('');
+    setBusyAction(`extension-toggle:${name}`);
+
+    try {
+      await bridge.extensions.setExtensionEnabled(name, enabled);
+      setExtensionReloadRequired(true);
+      await refreshInstalledExtensions(bridge);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not update extension');
     } finally {
       setBusyAction('');
     }
@@ -2156,6 +2194,61 @@ export function ShellPage() {
             ) : (
               <p className="st-note">Select a prompt to inspect or edit it.</p>
             )}
+          </section>
+
+          <section className="st-shell-card">
+            <div className="st-shell-card__header">
+              <h2>Extensions</h2>
+              <span className="st-shell-badge st-shell-badge--muted">
+                {`${installedExtensions.length} installed`}
+              </span>
+            </div>
+            <div className="st-shell-settings-group">
+              <div className="st-shell-settings-group__header">
+                <h3>Installed extensions</h3>
+                <span className="st-note">
+                  {extensionReloadRequired ? 'reload required to apply extension changes' : 'enable or disable installed extensions'}
+                </span>
+              </div>
+              <div className="st-shell-history-list">
+                {installedExtensions.length ? (
+                  installedExtensions.map((extension) => (
+                    <article className="st-shell-history-item" key={extension.name}>
+                      <div className="st-shell-history-item__header">
+                        <span className={`st-shell-history-role${extension.enabled ? '' : ' st-shell-history-role--system'}`}>
+                          {extension.enabled ? 'enabled' : 'disabled'}
+                        </span>
+                        <strong>{extension.displayName}</strong>
+                        <small>{`${extension.type || 'unknown'}${extension.version ? ` • v${extension.version}` : ''}`}</small>
+                      </div>
+                      <p>{extension.name}</p>
+                      <div className="st-actions">
+                        <label className="st-shell-toggle st-shell-toggle--inline">
+                          <span>
+                            <strong>Enabled</strong>
+                            <small>Requires a page reload to fully apply.</small>
+                          </span>
+                          <input
+                            checked={extension.enabled}
+                            disabled={!legacyBridge || Boolean(busyAction)}
+                            type="checkbox"
+                            onChange={(event) => void handleExtensionToggle(extension.name, event.target.checked)}
+                          />
+                        </label>
+                        {extension.requires.length ? (
+                          <span className="st-note">{`Extras: ${extension.requires.join(', ')}`}</span>
+                        ) : null}
+                        {extension.dependencies.length ? (
+                          <span className="st-note">{`Depends on: ${extension.dependencies.join(', ')}`}</span>
+                        ) : null}
+                      </div>
+                    </article>
+                  ))
+                ) : (
+                  <p className="st-note">No installed extensions found.</p>
+                )}
+              </div>
+            </div>
           </section>
 
           <section className="st-shell-card">

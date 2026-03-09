@@ -13,6 +13,8 @@ import {
   ExtensionHostService,
   GenerationService,
   ModernizationBridge,
+  PromptService,
+  PromptTemplate,
   QuietPromptOptions,
   SessionCatalog,
   SessionChatSummary,
@@ -162,6 +164,7 @@ type LegacyContext = {
   saveMetadata?: () => Promise<void>;
   saveSettingsDebounced?: () => void;
   saveSettings?: () => Promise<void>;
+  savePromptTemplate?: (prompt: PromptTemplate) => Promise<void>;
   saveWorldInfo?: (name: string, data: unknown, immediately?: boolean) => Promise<void>;
   setSelectedWorldInfo?: (names: string[]) => Promise<void> | void;
   swipe?: {
@@ -183,6 +186,7 @@ type LegacyContext = {
   };
   loadWorldInfo?: (name: string) => Promise<unknown>;
   createCharacter?: (profile: CharacterCreateDraft) => Promise<void>;
+  getPromptTemplates?: () => PromptTemplate[];
   defaultAvatar?: string;
   humanizedDateTime?: () => string;
   openGroupById?: (groupId: string) => Promise<boolean | void>;
@@ -923,6 +927,28 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
     },
   };
 
+  const prompts: PromptService = {
+    listPrompts: () => context.getPromptTemplates?.() ?? [],
+    savePrompt: async (prompt) => {
+      const trimmedIdentifier = prompt.identifier.trim();
+      if (!trimmedIdentifier) {
+        throw new Error('Prompt identifier is required');
+      }
+
+      if (!context.savePromptTemplate) {
+        throw new Error('Prompt editing unavailable');
+      }
+
+      await context.savePromptTemplate({
+        ...prompt,
+        identifier: trimmedIdentifier,
+        injectionTriggers: prompt.injectionTriggers.filter(Boolean),
+        name: prompt.name.trim(),
+        role: prompt.role.trim() || 'system',
+      });
+    },
+  };
+
   const extensions: ExtensionHostService = {
     getContext: () => context,
     getEventTypes: () => context.eventTypes ?? {},
@@ -960,6 +986,7 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
     character,
     group,
     worldInfo,
+    prompts,
     composer,
     extensions,
   };

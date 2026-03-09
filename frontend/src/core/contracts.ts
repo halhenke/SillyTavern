@@ -139,6 +139,20 @@ export interface WorldInfoDocument {
   name: string;
 }
 
+export interface PromptTemplate {
+  content: string;
+  enabled: boolean;
+  forbidOverrides: boolean;
+  identifier: string;
+  injectionDepth: number;
+  injectionOrder: number;
+  injectionPosition: number;
+  injectionTriggers: string[];
+  name: string;
+  role: string;
+  systemPrompt: boolean;
+}
+
 export interface ChatMetadata {
   scenario: string;
 }
@@ -225,6 +239,11 @@ export interface WorldInfoService {
   setSelectedBooks(names: string[]): Promise<void>;
 }
 
+export interface PromptService {
+  listPrompts(): PromptTemplate[];
+  savePrompt(prompt: PromptTemplate): Promise<void>;
+}
+
 export interface ComposerService {
   sendAndGenerate(text: string): Promise<void>;
   sendUserMessage(text: string): Promise<void>;
@@ -245,6 +264,7 @@ export interface ModernizationBridge {
   character: CharacterService;
   group: GroupService;
   worldInfo: WorldInfoService;
+  prompts: PromptService;
   composer: ComposerService;
   extensions: ExtensionHostService;
 }

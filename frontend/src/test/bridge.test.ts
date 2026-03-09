@@ -163,6 +163,7 @@ describe('createLegacyBridge', () => {
     }));
     const renameChat = vi.fn();
     const saveChat = vi.fn();
+    const savePromptTemplate = vi.fn();
     const sendSystemMessage = vi.fn();
     const sendMessageAsUser = vi.fn();
     const swipeLeft = vi.fn();
@@ -195,6 +196,34 @@ describe('createLegacyBridge', () => {
     const setSelectedWorldInfo = vi.fn(async (names: string[]) => {
       selectedWorldNames = [...names];
     });
+    const promptTemplates = [
+      {
+        content: 'Write the next reply.',
+        enabled: true,
+        forbidOverrides: false,
+        identifier: 'main',
+        injectionDepth: 4,
+        injectionOrder: 100,
+        injectionPosition: 0,
+        injectionTriggers: [],
+        name: 'Main prompt',
+        role: 'system',
+        systemPrompt: true,
+      },
+      {
+        content: 'Keep the tone sharp.',
+        enabled: false,
+        forbidOverrides: true,
+        identifier: 'jailbreak',
+        injectionDepth: 4,
+        injectionOrder: 101,
+        injectionPosition: 1,
+        injectionTriggers: ['normal', 'impersonate'],
+        name: 'Jailbreak',
+        role: 'system',
+        systemPrompt: false,
+      },
+    ];
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = String(input);
       if (url === '/api/chats/search') {
@@ -304,6 +333,7 @@ describe('createLegacyBridge', () => {
           getCharacters,
           getCharacterCardFields,
           getRequestHeaders,
+          getPromptTemplates: () => promptTemplates,
           getSelectedWorldInfo: () => [...selectedWorldNames],
           getThumbnailUrl: vi.fn((type: string, file: string) => `/thumb/${type}/${file}`),
           getWorldNames: () => [...worldNames],
@@ -344,6 +374,7 @@ describe('createLegacyBridge', () => {
           renameChat,
           saveChat,
           saveMetadata,
+          savePromptTemplate,
           saveWorldInfo,
           setSelectedWorldInfo,
           sendMessageAsUser,
@@ -547,6 +578,20 @@ describe('createLegacyBridge', () => {
     await bridge?.worldInfo.createBook('Travel Lore');
     await bridge?.worldInfo.saveBook('Travel Lore', { entries: { 0: { comment: 'travel' } } });
     await bridge?.worldInfo.deleteBook('City Lore');
+    expect(bridge?.prompts.listPrompts()).toEqual(promptTemplates);
+    await bridge?.prompts.savePrompt({
+      content: 'Keep the tone precise.',
+      enabled: true,
+      forbidOverrides: true,
+      identifier: 'jailbreak',
+      injectionDepth: 4,
+      injectionOrder: 101,
+      injectionPosition: 1,
+      injectionTriggers: ['normal'],
+      name: 'Revised jailbreak',
+      role: 'system',
+      systemPrompt: false,
+    });
     await bridge?.character.saveSelectedProfile({
       avatarFile: 'mage.png',
       avatarUrl: '/thumb/avatar/mage.png',
@@ -624,6 +669,19 @@ describe('createLegacyBridge', () => {
     expect(saveWorldInfo).toHaveBeenCalledWith('Travel Lore', { entries: { 0: { comment: 'travel' } } }, true);
     expect(deleteWorldInfo).toHaveBeenCalledWith('City Lore');
     expect(loadWorldInfo).toHaveBeenCalledWith('Core Lore');
+    expect(savePromptTemplate).toHaveBeenCalledWith({
+      content: 'Keep the tone precise.',
+      enabled: true,
+      forbidOverrides: true,
+      identifier: 'jailbreak',
+      injectionDepth: 4,
+      injectionOrder: 101,
+      injectionPosition: 1,
+      injectionTriggers: ['normal'],
+      name: 'Revised jailbreak',
+      role: 'system',
+      systemPrompt: false,
+    });
     expect(openGroupById).toHaveBeenCalledWith('g-3');
     expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/chats/search');

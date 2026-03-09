@@ -2127,3 +2127,30 @@
 ### Next
 1. Move into another deep runtime/editor surface, likely prompt management or a more structured world-info entry editor, instead of widening the shell with unrelated controls.
 2. Reevaluate whether the visible fallback iframe should be demoted further now that character, group, and world-info authoring all have React-owned paths.
+
+## 2026-03-10 - React Migration Wave 18 (Prompt Manager Panel)
+
+### Completed
+- Added a typed prompt-management service to the modernization bridge:
+  - [frontend/src/core/contracts.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/core/contracts.ts)
+  - [frontend/src/legacy/bridge.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/legacy/bridge.ts)
+- Exposed bounded prompt-manager helpers through [public/scripts/st-context.js](/Users/hal/.codex/worktrees/dc18/SillyTavern/public/scripts/st-context.js):
+  - prompt listing
+  - prompt save/update for existing entries
+- Added a React-owned `Prompt manager` panel in [frontend/src/features/shell/ShellPage.tsx](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/features/shell/ShellPage.tsx) with:
+  - prompt list and selection
+  - enabled/disabled state editing
+  - content, role, trigger, and injection-setting editing for existing prompts
+- Expanded bridge coverage in [frontend/src/test/bridge.test.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/test/bridge.test.ts) to cover prompt listing and prompt saving.
+
+### Measurable Impact
+- Common prompt-template inspection and editing no longer require the legacy prompt manager UI.
+- The remaining visible fallback dependence is pushed further toward niche tooling such as advanced reorder/import-export workflows.
+
+### Insights
+- Existing-prompt editing is a safe first seam because `PromptManager` already exposes stable getters and update methods; reorder and import/export remain coupled to its DOM-heavy legacy surface and are better left for a later pass.
+- Using `saveSettingsDebounced()` directly from the context bridge is more robust for this React path than awaiting the legacy prompt-manager event chain, which is tuned for the old UI and not necessary for bounded React edits.
+
+### Next
+1. Replace another deep editor surface, likely prompt-book/world-info entry editing or extension management, instead of returning to small chat controls.
+2. Reassess whether the visible fallback iframe should become fully opt-in once a couple more authoring panels are React-owned.

@@ -55,7 +55,7 @@ import { deleteGroupChatByName, groups, openGroupById, openGroupChat, selected_g
 import { addLocaleData, getCurrentLocale, t, translate } from './i18n.js';
 import { hideLoader, showLoader } from './loader.js';
 import { MacrosParser } from './macros.js';
-import { getChatCompletionModel, oai_settings } from './openai.js';
+import { getChatCompletionModel, oai_settings, promptManager as chatPromptManager, setupChatCompletionPromptManager } from './openai.js';
 import { callGenericPopup, Popup, POPUP_RESULT, POPUP_TYPE } from './popup.js';
 import { power_user, registerDebugFunction } from './power-user.js';
 import { getPresetManager } from './preset-manager.js';
@@ -148,6 +148,79 @@ async function createCharacter(profile) {
 
 function getWorldNames() {
     return Array.isArray(world_names) ? [...world_names] : [];
+}
+
+function getPromptManagerInstance() {
+    return chatPromptManager ?? setupChatCompletionPromptManager(oai_settings);
+}
+
+function getPromptTemplates() {
+    const manager = getPromptManagerInstance();
+    if (!manager) {
+        return [];
+    }
+
+    const promptOrder = manager.getPromptOrderForCharacter(manager.activeCharacter);
+    return promptOrder
+        .map((entry) => {
+            const prompt = manager.getPromptById(entry.identifier);
+            if (!prompt) {
+                return null;
+            }
+
+            return {
+                content: String(prompt.content ?? ''),
+                enabled: Boolean(entry.enabled ?? true),
+                forbidOverrides: Boolean(prompt.forbid_overrides),
+                identifier: String(prompt.identifier ?? entry.identifier),
+                injectionDepth: Number(prompt.injection_depth ?? 4),
+                injectionOrder: Number(prompt.injection_order ?? 100),
+                injectionPosition: Number(prompt.injection_position ?? 0),
+                injectionTriggers: Array.isArray(prompt.injection_trigger) ? [...prompt.injection_trigger] : [],
+                name: String(prompt.name ?? ''),
+                role: String(prompt.role ?? 'system'),
+                systemPrompt: Boolean(prompt.system_prompt),
+            };
+        })
+        .filter(Boolean);
+}
+
+async function savePromptTemplate(template) {
+    const manager = getPromptManagerInstance();
+    if (!manager) {
+        throw new Error('Prompt manager unavailable');
+    }
+
+    const identifier = String(template?.identifier ?? '').trim();
+    if (!identifier) {
+        throw new Error('Prompt identifier is required');
+    }
+
+    const existing = manager.getPromptById(identifier);
+    if (!existing) {
+        throw new Error(`Prompt ${identifier} not found`);
+    }
+
+    const promptOrderEntry = manager.getPromptOrderEntry(manager.activeCharacter, identifier);
+    if (promptOrderEntry && typeof template.enabled === 'boolean') {
+        promptOrderEntry.enabled = template.enabled;
+    }
+
+    manager.updatePromptByIdentifier(identifier, {
+        content: String(template?.content ?? ''),
+        forbid_overrides: Boolean(template?.forbidOverrides),
+        identifier,
+        injection_depth: Number(template?.injectionDepth ?? 4),
+        injection_order: Number(template?.injectionOrder ?? 100),
+        injection_position: Number(template?.injectionPosition ?? 0),
+        injection_trigger: Array.isArray(template?.injectionTriggers) ? template.injectionTriggers.filter(Boolean) : [],
+        name: String(template?.name ?? ''),
+        role: String(template?.role ?? 'system'),
+        system_prompt: Boolean(template?.systemPrompt),
+    });
+
+    manager.render(false);
+    saveSettingsDebounced?.();
 }
 
 function getSelectedWorldInfo() {
@@ -293,9 +366,11 @@ export function getContext() {
             },
         },
         loadWorldInfo,
+        getPromptTemplates,
         getWorldNames,
         getSelectedWorldInfo,
         saveWorldInfo,
+        savePromptTemplate,
         setSelectedWorldInfo,
         reloadWorldInfoEditor: reloadEditor,
         updateWorldInfoList,

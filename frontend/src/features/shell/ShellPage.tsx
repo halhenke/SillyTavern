@@ -6,6 +6,7 @@ import {
   ChatMessageSummary,
   GroupCreateDraft,
   GroupProfile,
+  PromptTemplate,
   SessionCatalog,
   SessionChatSummary,
   ShellPreferences,
@@ -72,6 +73,7 @@ const DEFAULT_WORLD_INFO_CATALOG: WorldInfoCatalog = {
   names: [],
   selectedNames: [],
 };
+const DEFAULT_PROMPT_TEMPLATES: PromptTemplate[] = [];
 
 const PREFERENCE_CONTROLS: Array<{
   key: keyof ShellPreferences;
@@ -180,6 +182,9 @@ export function ShellPage() {
   const [worldInfoDraft, setWorldInfoDraft] = useState('');
   const [worldInfoLoading, setWorldInfoLoading] = useState(false);
   const [newWorldInfoName, setNewWorldInfoName] = useState('');
+  const [promptTemplates, setPromptTemplates] = useState<PromptTemplate[]>(DEFAULT_PROMPT_TEMPLATES);
+  const [activePromptId, setActivePromptId] = useState('');
+  const [promptDraft, setPromptDraft] = useState<PromptTemplate | null>(null);
   const [messages, setMessages] = useState<ChatMessageSummary[]>(DEFAULT_MESSAGES);
   const [selectedMessageId, setSelectedMessageId] = useState<number | null>(null);
   const [messageEditDraft, setMessageEditDraft] = useState('');
@@ -245,6 +250,15 @@ export function ShellPage() {
     setWorldInfoCatalog(bridge.worldInfo.listBooks());
   }, []);
 
+  const refreshPromptTemplates = useCallback((bridge: LegacyBridge | null) => {
+    if (!bridge) {
+      setPromptTemplates(DEFAULT_PROMPT_TEMPLATES);
+      return;
+    }
+
+    setPromptTemplates(bridge.prompts.listPrompts());
+  }, []);
+
   useEffect(() => {
     refreshRuntime(legacyBridge);
 
@@ -264,6 +278,10 @@ export function ShellPage() {
   useEffect(() => {
     refreshWorldInfoCatalog(legacyBridge);
   }, [legacyBridge, refreshWorldInfoCatalog]);
+
+  useEffect(() => {
+    refreshPromptTemplates(legacyBridge);
+  }, [legacyBridge, refreshPromptTemplates, snapshot.characterId, snapshot.groupId]);
 
   const status = useMemo(() => {
     if (loadError) {
@@ -347,6 +365,24 @@ export function ShellPage() {
       setWorldInfoDraft('');
     }
   }, [activeWorldInfoName, worldInfoCatalog.names]);
+
+  useEffect(() => {
+    if (!promptTemplates.length) {
+      setActivePromptId('');
+      setPromptDraft(null);
+      return;
+    }
+
+    const activePrompt = promptTemplates.find((prompt) => prompt.identifier === activePromptId) ?? promptTemplates[0] ?? null;
+    if (!activePrompt) {
+      setActivePromptId('');
+      setPromptDraft(null);
+      return;
+    }
+
+    setActivePromptId(activePrompt.identifier);
+    setPromptDraft(activePrompt);
+  }, [activePromptId, promptTemplates]);
 
   useEffect(() => {
     let mounted = true;
@@ -647,6 +683,17 @@ export function ShellPage() {
     () => Boolean(activeWorldInfoName) && worldInfoDraft !== worldInfoSource,
     [activeWorldInfoName, worldInfoDraft, worldInfoSource],
   );
+  const activePrompt = useMemo(
+    () => promptTemplates.find((prompt) => prompt.identifier === activePromptId) ?? null,
+    [activePromptId, promptTemplates],
+  );
+  const promptDirty = useMemo(() => {
+    if (!activePrompt || !promptDraft) {
+      return false;
+    }
+
+    return JSON.stringify(activePrompt) !== JSON.stringify(promptDraft);
+  }, [activePrompt, promptDraft]);
 
   const metadataIsDirty = useMemo(() => {
     if (!legacyBridge) {
@@ -718,6 +765,10 @@ export function ShellPage() {
 
   function updateNewGroupDraft(next: Partial<GroupCreateDraft>) {
     setNewGroupDraft((current) => ({ ...current, ...next }));
+  }
+
+  function updatePromptDraft(next: Partial<PromptTemplate>) {
+    setPromptDraft((current) => (current ? { ...current, ...next } : current));
   }
 
   async function handleCharacterCreate() {
@@ -921,6 +972,25 @@ export function ShellPage() {
       refreshWorldInfoCatalog(bridge);
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Could not update world info selection');
+    }
+  }
+
+  async function handlePromptSave() {
+    const bridge = legacyBridge;
+    if (!bridge || !promptDraft) {
+      return;
+    }
+
+    setActionError('');
+    setBusyAction('prompt-save');
+
+    try {
+      await bridge.prompts.savePrompt(promptDraft);
+      refreshPromptTemplates(bridge);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not save prompt');
+    } finally {
+      setBusyAction('');
     }
   }
 
@@ -1904,6 +1974,188 @@ export function ShellPage() {
                 Reset JSON
               </button>
             </nav>
+          </section>
+
+          <section className="st-shell-card">
+            <div className="st-shell-card__header">
+              <h2>Prompt manager</h2>
+              <span className="st-shell-badge st-shell-badge--muted">
+                {`${promptTemplates.length} prompts`}
+              </span>
+            </div>
+            <div className="st-shell-settings-group">
+              <div className="st-shell-settings-group__header">
+                <h3>Available prompts</h3>
+                <span className="st-note">Editing existing prompt entries only</span>
+              </div>
+              <div className="st-shell-history-list">
+                {promptTemplates.length ? (
+                  promptTemplates.map((prompt) => {
+                    return (
+                      <article className="st-shell-history-item" key={prompt.identifier}>
+                        <div className="st-shell-history-item__header">
+                          <span className={`st-shell-history-role${prompt.enabled ? '' : ' st-shell-history-role--system'}`}>
+                            {prompt.enabled ? 'enabled' : 'disabled'}
+                          </span>
+                          <strong>{prompt.name || prompt.identifier}</strong>
+                          <small>{prompt.identifier}</small>
+                        </div>
+                        <p>{prompt.content.slice(0, 160) || 'No prompt content.'}</p>
+                        <nav className="st-actions">
+                          <button
+                            className="st-button st-button--ghost"
+                            disabled={Boolean(busyAction)}
+                            type="button"
+                            onClick={() => {
+                              setActivePromptId(prompt.identifier);
+                              setPromptDraft(prompt);
+                            }}
+                          >
+                            Edit
+                          </button>
+                        </nav>
+                      </article>
+                    );
+                  })
+                ) : (
+                  <p className="st-note">No prompts available.</p>
+                )}
+              </div>
+            </div>
+            {promptDraft ? (
+              <>
+                <div className="st-shell-editor-grid">
+                  <label className="st-field">
+                    <span>Name</span>
+                    <input
+                      disabled={Boolean(busyAction)}
+                      type="text"
+                      value={promptDraft.name}
+                      onChange={(event) => updatePromptDraft({ name: event.target.value })}
+                    />
+                  </label>
+                  <label className="st-field">
+                    <span>Role</span>
+                    <input
+                      disabled={Boolean(busyAction)}
+                      type="text"
+                      value={promptDraft.role}
+                      onChange={(event) => updatePromptDraft({ role: event.target.value })}
+                    />
+                  </label>
+                  <label className="st-field">
+                    <span>Triggers</span>
+                    <input
+                      disabled={Boolean(busyAction)}
+                      type="text"
+                      value={promptDraft.injectionTriggers.join(', ')}
+                      onChange={(event) =>
+                        updatePromptDraft({
+                          injectionTriggers: event.target.value
+                            .split(/[\n,]/)
+                            .map((value) => value.trim())
+                            .filter(Boolean),
+                        })
+                      }
+                    />
+                  </label>
+                  <label className="st-field">
+                    <span>Injection position</span>
+                    <input
+                      disabled={Boolean(busyAction)}
+                      type="number"
+                      value={promptDraft.injectionPosition}
+                      onChange={(event) => updatePromptDraft({ injectionPosition: Number(event.target.value) })}
+                    />
+                  </label>
+                  <label className="st-field">
+                    <span>Injection depth</span>
+                    <input
+                      disabled={Boolean(busyAction)}
+                      type="number"
+                      value={promptDraft.injectionDepth}
+                      onChange={(event) => updatePromptDraft({ injectionDepth: Number(event.target.value) })}
+                    />
+                  </label>
+                  <label className="st-field">
+                    <span>Injection order</span>
+                    <input
+                      disabled={Boolean(busyAction)}
+                      type="number"
+                      value={promptDraft.injectionOrder}
+                      onChange={(event) => updatePromptDraft({ injectionOrder: Number(event.target.value) })}
+                    />
+                  </label>
+                </div>
+                <div className="st-shell-toggles">
+                  <label className="st-shell-toggle">
+                    <span>
+                      <strong>Enabled</strong>
+                      <small>Allow this prompt to participate in prompt assembly.</small>
+                    </span>
+                    <input
+                      checked={promptDraft.enabled}
+                      disabled={Boolean(busyAction)}
+                      type="checkbox"
+                      onChange={(event) => updatePromptDraft({ enabled: event.target.checked })}
+                    />
+                  </label>
+                  <label className="st-shell-toggle">
+                    <span>
+                      <strong>System prompt</strong>
+                      <small>Mark this entry as a system-level prompt template.</small>
+                    </span>
+                    <input
+                      checked={promptDraft.systemPrompt}
+                      disabled={Boolean(busyAction)}
+                      type="checkbox"
+                      onChange={(event) => updatePromptDraft({ systemPrompt: event.target.checked })}
+                    />
+                  </label>
+                  <label className="st-shell-toggle">
+                    <span>
+                      <strong>Forbid overrides</strong>
+                      <small>Keep runtime overrides from replacing this prompt.</small>
+                    </span>
+                    <input
+                      checked={promptDraft.forbidOverrides}
+                      disabled={Boolean(busyAction)}
+                      type="checkbox"
+                      onChange={(event) => updatePromptDraft({ forbidOverrides: event.target.checked })}
+                    />
+                  </label>
+                </div>
+                <label className="st-field">
+                  <span>{`Prompt content: ${promptDraft.identifier}`}</span>
+                  <textarea
+                    className="st-shell-textarea st-shell-textarea--result"
+                    disabled={Boolean(busyAction)}
+                    value={promptDraft.content}
+                    onChange={(event) => updatePromptDraft({ content: event.target.value })}
+                  />
+                </label>
+                <nav className="st-actions">
+                  <button
+                    className="st-button"
+                    disabled={!legacyBridge || !promptDirty || Boolean(busyAction)}
+                    type="button"
+                    onClick={() => void handlePromptSave()}
+                  >
+                    Save prompt
+                  </button>
+                  <button
+                    className="st-button st-button--ghost"
+                    disabled={!activePrompt || Boolean(busyAction)}
+                    type="button"
+                    onClick={() => setPromptDraft(activePrompt)}
+                  >
+                    Reset prompt
+                  </button>
+                </nav>
+              </>
+            ) : (
+              <p className="st-note">Select a prompt to inspect or edit it.</p>
+            )}
           </section>
 
           <section className="st-shell-card">

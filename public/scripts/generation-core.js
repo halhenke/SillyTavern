@@ -514,7 +514,7 @@ export function Generate(...args) {
     return generateImpl(...args);
 }
 
-class TempResponseLength {
+export class TempResponseLength {
     static #originalResponseLength = -1;
     static #lastApi = null;
 

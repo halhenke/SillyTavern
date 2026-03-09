@@ -12,8 +12,10 @@ import {
     this_chid,
     user_avatar,
 } from '../chat-core.js';
+import { chat as chatMessages } from '../chat-operations-core.js';
 
 export {
+    chatMessages as chat,
     characters,
     chat_metadata,
     comment_avatar,

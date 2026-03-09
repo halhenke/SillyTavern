@@ -12,6 +12,7 @@ import {
     printCharactersDebounced,
     renameCharacter,
 } from '../character-core.js';
+import { this_chid } from '../chat-core.js';
 
 export {
     buildAvatarList,
@@ -26,4 +27,5 @@ export {
     printCharacters,
     printCharactersDebounced,
     renameCharacter,
+    this_chid,
 };

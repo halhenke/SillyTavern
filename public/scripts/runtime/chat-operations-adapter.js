@@ -37,6 +37,7 @@ import {
     systemUserName,
     system_avatar,
 } from '../chat-operations-core.js';
+import { getCurrentChatId } from '../chat-core.js';
 import { setSendButtonState } from '../ui-core.js';
 
 export {
@@ -57,6 +58,7 @@ export {
     getCharacterCardFields,
     getCharacters,
     getCurrentChatDetails,
+    getCurrentChatId,
     getMaxContextSize,
     hideSwipeButtons,
     openCharacterChat,

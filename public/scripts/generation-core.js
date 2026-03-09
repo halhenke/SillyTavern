@@ -3157,6 +3157,3 @@ export function stopGeneration() {
 
     return stopped;
 }
-    if (!adjustNovelInstructionPromptImpl) {
-        throwUnbound('adjustNovelInstructionPrompt');
-    }

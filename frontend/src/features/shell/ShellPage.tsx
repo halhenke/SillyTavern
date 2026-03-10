@@ -466,6 +466,7 @@ export function ShellPage() {
     () => connectionProfiles.find((profile) => profile.isSelected) ?? null,
     [connectionProfiles],
   );
+  const selectedConnectionProfileId = selectedConnectionProfile?.id ?? null;
   const connectionProfileKind = useMemo(
     () => getConnectionProfileKind(connectionDraft.api, connectionApiOptions),
     [connectionApiOptions, connectionDraft.api],
@@ -517,7 +518,7 @@ export function ShellPage() {
     }
 
     setConnectionDraft((current) => (current.id ? DEFAULT_CONNECTION_PROFILE_DRAFT : current));
-  }, [selectedConnectionProfile]);
+  }, [selectedConnectionProfileId]);
 
   useEffect(() => {
     if (!legacyBridge) {

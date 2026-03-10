@@ -173,9 +173,20 @@ export interface ConnectionProfileSummary {
   apiUrl?: string;
   id: string;
   isSelected: boolean;
+  kind: 'chat' | 'text';
   model?: string;
   name: string;
   preset?: string;
+  context?: string;
+  instruct?: string;
+  instructEnabled?: boolean;
+  promptPostProcessing?: string;
+  proxy?: string;
+  reasoningTemplate?: string;
+  secretId?: string;
+  startReplyWith?: string;
+  stopStrings?: string;
+  tokenizer?: string;
 }
 
 export interface ConnectionApiOption {
@@ -187,10 +198,20 @@ export interface ConnectionApiOption {
 export interface ConnectionProfileDraft {
   api: string;
   apiUrl: string;
+  context: string;
   id?: string;
+  instruct: string;
+  instructEnabled: boolean;
   model: string;
   name: string;
   preset: string;
+  promptPostProcessing: string;
+  proxy: string;
+  reasoningTemplate: string;
+  secretId: string;
+  startReplyWith: string;
+  stopStrings: string;
+  tokenizer: string;
 }
 
 export interface ChatMetadata {

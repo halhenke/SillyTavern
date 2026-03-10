@@ -53,9 +53,19 @@ const DEFAULT_CONNECTION_API_OPTIONS: ConnectionApiOption[] = [];
 const DEFAULT_CONNECTION_PROFILE_DRAFT: ConnectionProfileDraft = {
   api: '',
   apiUrl: '',
+  context: '',
+  instruct: '',
+  instructEnabled: false,
   model: '',
   name: '',
   preset: '',
+  promptPostProcessing: '',
+  proxy: '',
+  reasoningTemplate: '',
+  secretId: '',
+  startReplyWith: '',
+  stopStrings: '',
+  tokenizer: '',
 };
 const DEFAULT_NEW_CHARACTER_DRAFT: CharacterCreateDraft = {
   characterVersion: '',
@@ -157,6 +167,18 @@ function parseWorldInfoData(source: string): { data: WorldInfoData; entries: Wor
     data: parsed as WorldInfoData,
     entries,
   };
+}
+
+function getConnectionProfileKind(
+  api: string,
+  options: ConnectionApiOption[],
+): 'chat' | 'text' | null {
+  const trimmedApi = api.trim();
+  if (!trimmedApi) {
+    return null;
+  }
+
+  return options.find((option) => option.id === trimmedApi)?.kind ?? null;
 }
 
 const PREFERENCE_CONTROLS: Array<{
@@ -440,6 +462,10 @@ export function ShellPage() {
     () => connectionProfiles.find((profile) => profile.isSelected) ?? null,
     [connectionProfiles],
   );
+  const connectionProfileKind = useMemo(
+    () => getConnectionProfileKind(connectionDraft.api, connectionApiOptions),
+    [connectionApiOptions, connectionDraft.api],
+  );
   const parsedWorldInfo = useMemo(() => parseWorldInfoData(worldInfoDraft), [worldInfoDraft]);
   const structuredWorldInfoEntries = useMemo(() => parsedWorldInfo?.entries ?? [], [parsedWorldInfo]);
   const activeWorldInfoEntry = useMemo(
@@ -456,10 +482,20 @@ export function ShellPage() {
       setConnectionDraft({
         api: selectedConnectionProfile.api ?? '',
         apiUrl: selectedConnectionProfile.apiUrl ?? '',
+        context: selectedConnectionProfile.context ?? '',
         id: selectedConnectionProfile.id,
+        instruct: selectedConnectionProfile.instruct ?? '',
+        instructEnabled: Boolean(selectedConnectionProfile.instructEnabled),
         model: selectedConnectionProfile.model ?? '',
         name: selectedConnectionProfile.name,
         preset: selectedConnectionProfile.preset ?? '',
+        promptPostProcessing: selectedConnectionProfile.promptPostProcessing ?? '',
+        proxy: selectedConnectionProfile.proxy ?? '',
+        reasoningTemplate: selectedConnectionProfile.reasoningTemplate ?? '',
+        secretId: selectedConnectionProfile.secretId ?? '',
+        startReplyWith: selectedConnectionProfile.startReplyWith ?? '',
+        stopStrings: selectedConnectionProfile.stopStrings ?? '',
+        tokenizer: selectedConnectionProfile.tokenizer ?? '',
       });
       return;
     }
@@ -969,10 +1005,20 @@ export function ShellPage() {
       setConnectionDraft({
         api: savedProfile.api ?? '',
         apiUrl: savedProfile.apiUrl ?? '',
+        context: savedProfile.context ?? '',
         id: savedProfile.id,
+        instruct: savedProfile.instruct ?? '',
+        instructEnabled: Boolean(savedProfile.instructEnabled),
         model: savedProfile.model ?? '',
         name: savedProfile.name,
         preset: savedProfile.preset ?? '',
+        promptPostProcessing: savedProfile.promptPostProcessing ?? '',
+        proxy: savedProfile.proxy ?? '',
+        reasoningTemplate: savedProfile.reasoningTemplate ?? '',
+        secretId: savedProfile.secretId ?? '',
+        startReplyWith: savedProfile.startReplyWith ?? '',
+        stopStrings: savedProfile.stopStrings ?? '',
+        tokenizer: savedProfile.tokenizer ?? '',
       });
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Could not save connection profile');
@@ -1590,7 +1636,7 @@ export function ShellPage() {
             </div>
             <p className="st-note st-shell-connection-summary">
               Connection setup should be available above the fold. The React shell now surfaces the active API and
-              saved connection profiles here, while the richer editor remains in legacy tools for now.
+              saved connection profiles here, with the common profile fields editable directly in React.
             </p>
             <dl className="st-shell-facts">
               <div>
@@ -1642,7 +1688,7 @@ export function ShellPage() {
                     <span>
                       <strong>{profile.name}</strong>
                       <small>
-                        {[profile.api, profile.model, profile.preset].filter(Boolean).join(' · ') || 'Saved profile'}
+                        {[profile.kind, profile.api, profile.model, profile.preset].filter(Boolean).join(' · ') || 'Saved profile'}
                       </small>
                     </span>
                     {profile.isSelected ? <span className="st-shell-badge">active</span> : null}
@@ -1657,6 +1703,7 @@ export function ShellPage() {
             <div className="st-shell-connection-editor">
               <div className="st-shell-card__header">
                 <h3>{connectionDraft.id ? 'Edit profile' : 'New profile'}</h3>
+                {connectionProfileKind ? <span className="st-shell-badge">{connectionProfileKind}</span> : null}
                 <nav className="st-actions">
                   <button
                     className="st-button st-button--ghost"
@@ -1723,6 +1770,139 @@ export function ShellPage() {
                     onChange={(event) => updateConnectionDraft({ preset: event.target.value })}
                   />
                 </label>
+                {connectionProfileKind === 'chat' ? (
+                  <>
+                    <label className="st-field">
+                      <span>Proxy preset</span>
+                      <input
+                        disabled={Boolean(busyAction)}
+                        placeholder="None"
+                        type="text"
+                        value={connectionDraft.proxy}
+                        onChange={(event) => updateConnectionDraft({ proxy: event.target.value })}
+                      />
+                    </label>
+                    <label className="st-field">
+                      <span>Reasoning template</span>
+                      <input
+                        disabled={Boolean(busyAction)}
+                        placeholder="Default"
+                        type="text"
+                        value={connectionDraft.reasoningTemplate}
+                        onChange={(event) => updateConnectionDraft({ reasoningTemplate: event.target.value })}
+                      />
+                    </label>
+                    <label className="st-field">
+                      <span>Prompt post-processing</span>
+                      <input
+                        disabled={Boolean(busyAction)}
+                        placeholder="None"
+                        type="text"
+                        value={connectionDraft.promptPostProcessing}
+                        onChange={(event) => updateConnectionDraft({ promptPostProcessing: event.target.value })}
+                      />
+                    </label>
+                    <label className="st-field">
+                      <span>Secret id</span>
+                      <input
+                        disabled={Boolean(busyAction)}
+                        placeholder="openrouter"
+                        type="text"
+                        value={connectionDraft.secretId}
+                        onChange={(event) => updateConnectionDraft({ secretId: event.target.value })}
+                      />
+                    </label>
+                  </>
+                ) : null}
+                {connectionProfileKind === 'text' ? (
+                  <>
+                    <label className="st-field">
+                      <span>Instruct template</span>
+                      <input
+                        disabled={Boolean(busyAction)}
+                        placeholder="Alpaca"
+                        type="text"
+                        value={connectionDraft.instruct}
+                        onChange={(event) => updateConnectionDraft({ instruct: event.target.value })}
+                      />
+                    </label>
+                    <label className="st-field">
+                      <span>Context template</span>
+                      <input
+                        disabled={Boolean(busyAction)}
+                        placeholder="Default"
+                        type="text"
+                        value={connectionDraft.context}
+                        onChange={(event) => updateConnectionDraft({ context: event.target.value })}
+                      />
+                    </label>
+                    <label className="st-field">
+                      <span>Tokenizer</span>
+                      <input
+                        disabled={Boolean(busyAction)}
+                        placeholder="llama"
+                        type="text"
+                        value={connectionDraft.tokenizer}
+                        onChange={(event) => updateConnectionDraft({ tokenizer: event.target.value })}
+                      />
+                    </label>
+                    <label className="st-field">
+                      <span>Reasoning template</span>
+                      <input
+                        disabled={Boolean(busyAction)}
+                        placeholder="Default"
+                        type="text"
+                        value={connectionDraft.reasoningTemplate}
+                        onChange={(event) => updateConnectionDraft({ reasoningTemplate: event.target.value })}
+                      />
+                    </label>
+                    <label className="st-shell-toggle st-shell-toggle--inline st-shell-editor-grid__wide">
+                      <span>
+                        <strong>Enable instruct mode</strong>
+                        <small>Persist the profile with instruct mode turned on when this template is applied.</small>
+                      </span>
+                      <input
+                        checked={connectionDraft.instructEnabled}
+                        disabled={Boolean(busyAction)}
+                        type="checkbox"
+                        onChange={(event) => updateConnectionDraft({ instructEnabled: event.target.checked })}
+                      />
+                    </label>
+                    <label className="st-field">
+                      <span>Secret id</span>
+                      <input
+                        disabled={Boolean(busyAction)}
+                        placeholder="koboldcpp"
+                        type="text"
+                        value={connectionDraft.secretId}
+                        onChange={(event) => updateConnectionDraft({ secretId: event.target.value })}
+                      />
+                    </label>
+                  </>
+                ) : null}
+                {connectionProfileKind ? (
+                  <>
+                    <label className="st-field">
+                      <span>Start reply with</span>
+                      <input
+                        disabled={Boolean(busyAction)}
+                        placeholder="Sure,"
+                        type="text"
+                        value={connectionDraft.startReplyWith}
+                        onChange={(event) => updateConnectionDraft({ startReplyWith: event.target.value })}
+                      />
+                    </label>
+                    <label className="st-field st-shell-editor-grid__wide">
+                      <span>Stop strings</span>
+                      <textarea
+                        disabled={Boolean(busyAction)}
+                        placeholder="One stop string per line or the legacy command format"
+                        value={connectionDraft.stopStrings}
+                        onChange={(event) => updateConnectionDraft({ stopStrings: event.target.value })}
+                      />
+                    </label>
+                  </>
+                ) : null}
               </div>
               <nav className="st-actions st-shell-connection-actions">
                 <button

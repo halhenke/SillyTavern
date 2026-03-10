@@ -112,6 +112,26 @@ type LegacyGroup = {
   name?: string;
 };
 
+type LegacyConnectionProfile = {
+  api?: string;
+  context?: string;
+  id?: string;
+  instruct?: string;
+  'instruct-state'?: string | boolean;
+  model?: string;
+  mode?: string;
+  name?: string;
+  preset?: string;
+  'prompt-post-processing'?: string;
+  proxy?: string;
+  'reasoning-template'?: string;
+  'secret-id'?: string;
+  'start-reply-with'?: string;
+  'stop-strings'?: string;
+  tokenizer?: string;
+  'api-url'?: string;
+};
+
 type LegacyContext = {
   characterId?: number;
   characters?: LegacyCharacter[];
@@ -148,14 +168,7 @@ type LegacyContext = {
   CONNECT_API_MAP?: Record<string, { selected: string }>;
   extensionSettings?: {
     connectionManager?: {
-      profiles?: Array<{
-        api?: string;
-        id?: string;
-        model?: string;
-        name?: string;
-        preset?: string;
-        'api-url'?: string;
-      }>;
+      profiles?: LegacyConnectionProfile[];
       selectedProfile?: string | null;
     };
     disabledExtensions?: string[];
@@ -200,17 +213,38 @@ type LegacyContext = {
   saveConnectionProfile?: (profile: {
     api: string;
     'api-url'?: string;
+    context?: string;
     id?: string;
+    instruct?: string;
+    'instruct-state'?: string | boolean;
     model?: string;
     name: string;
     preset?: string;
+    'prompt-post-processing'?: string;
+    proxy?: string;
+    'reasoning-template'?: string;
+    'secret-id'?: string;
+    'start-reply-with'?: string;
+    'stop-strings'?: string;
+    tokenizer?: string;
   }) => Promise<{
     api?: string;
     'api-url'?: string;
+    context?: string;
     id: string;
+    instruct?: string;
+    'instruct-state'?: string | boolean;
     model?: string;
+    mode?: string;
     name: string;
     preset?: string;
+    'prompt-post-processing'?: string;
+    proxy?: string;
+    'reasoning-template'?: string;
+    'secret-id'?: string;
+    'start-reply-with'?: string;
+    'stop-strings'?: string;
+    tokenizer?: string;
   }>;
   saveWorldInfo?: (name: string, data: unknown, immediately?: boolean) => Promise<void>;
   setExtensionEnabled?: (name: string, enabled: boolean) => Promise<void>;
@@ -346,20 +380,39 @@ function getShellSnapshot(context: LegacyContext): ShellSnapshot {
   };
 }
 
+function getConnectionProfileKind(
+  profile: LegacyConnectionProfile,
+  connectApiMap: NonNullable<LegacyContext['CONNECT_API_MAP']>,
+): 'chat' | 'text' {
+  return profile.mode === 'cc' || connectApiMap[profile.api ?? '']?.selected === 'openai' ? 'chat' : 'text';
+}
+
 function getConnectionProfiles(context: LegacyContext): ConnectionProfileSummary[] {
   const connectionProfiles = context.extensionSettings?.connectionManager?.profiles ?? [];
   const selectedConnectionProfileId = context.extensionSettings?.connectionManager?.selectedProfile;
+  const connectApiMap = context.CONNECT_API_MAP ?? {};
 
   return connectionProfiles
     .filter((profile): profile is NonNullable<typeof profile> => Boolean(profile?.id && profile?.name))
     .map((profile) => ({
       api: profile.api,
       apiUrl: profile['api-url'],
+      context: profile.context,
       id: String(profile.id),
+      instruct: profile.instruct,
+      instructEnabled: profile['instruct-state'] === true || profile['instruct-state'] === 'true',
       isSelected: profile.id === selectedConnectionProfileId,
+      kind: getConnectionProfileKind(profile, connectApiMap),
       model: profile.model,
       name: String(profile.name).trim(),
       preset: profile.preset,
+      promptPostProcessing: profile['prompt-post-processing'],
+      proxy: profile.proxy,
+      reasoningTemplate: profile['reasoning-template'],
+      secretId: profile['secret-id'],
+      startReplyWith: profile['start-reply-with'],
+      stopStrings: profile['stop-strings'],
+      tokenizer: profile.tokenizer,
     }))
     .sort((left, right) => left.name.localeCompare(right.name));
 }
@@ -1145,20 +1198,41 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
       const saved = await context.saveConnectionProfile({
         api: trimmedApi,
         'api-url': profile.apiUrl.trim(),
+        context: profile.context.trim(),
         id: profile.id?.trim() || undefined,
+        instruct: profile.instruct.trim(),
+        'instruct-state': profile.instructEnabled,
         model: profile.model.trim(),
         name: trimmedName,
         preset: profile.preset.trim(),
+        'prompt-post-processing': profile.promptPostProcessing.trim(),
+        proxy: profile.proxy.trim(),
+        'reasoning-template': profile.reasoningTemplate.trim(),
+        'secret-id': profile.secretId.trim(),
+        'start-reply-with': profile.startReplyWith.trim(),
+        'stop-strings': profile.stopStrings.trim(),
+        tokenizer: profile.tokenizer.trim(),
       });
 
       return {
         api: saved.api,
         apiUrl: saved['api-url'],
+        context: saved.context,
         id: saved.id,
+        instruct: saved.instruct,
+        instructEnabled: saved['instruct-state'] === true || saved['instruct-state'] === 'true',
         isSelected: false,
+        kind: saved.mode === 'cc' ? 'chat' : 'text',
         model: saved.model,
         name: saved.name,
         preset: saved.preset,
+        promptPostProcessing: saved['prompt-post-processing'],
+        proxy: saved.proxy,
+        reasoningTemplate: saved['reasoning-template'],
+        secretId: saved['secret-id'],
+        startReplyWith: saved['start-reply-with'],
+        stopStrings: saved['stop-strings'],
+        tokenizer: saved.tokenizer,
       };
     },
   };

@@ -323,11 +323,26 @@ function listConnectionApiOptions() {
         .sort((left, right) => left.label.localeCompare(right.label));
 }
 
+const CONNECTION_COMMON_FIELDS = ['api-url', 'model', 'preset', 'stop-strings', 'start-reply-with', 'reasoning-template', 'secret-id'];
+const CONNECTION_CHAT_ONLY_FIELDS = ['proxy', 'prompt-post-processing'];
+const CONNECTION_TEXT_ONLY_FIELDS = ['instruct', 'context', 'instruct-state', 'tokenizer'];
+
+function setOptionalConnectionField(target, key, value) {
+    const trimmedValue = String(value ?? '').trim();
+    if (trimmedValue) {
+        target[key] = trimmedValue;
+        return;
+    }
+
+    delete target[key];
+}
+
 async function saveConnectionProfile(profile) {
     const connectionManager = extension_settings.connectionManager;
     if (!connectionManager) {
         throw new Error('Connection manager settings are unavailable');
     }
+    connectionManager.profiles ??= [];
 
     const name = String(profile?.name ?? '').trim();
     const api = String(profile?.api ?? '').trim().toLowerCase();
@@ -342,6 +357,7 @@ async function saveConnectionProfile(profile) {
     if (!apiConfig) {
         throw new Error(`Unknown connection API: ${api}`);
     }
+    const mode = apiConfig.selected === 'openai' ? 'cc' : 'tc';
 
     const existingId = String(profile?.id ?? '').trim();
     const existingProfile = existingId
@@ -355,13 +371,40 @@ async function saveConnectionProfile(profile) {
     const nextProfile = {
         ...(existingProfile ?? {}),
         id: existingId || uuidv4(),
-        mode: apiConfig.selected === 'openai' ? 'cc' : 'tc',
+        mode,
         name,
         api,
-        'api-url': String(profile?.['api-url'] ?? profile?.apiUrl ?? '').trim(),
-        model: String(profile?.model ?? '').trim(),
-        preset: String(profile?.preset ?? '').trim(),
     };
+
+    for (const key of CONNECTION_COMMON_FIELDS) {
+        setOptionalConnectionField(nextProfile, key, profile?.[key]);
+    }
+
+    if (mode === 'cc') {
+        for (const key of CONNECTION_CHAT_ONLY_FIELDS) {
+            setOptionalConnectionField(nextProfile, key, profile?.[key]);
+        }
+        for (const key of CONNECTION_TEXT_ONLY_FIELDS) {
+            delete nextProfile[key];
+        }
+    } else {
+        for (const key of CONNECTION_TEXT_ONLY_FIELDS) {
+            if (key === 'instruct-state') {
+                const instructEnabled = profile?.[key] === true || profile?.[key] === 'true';
+                if (instructEnabled) {
+                    nextProfile[key] = 'true';
+                } else {
+                    delete nextProfile[key];
+                }
+                continue;
+            }
+
+            setOptionalConnectionField(nextProfile, key, profile?.[key]);
+        }
+        for (const key of CONNECTION_CHAT_ONLY_FIELDS) {
+            delete nextProfile[key];
+        }
+    }
 
     if (existingProfile) {
         const previousProfile = structuredClone(existingProfile);
@@ -387,6 +430,7 @@ async function deleteConnectionProfile(id) {
     if (!connectionManager) {
         throw new Error('Connection manager settings are unavailable');
     }
+    connectionManager.profiles ??= [];
 
     const profileIndex = connectionManager.profiles.findIndex((profile) => profile.id === profileId);
     if (profileIndex === -1) {

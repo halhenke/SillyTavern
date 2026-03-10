@@ -2347,3 +2347,29 @@
 ### Next
 1. Decide whether to broaden the React connection editor to advanced profile fields or stop here and pivot back to another workflow.
 2. Keep default-path usability as the decision rule: migrate what blocks everyday use, not what is merely possible to port.
+
+## 2026-03-11 - React Migration Wave 26 (Advanced Connection Profile Editing)
+
+### Completed
+- Extended connection profile contracts and bridge mapping in:
+  - [frontend/src/core/contracts.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/core/contracts.ts)
+  - [frontend/src/legacy/bridge.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/legacy/bridge.ts)
+- Expanded [public/scripts/st-context.js](/Users/hal/.codex/worktrees/dc18/SillyTavern/public/scripts/st-context.js) so React can persist mode-specific connection profile fields into the existing connection-manager store while still emitting the legacy profile events.
+- Broadened the React connection editor in [frontend/src/features/shell/ShellPage.tsx](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/features/shell/ShellPage.tsx) with mode-aware advanced fields:
+  - chat-completions: proxy preset, prompt post-processing, reasoning template, secret id
+  - text-completions: instruct template, instruct mode, context template, tokenizer, reasoning template, secret id
+  - shared: start reply with, stop strings
+- Expanded bridge coverage in [frontend/src/test/bridge.test.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/test/bridge.test.ts) for the richer connection profile shape.
+
+### Measurable Impact
+- The default React shell now covers most real connection profile authoring, not just common provider fields.
+- Existing saved profiles can round-trip their advanced connection-manager fields through the typed React bridge without opening the legacy popup.
+- The remaining legacy gap is mostly niche provider-specific UI and command coverage, not the core connection profile workflow.
+
+### Insights
+- The practical contract here is the persisted connection-manager profile object, not the popup that edits it. Once that store is treated as the source of truth, React can safely own much more of the workflow.
+- The mode split matters. Chat-completions and text-completions profiles have materially different useful knobs, so a single flat editor becomes harder to use than a mode-aware one.
+
+### Next
+1. Decide whether to keep widening connection editing into rarer provider-specific fields or stop here and pivot to the next default-path friction point.
+2. Keep treating runtime smoke and manual usage issues as the gate before another large migration wave.

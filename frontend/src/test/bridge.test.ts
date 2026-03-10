@@ -200,6 +200,16 @@ describe('createLegacyBridge', () => {
       mode: profile.api === 'openrouter' ? 'cc' : 'tc',
     }));
     const deleteConnectionProfile = vi.fn();
+    const listConnectionModels = vi.fn((api: string) => {
+      if (api === 'openrouter') {
+        return [
+          { id: 'openai/gpt-4.1-mini', label: 'OpenAI: GPT-4.1 Mini | 128000 ctx' },
+          { id: 'anthropic/claude-sonnet-4', label: 'Anthropic: Claude Sonnet 4 | 200000 ctx' },
+        ];
+      }
+
+      return [];
+    });
     const unshallowCharacter = vi.fn();
     const updateChatMetadata = vi.fn();
     const updateMessageBlock = vi.fn();
@@ -430,6 +440,7 @@ describe('createLegacyBridge', () => {
           getCharacterCardFields,
           getRequestHeaders,
           listInstalledExtensions,
+          listConnectionModels,
           getPromptTemplates: () => promptTemplates,
           getSelectedWorldInfo: () => [...selectedWorldNames],
           getThumbnailUrl: vi.fn((type: string, file: string) => `/thumb/${type}/${file}`),
@@ -707,6 +718,10 @@ describe('createLegacyBridge', () => {
       { id: 'koboldcpp', kind: 'text', label: 'koboldcpp' },
       { id: 'openrouter', kind: 'chat', label: 'openrouter' },
     ]);
+    expect(bridge?.connections.listModels('openrouter')).toEqual([
+      { id: 'openai/gpt-4.1-mini', label: 'OpenAI: GPT-4.1 Mini | 128000 ctx' },
+      { id: 'anthropic/claude-sonnet-4', label: 'Anthropic: Claude Sonnet 4 | 200000 ctx' },
+    ]);
     expect(bridge?.connections.listProfiles()).toEqual([
       {
         api: 'koboldcpp',
@@ -918,6 +933,7 @@ describe('createLegacyBridge', () => {
       tokenizer: '',
     });
     expect(deleteConnectionProfile).toHaveBeenCalledWith('profile-kobold');
+    expect(listConnectionModels).toHaveBeenCalledWith('openrouter');
     expect(openGroupById).toHaveBeenCalledWith('g-3');
     expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/chats/search');

@@ -195,6 +195,11 @@ export interface ConnectionApiOption {
   label: string;
 }
 
+export interface ConnectionModelOption {
+  id: string;
+  label: string;
+}
+
 export interface ConnectionProfileDraft {
   api: string;
   apiUrl: string;
@@ -317,6 +322,7 @@ export interface ConnectionService {
   deleteProfile(id: string): Promise<void>;
   listProfiles(): ConnectionProfileSummary[];
   listApiOptions(): ConnectionApiOption[];
+  listModels(api: string): ConnectionModelOption[];
   saveProfile(profile: ConnectionProfileDraft): Promise<ConnectionProfileSummary>;
 }
 

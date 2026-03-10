@@ -59,7 +59,7 @@ import { deleteGroupChatByName, groups, openGroupById, openGroupChat, selected_g
 import { addLocaleData, getCurrentLocale, t, translate } from './i18n.js';
 import { hideLoader, showLoader } from './loader.js';
 import { MacrosParser } from './macros.js';
-import { getChatCompletionModel, oai_settings, promptManager as chatPromptManager, setupChatCompletionPromptManager } from './openai.js';
+import { chat_completion_sources, getChatCompletionModel, oai_settings, promptManager as chatPromptManager, setupChatCompletionPromptManager } from './openai.js';
 import { callGenericPopup, Popup, POPUP_RESULT, POPUP_TYPE } from './popup.js';
 import { power_user, registerDebugFunction } from './power-user.js';
 import { getPresetManager } from './preset-manager.js';
@@ -70,7 +70,7 @@ import { SlashCommand } from './slash-commands/SlashCommand.js';
 import { ARGUMENT_TYPE, SlashCommandArgument, SlashCommandNamedArgument } from './slash-commands/SlashCommandArgument.js';
 import { SlashCommandParser } from './slash-commands/SlashCommandParser.js';
 import { tag_map, tags } from './tags.js';
-import { getTextGenServer, textgenerationwebui_settings } from './textgen-settings.js';
+import { getTextGenServer, textgen_types, textgenerationwebui_settings } from './textgen-settings.js';
 import { tokenizers, getTextTokens, getTokenCount, getTokenCountAsync, getTokenizerModel } from './tokenizers.js';
 import { ToolManager } from './tool-calling.js';
 import { accountStorage } from './util/AccountStorage.js';
@@ -326,6 +326,39 @@ function listConnectionApiOptions() {
 const CONNECTION_COMMON_FIELDS = ['api-url', 'model', 'preset', 'stop-strings', 'start-reply-with', 'reasoning-template', 'secret-id'];
 const CONNECTION_CHAT_ONLY_FIELDS = ['proxy', 'prompt-post-processing'];
 const CONNECTION_TEXT_ONLY_FIELDS = ['instruct', 'context', 'instruct-state', 'tokenizer'];
+const CONNECTION_MODEL_CONTROL_MAP = [
+    { id: 'generic_model_textgenerationwebui', api: 'textgenerationwebui', type: textgen_types.GENERIC },
+    { id: 'custom_model_textgenerationwebui', api: 'textgenerationwebui', type: textgen_types.OOBA },
+    { id: 'model_togetherai_select', api: 'textgenerationwebui', type: textgen_types.TOGETHERAI },
+    { id: 'openrouter_model', api: 'textgenerationwebui', type: textgen_types.OPENROUTER },
+    { id: 'model_infermaticai_select', api: 'textgenerationwebui', type: textgen_types.INFERMATICAI },
+    { id: 'model_dreamgen_select', api: 'textgenerationwebui', type: textgen_types.DREAMGEN },
+    { id: 'mancer_model', api: 'textgenerationwebui', type: textgen_types.MANCER },
+    { id: 'vllm_model', api: 'textgenerationwebui', type: textgen_types.VLLM },
+    { id: 'aphrodite_model', api: 'textgenerationwebui', type: textgen_types.APHRODITE },
+    { id: 'ollama_model', api: 'textgenerationwebui', type: textgen_types.OLLAMA },
+    { id: 'tabby_model', api: 'textgenerationwebui', type: textgen_types.TABBY },
+    { id: 'featherless_model', api: 'textgenerationwebui', type: textgen_types.FEATHERLESS },
+    { id: 'model_openai_select', api: 'openai', source: chat_completion_sources.OPENAI },
+    { id: 'model_claude_select', api: 'openai', source: chat_completion_sources.CLAUDE },
+    { id: 'model_openrouter_select', api: 'openai', source: chat_completion_sources.OPENROUTER },
+    { id: 'model_ai21_select', api: 'openai', source: chat_completion_sources.AI21 },
+    { id: 'model_google_select', api: 'openai', source: chat_completion_sources.MAKERSUITE },
+    { id: 'model_vertexai_select', api: 'openai', source: chat_completion_sources.VERTEXAI },
+    { id: 'model_mistralai_select', api: 'openai', source: chat_completion_sources.MISTRALAI },
+    { id: 'custom_model_id', api: 'openai', source: chat_completion_sources.CUSTOM },
+    { id: 'model_cohere_select', api: 'openai', source: chat_completion_sources.COHERE },
+    { id: 'model_perplexity_select', api: 'openai', source: chat_completion_sources.PERPLEXITY },
+    { id: 'model_groq_select', api: 'openai', source: chat_completion_sources.GROQ },
+    { id: 'model_nanogpt_select', api: 'openai', source: chat_completion_sources.NANOGPT },
+    { id: 'model_deepseek_select', api: 'openai', source: chat_completion_sources.DEEPSEEK },
+    { id: 'model_aimlapi_select', api: 'openai', source: chat_completion_sources.AIMLAPI },
+    { id: 'model_xai_select', api: 'openai', source: chat_completion_sources.XAI },
+    { id: 'model_pollinations_select', api: 'openai', source: chat_completion_sources.POLLINATIONS },
+    { id: 'model_moonshot_select', api: 'openai', source: chat_completion_sources.MOONSHOT },
+    { id: 'model_fireworks_select', api: 'openai', source: chat_completion_sources.FIREWORKS },
+    { id: 'model_cometapi_select', api: 'openai', source: chat_completion_sources.COMETAPI },
+];
 
 function setOptionalConnectionField(target, key, value) {
     const trimmedValue = String(value ?? '').trim();
@@ -335,6 +368,44 @@ function setOptionalConnectionField(target, key, value) {
     }
 
     delete target[key];
+}
+
+function listConnectionModels(api) {
+    const trimmedApi = String(api ?? '').trim().toLowerCase();
+    if (!trimmedApi) {
+        return [];
+    }
+
+    const apiConfig = CONNECT_API_MAP[trimmedApi];
+    if (!apiConfig) {
+        return [];
+    }
+
+    const modelControl = CONNECTION_MODEL_CONTROL_MAP.find((item) =>
+        item.api === apiConfig.selected
+        && (item.source ?? null) === (apiConfig.source ?? null)
+        && (item.type ?? null) === (apiConfig.type ?? null));
+
+    if (!modelControl) {
+        return [];
+    }
+
+    const control = document.getElementById(modelControl.id);
+    if (control instanceof HTMLInputElement) {
+        const value = control.value.trim();
+        return value ? [{ id: value, label: value }] : [];
+    }
+
+    if (!(control instanceof HTMLSelectElement)) {
+        return [];
+    }
+
+    return Array.from(control.options)
+        .map((option) => ({
+            id: String(option.value ?? '').trim(),
+            label: String(option.textContent ?? option.label ?? option.value ?? '').trim(),
+        }))
+        .filter((option) => option.id.length > 0);
 }
 
 async function saveConnectionProfile(profile) {
@@ -600,6 +671,7 @@ export function getContext() {
         getWorldNames,
         getSelectedWorldInfo,
         listConnectionApiOptions,
+        listConnectionModels,
         movePromptTemplate,
         saveConnectionProfile,
         saveWorldInfo,

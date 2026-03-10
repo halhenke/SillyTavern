@@ -5,6 +5,7 @@ import {
   CharacterProfile,
   ChatMessageSummary,
   ConnectionApiOption,
+  ConnectionModelOption,
   ConnectionProfileDraft,
   ConnectionProfileSummary,
   GroupCreateDraft,
@@ -50,6 +51,7 @@ const DEFAULT_CATALOG: SessionCatalog = {
 const DEFAULT_MESSAGES: ChatMessageSummary[] = [];
 const DEFAULT_CONNECTION_PROFILES: ConnectionProfileSummary[] = [];
 const DEFAULT_CONNECTION_API_OPTIONS: ConnectionApiOption[] = [];
+const DEFAULT_CONNECTION_MODEL_OPTIONS: ConnectionModelOption[] = [];
 const DEFAULT_CONNECTION_PROFILE_DRAFT: ConnectionProfileDraft = {
   api: '',
   apiUrl: '',
@@ -295,6 +297,8 @@ export function ShellPage() {
   const [installedExtensions, setInstalledExtensions] = useState<InstalledExtensionSummary[]>(DEFAULT_INSTALLED_EXTENSIONS);
   const [connectionProfiles, setConnectionProfiles] = useState<ConnectionProfileSummary[]>(DEFAULT_CONNECTION_PROFILES);
   const [connectionApiOptions, setConnectionApiOptions] = useState<ConnectionApiOption[]>(DEFAULT_CONNECTION_API_OPTIONS);
+  const [connectionModelOptions, setConnectionModelOptions] = useState<ConnectionModelOption[]>(DEFAULT_CONNECTION_MODEL_OPTIONS);
+  const [connectionModelQuery, setConnectionModelQuery] = useState('');
   const [connectionDraft, setConnectionDraft] = useState<ConnectionProfileDraft>(DEFAULT_CONNECTION_PROFILE_DRAFT);
   const [extensionReloadRequired, setExtensionReloadRequired] = useState(false);
   const [messages, setMessages] = useState<ChatMessageSummary[]>(DEFAULT_MESSAGES);
@@ -466,6 +470,18 @@ export function ShellPage() {
     () => getConnectionProfileKind(connectionDraft.api, connectionApiOptions),
     [connectionApiOptions, connectionDraft.api],
   );
+  const filteredConnectionModelOptions = useMemo(() => {
+    const query = connectionModelQuery.trim().toLowerCase();
+    const options = connectionModelOptions.filter((option) => {
+      if (!query) {
+        return true;
+      }
+
+      return `${option.id} ${option.label}`.toLowerCase().includes(query);
+    });
+
+    return options.slice(0, 80);
+  }, [connectionModelOptions, connectionModelQuery]);
   const parsedWorldInfo = useMemo(() => parseWorldInfoData(worldInfoDraft), [worldInfoDraft]);
   const structuredWorldInfoEntries = useMemo(() => parsedWorldInfo?.entries ?? [], [parsedWorldInfo]);
   const activeWorldInfoEntry = useMemo(
@@ -502,6 +518,24 @@ export function ShellPage() {
 
     setConnectionDraft((current) => (current.id ? DEFAULT_CONNECTION_PROFILE_DRAFT : current));
   }, [selectedConnectionProfile]);
+
+  useEffect(() => {
+    if (!legacyBridge) {
+      setConnectionModelOptions(DEFAULT_CONNECTION_MODEL_OPTIONS);
+      setConnectionModelQuery('');
+      return;
+    }
+
+    const trimmedApi = connectionDraft.api.trim();
+    if (!trimmedApi) {
+      setConnectionModelOptions(DEFAULT_CONNECTION_MODEL_OPTIONS);
+      setConnectionModelQuery('');
+      return;
+    }
+
+    setConnectionModelOptions(legacyBridge.connections.listModels(trimmedApi));
+    setConnectionModelQuery('');
+  }, [connectionDraft.api, legacyBridge]);
 
   useEffect(() => {
     if (!legacyBridge) {
@@ -1760,6 +1794,42 @@ export function ShellPage() {
                     onChange={(event) => updateConnectionDraft({ model: event.target.value })}
                   />
                 </label>
+                {connectionModelOptions.length ? (
+                  <div className="st-shell-connection-model-picker st-shell-editor-grid__wide">
+                    <div className="st-shell-card__header">
+                      <h4>Available models</h4>
+                      <span className="st-shell-badge">{connectionModelOptions.length}</span>
+                    </div>
+                    <label className="st-field">
+                      <span>Search models</span>
+                      <input
+                        disabled={Boolean(busyAction)}
+                        placeholder="Search models..."
+                        type="text"
+                        value={connectionModelQuery}
+                        onChange={(event) => setConnectionModelQuery(event.target.value)}
+                      />
+                    </label>
+                    <div className="st-shell-connection-model-list">
+                      {filteredConnectionModelOptions.length ? (
+                        filteredConnectionModelOptions.map((option) => (
+                          <button
+                            className={`st-shell-connection-model-item${connectionDraft.model === option.id ? ' st-shell-connection-model-item--active' : ''}`}
+                            disabled={Boolean(busyAction)}
+                            key={`${option.id}-${option.label}`}
+                            type="button"
+                            onClick={() => updateConnectionDraft({ model: option.id })}
+                          >
+                            <strong>{option.label || option.id}</strong>
+                            {option.label && option.label !== option.id ? <small>{option.id}</small> : null}
+                          </button>
+                        ))
+                      ) : (
+                        <p className="st-note">No models match the current search.</p>
+                      )}
+                    </div>
+                  </div>
+                ) : null}
                 <label className="st-field st-shell-editor-grid__wide">
                   <span>Preset</span>
                   <input

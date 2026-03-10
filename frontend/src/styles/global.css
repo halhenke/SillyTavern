@@ -330,6 +330,49 @@ a {
   border-top: 1px solid rgba(54, 66, 85, 0.5);
 }
 
+.st-shell-connection-model-picker {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(54, 66, 85, 0.72);
+  border-radius: 14px;
+  background: rgba(13, 18, 24, 0.42);
+}
+
+.st-shell-connection-model-picker h4 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.st-shell-connection-model-list {
+  display: grid;
+  gap: 8px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.st-shell-connection-model-item {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(54, 66, 85, 0.72);
+  border-radius: 12px;
+  background: rgba(12, 18, 26, 0.72);
+  color: inherit;
+  text-align: left;
+}
+
+.st-shell-connection-model-item small {
+  color: var(--st-text-muted);
+  word-break: break-word;
+}
+
+.st-shell-connection-model-item--active {
+  border-color: rgba(123, 220, 255, 0.55);
+  background: rgba(123, 220, 255, 0.12);
+}
+
 .st-shell-connection-item {
   display: flex;
   justify-content: space-between;

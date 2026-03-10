@@ -9,6 +9,7 @@ import {
   ChatMessageSummary,
   ChatService,
   ConnectionApiOption,
+  ConnectionModelOption,
   ConnectionProfileDraft,
   ComposerGenerationMode,
   ComposerService,
@@ -192,6 +193,7 @@ type LegacyContext = {
   groups?: LegacyGroup[];
   listInstalledExtensions?: () => Promise<InstalledExtensionSummary[]>;
   listConnectionApiOptions?: () => ConnectionApiOption[];
+  listConnectionModels?: (api: string) => ConnectionModelOption[];
   mainApi?: string;
   maxContext?: number;
   name1?: string;
@@ -1180,6 +1182,14 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
       await context.deleteConnectionProfile(trimmedId);
     },
     listApiOptions: () => getConnectionApiOptions(context),
+    listModels: (api) => {
+      const trimmedApi = api.trim();
+      if (!trimmedApi || !context.listConnectionModels) {
+        return [];
+      }
+
+      return context.listConnectionModels(trimmedApi);
+    },
     listProfiles: () => getConnectionProfiles(context),
     saveProfile: async (profile: ConnectionProfileDraft) => {
       const trimmedName = profile.name.trim();

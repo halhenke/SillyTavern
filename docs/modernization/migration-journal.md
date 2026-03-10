@@ -2373,3 +2373,29 @@
 ### Next
 1. Decide whether to keep widening connection editing into rarer provider-specific fields or stop here and pivot to the next default-path friction point.
 2. Keep treating runtime smoke and manual usage issues as the gate before another large migration wave.
+
+## 2026-03-11 - React Migration Wave 27 (Connection Model Picker)
+
+### Completed
+- Added typed connection-model support in:
+  - [frontend/src/core/contracts.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/core/contracts.ts)
+  - [frontend/src/legacy/bridge.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/legacy/bridge.ts)
+- Exposed model-option lookup through [public/scripts/st-context.js](/Users/hal/.codex/worktrees/dc18/SillyTavern/public/scripts/st-context.js) by reusing the already-populated legacy model controls instead of duplicating provider catalog logic in React.
+- Expanded the React connection editor in [frontend/src/features/shell/ShellPage.tsx](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/features/shell/ShellPage.tsx) with:
+  - searchable model filtering
+  - clickable model selection
+  - model lists scoped to the selected connection API
+- Added styling in [frontend/src/styles/global.css](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/styles/global.css).
+- Extended bridge coverage in [frontend/src/test/bridge.test.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/test/bridge.test.ts).
+
+### Measurable Impact
+- The React connection panel no longer forces manual model id entry when the legacy runtime already has a populated model catalog.
+- OpenRouter-style workflows now have a usable model search/select path in React instead of relying on the legacy select2 widget.
+
+### Insights
+- Reusing the live legacy model controls is the right intermediate seam. It preserves provider-specific formatting and availability without requiring React to understand every model catalog yet.
+- The missing model selector was not just a convenience issue. For providers with large catalogs, freeform model entry makes the React path materially worse than the legacy app.
+
+### Next
+1. Manually verify the model picker against a real provider flow like OpenRouter on this branch.
+2. If it holds up, decide whether to keep this bridge-driven approach for other provider-specific selectors before replacing more of the legacy settings area.

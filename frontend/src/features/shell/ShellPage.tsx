@@ -4,6 +4,8 @@ import {
   CharacterCreateDraft,
   CharacterProfile,
   ChatMessageSummary,
+  ConnectionApiOption,
+  ConnectionProfileDraft,
   ConnectionProfileSummary,
   GroupCreateDraft,
   GroupProfile,
@@ -47,6 +49,14 @@ const DEFAULT_CATALOG: SessionCatalog = {
 
 const DEFAULT_MESSAGES: ChatMessageSummary[] = [];
 const DEFAULT_CONNECTION_PROFILES: ConnectionProfileSummary[] = [];
+const DEFAULT_CONNECTION_API_OPTIONS: ConnectionApiOption[] = [];
+const DEFAULT_CONNECTION_PROFILE_DRAFT: ConnectionProfileDraft = {
+  api: '',
+  apiUrl: '',
+  model: '',
+  name: '',
+  preset: '',
+};
 const DEFAULT_NEW_CHARACTER_DRAFT: CharacterCreateDraft = {
   characterVersion: '',
   creator: '',
@@ -262,6 +272,8 @@ export function ShellPage() {
   const [promptDraft, setPromptDraft] = useState<PromptTemplate | null>(null);
   const [installedExtensions, setInstalledExtensions] = useState<InstalledExtensionSummary[]>(DEFAULT_INSTALLED_EXTENSIONS);
   const [connectionProfiles, setConnectionProfiles] = useState<ConnectionProfileSummary[]>(DEFAULT_CONNECTION_PROFILES);
+  const [connectionApiOptions, setConnectionApiOptions] = useState<ConnectionApiOption[]>(DEFAULT_CONNECTION_API_OPTIONS);
+  const [connectionDraft, setConnectionDraft] = useState<ConnectionProfileDraft>(DEFAULT_CONNECTION_PROFILE_DRAFT);
   const [extensionReloadRequired, setExtensionReloadRequired] = useState(false);
   const [messages, setMessages] = useState<ChatMessageSummary[]>(DEFAULT_MESSAGES);
   const [selectedMessageId, setSelectedMessageId] = useState<number | null>(null);
@@ -294,6 +306,7 @@ export function ShellPage() {
       setSnapshot(DEFAULT_SNAPSHOT);
       setCatalog(DEFAULT_CATALOG);
       setConnectionProfiles(DEFAULT_CONNECTION_PROFILES);
+      setConnectionApiOptions(DEFAULT_CONNECTION_API_OPTIONS);
       setMessages(DEFAULT_MESSAGES);
       return;
     }
@@ -301,6 +314,7 @@ export function ShellPage() {
     setSnapshot(bridge.settings.getShellSnapshot());
     setCatalog(bridge.session.getCatalog());
     setConnectionProfiles(bridge.connections.listProfiles());
+    setConnectionApiOptions(bridge.connections.listApiOptions());
     setMessages(bridge.chat.getMessages());
   }, []);
 
@@ -436,6 +450,22 @@ export function ShellPage() {
   useEffect(() => {
     setChatNameDraft(snapshot.currentChatId ?? '');
   }, [snapshot.currentChatId]);
+
+  useEffect(() => {
+    if (selectedConnectionProfile) {
+      setConnectionDraft({
+        api: selectedConnectionProfile.api ?? '',
+        apiUrl: selectedConnectionProfile.apiUrl ?? '',
+        id: selectedConnectionProfile.id,
+        model: selectedConnectionProfile.model ?? '',
+        name: selectedConnectionProfile.name,
+        preset: selectedConnectionProfile.preset ?? '',
+      });
+      return;
+    }
+
+    setConnectionDraft((current) => (current.id ? DEFAULT_CONNECTION_PROFILE_DRAFT : current));
+  }, [selectedConnectionProfile]);
 
   useEffect(() => {
     if (!legacyBridge) {
@@ -906,8 +936,69 @@ export function ShellPage() {
     setNewGroupDraft((current) => ({ ...current, ...next }));
   }
 
+  function updateConnectionDraft(next: Partial<ConnectionProfileDraft>) {
+    setConnectionDraft((current) => ({ ...current, ...next }));
+  }
+
   function updatePromptDraft(next: Partial<PromptTemplate>) {
     setPromptDraft((current) => (current ? { ...current, ...next } : current));
+  }
+
+  async function handleConnectionProfileSave() {
+    const bridge = legacyBridge;
+    if (!bridge) {
+      return;
+    }
+
+    if (!connectionDraft.name.trim()) {
+      setActionError('Connection profile name is required');
+      return;
+    }
+
+    if (!connectionDraft.api.trim()) {
+      setActionError('Connection API is required');
+      return;
+    }
+
+    setActionError('');
+    setBusyAction('connection-save');
+
+    try {
+      const savedProfile = await bridge.connections.saveProfile(connectionDraft);
+      refreshRuntime(bridge);
+      setConnectionDraft({
+        api: savedProfile.api ?? '',
+        apiUrl: savedProfile.apiUrl ?? '',
+        id: savedProfile.id,
+        model: savedProfile.model ?? '',
+        name: savedProfile.name,
+        preset: savedProfile.preset ?? '',
+      });
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not save connection profile');
+    } finally {
+      setBusyAction('');
+    }
+  }
+
+  async function handleConnectionProfileDelete() {
+    const bridge = legacyBridge;
+    if (!bridge || !connectionDraft.id) {
+      return;
+    }
+
+    setActionError('');
+    setBusyAction('connection-delete');
+
+    try {
+      await bridge.connections.deleteProfile(connectionDraft.id);
+      setConnectionDraft(DEFAULT_CONNECTION_PROFILE_DRAFT);
+      refreshRuntime(bridge);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not delete connection profile');
+    } finally {
+      setBusyAction('');
+    }
   }
 
   async function handleCharacterCreate() {
@@ -1560,9 +1651,98 @@ export function ShellPage() {
               </div>
             ) : (
               <p className="st-note">
-                No saved connection profiles yet. Create them in legacy tools, then switch them here.
+                No saved connection profiles yet. Create one below or fall back to the legacy connection manager.
               </p>
             )}
+            <div className="st-shell-connection-editor">
+              <div className="st-shell-card__header">
+                <h3>{connectionDraft.id ? 'Edit profile' : 'New profile'}</h3>
+                <nav className="st-actions">
+                  <button
+                    className="st-button st-button--ghost"
+                    disabled={Boolean(busyAction)}
+                    type="button"
+                    onClick={() => setConnectionDraft(DEFAULT_CONNECTION_PROFILE_DRAFT)}
+                  >
+                    New draft
+                  </button>
+                </nav>
+              </div>
+              <div className="st-shell-editor-grid">
+                <label className="st-field">
+                  <span>Name</span>
+                  <input
+                    disabled={Boolean(busyAction)}
+                    type="text"
+                    value={connectionDraft.name}
+                    onChange={(event) => updateConnectionDraft({ name: event.target.value })}
+                  />
+                </label>
+                <label className="st-field">
+                  <span>API</span>
+                  <select
+                    disabled={Boolean(busyAction)}
+                    value={connectionDraft.api}
+                    onChange={(event) => updateConnectionDraft({ api: event.target.value })}
+                  >
+                    <option value="">Select API</option>
+                    {connectionApiOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label} ({option.kind})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="st-field">
+                  <span>Server URL</span>
+                  <input
+                    disabled={Boolean(busyAction)}
+                    placeholder="https://openrouter.ai/api/v1"
+                    type="text"
+                    value={connectionDraft.apiUrl}
+                    onChange={(event) => updateConnectionDraft({ apiUrl: event.target.value })}
+                  />
+                </label>
+                <label className="st-field">
+                  <span>Model</span>
+                  <input
+                    disabled={Boolean(busyAction)}
+                    placeholder="openai/gpt-4.1-mini"
+                    type="text"
+                    value={connectionDraft.model}
+                    onChange={(event) => updateConnectionDraft({ model: event.target.value })}
+                  />
+                </label>
+                <label className="st-field st-shell-editor-grid__wide">
+                  <span>Preset</span>
+                  <input
+                    disabled={Boolean(busyAction)}
+                    placeholder="Balanced"
+                    type="text"
+                    value={connectionDraft.preset}
+                    onChange={(event) => updateConnectionDraft({ preset: event.target.value })}
+                  />
+                </label>
+              </div>
+              <nav className="st-actions st-shell-connection-actions">
+                <button
+                  className="st-button"
+                  disabled={!legacyBridge || Boolean(busyAction)}
+                  type="button"
+                  onClick={() => void handleConnectionProfileSave()}
+                >
+                  {connectionDraft.id ? 'Save profile' : 'Create profile'}
+                </button>
+                <button
+                  className="st-button st-button--ghost"
+                  disabled={!legacyBridge || !connectionDraft.id || Boolean(busyAction)}
+                  type="button"
+                  onClick={() => void handleConnectionProfileDelete()}
+                >
+                  Delete profile
+                </button>
+              </nav>
+            </div>
           </section>
 
           <section className="st-shell-card">

@@ -2316,3 +2316,34 @@
 ### Next
 1. Decide whether the next connection step should be a fuller React profile editor or a different high-friction workflow.
 2. Keep prioritizing usability blockers in the default React path over broad but low-value surface expansion.
+
+## 2026-03-11 - React Migration Wave 25 (Bounded Connection Profile Editor)
+
+### Completed
+- Extended connection contracts and bridge support in:
+  - [frontend/src/core/contracts.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/core/contracts.ts)
+  - [frontend/src/legacy/bridge.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/legacy/bridge.ts)
+- Added bounded connection-profile persistence methods to [public/scripts/st-context.js](/Users/hal/.codex/worktrees/dc18/SillyTavern/public/scripts/st-context.js), reusing the existing connection-manager settings store and event flow.
+- Expanded the React shell in [frontend/src/features/shell/ShellPage.tsx](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/features/shell/ShellPage.tsx) with a common-fields connection editor:
+  - name
+  - API
+  - server URL
+  - model
+  - preset
+- Added supporting style updates in [frontend/src/styles/global.css](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/styles/global.css).
+- Expanded bridge coverage in [frontend/src/test/bridge.test.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/test/bridge.test.ts).
+
+### Measurable Impact
+- Common connection profile setup no longer requires the legacy connection-manager popup.
+- React now owns both of the high-frequency connection workflows:
+  - switch a saved profile
+  - create/edit/delete a common profile definition
+- The remaining legacy dependency is mostly the richer, profile-command-complete editor rather than basic provider setup.
+
+### Insights
+- The stable seam was the connection-manager profile store plus the existing event names, not the legacy popup UI. That made it possible to add real editing without duplicating the extension implementation wholesale.
+- A bounded editor is the right compromise here. The common path is now React-owned, while advanced profile fields can remain in legacy until they are worth formalizing.
+
+### Next
+1. Decide whether to broaden the React connection editor to advanced profile fields or stop here and pivot back to another workflow.
+2. Keep default-path usability as the decision rule: migrate what blocks everyday use, not what is merely possible to port.

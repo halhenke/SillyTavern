@@ -313,6 +313,100 @@ async function movePromptTemplate(identifier, direction) {
     saveSettingsDebounced?.();
 }
 
+function listConnectionApiOptions() {
+    return Object.entries(CONNECT_API_MAP)
+        .map(([id, config]) => ({
+            id,
+            kind: config.selected === 'openai' ? 'chat' : 'text',
+            label: id,
+        }))
+        .sort((left, right) => left.label.localeCompare(right.label));
+}
+
+async function saveConnectionProfile(profile) {
+    const connectionManager = extension_settings.connectionManager;
+    if (!connectionManager) {
+        throw new Error('Connection manager settings are unavailable');
+    }
+
+    const name = String(profile?.name ?? '').trim();
+    const api = String(profile?.api ?? '').trim().toLowerCase();
+    if (!name) {
+        throw new Error('Connection profile name is required');
+    }
+    if (!api) {
+        throw new Error('Connection API is required');
+    }
+
+    const apiConfig = CONNECT_API_MAP[api];
+    if (!apiConfig) {
+        throw new Error(`Unknown connection API: ${api}`);
+    }
+
+    const existingId = String(profile?.id ?? '').trim();
+    const existingProfile = existingId
+        ? connectionManager.profiles.find((item) => item.id === existingId)
+        : null;
+
+    if (connectionManager.profiles.some((item) => item.id !== existingId && item.name === name)) {
+        throw new Error('A connection profile with the same name already exists');
+    }
+
+    const nextProfile = {
+        ...(existingProfile ?? {}),
+        id: existingId || uuidv4(),
+        mode: apiConfig.selected === 'openai' ? 'cc' : 'tc',
+        name,
+        api,
+        'api-url': String(profile?.['api-url'] ?? profile?.apiUrl ?? '').trim(),
+        model: String(profile?.model ?? '').trim(),
+        preset: String(profile?.preset ?? '').trim(),
+    };
+
+    if (existingProfile) {
+        const previousProfile = structuredClone(existingProfile);
+        Object.assign(existingProfile, nextProfile);
+        await eventSource.emit(event_types.CONNECTION_PROFILE_UPDATED, previousProfile, existingProfile);
+    } else {
+        connectionManager.profiles.push(nextProfile);
+        connectionManager.selectedProfile = nextProfile.id;
+        await eventSource.emit(event_types.CONNECTION_PROFILE_CREATED, nextProfile);
+    }
+
+    saveSettingsDebounced?.();
+    return structuredClone(nextProfile);
+}
+
+async function deleteConnectionProfile(id) {
+    const profileId = String(id ?? '').trim();
+    if (!profileId) {
+        throw new Error('Connection profile id is required');
+    }
+
+    const connectionManager = extension_settings.connectionManager;
+    if (!connectionManager) {
+        throw new Error('Connection manager settings are unavailable');
+    }
+
+    const profileIndex = connectionManager.profiles.findIndex((profile) => profile.id === profileId);
+    if (profileIndex === -1) {
+        throw new Error('Connection profile not found');
+    }
+
+    const [deletedProfile] = connectionManager.profiles.splice(profileIndex, 1);
+    const wasSelected = connectionManager.selectedProfile === profileId;
+    if (wasSelected) {
+        connectionManager.selectedProfile = '';
+    }
+
+    await eventSource.emit(event_types.CONNECTION_PROFILE_DELETED, deletedProfile);
+    if (wasSelected) {
+        await eventSource.emit(event_types.CONNECTION_PROFILE_LOADED, '<None>');
+    }
+
+    saveSettingsDebounced?.();
+}
+
 function getSelectedWorldInfo() {
     return Array.isArray(selected_world_info) ? [...selected_world_info] : [];
 }
@@ -461,10 +555,13 @@ export function getContext() {
         getPromptTemplates,
         getWorldNames,
         getSelectedWorldInfo,
+        listConnectionApiOptions,
         movePromptTemplate,
+        saveConnectionProfile,
         saveWorldInfo,
         savePromptTemplate,
         setSelectedWorldInfo,
+        deleteConnectionProfile,
         reloadWorldInfoEditor: reloadEditor,
         updateWorldInfoList,
         createNewWorldInfo,

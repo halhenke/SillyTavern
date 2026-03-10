@@ -178,6 +178,21 @@ export interface ConnectionProfileSummary {
   preset?: string;
 }
 
+export interface ConnectionApiOption {
+  id: string;
+  kind: 'chat' | 'text';
+  label: string;
+}
+
+export interface ConnectionProfileDraft {
+  api: string;
+  apiUrl: string;
+  id?: string;
+  model: string;
+  name: string;
+  preset: string;
+}
+
 export interface ChatMetadata {
   scenario: string;
 }
@@ -278,7 +293,10 @@ export interface ComposerService {
 
 export interface ConnectionService {
   applyProfile(id: string): Promise<void>;
+  deleteProfile(id: string): Promise<void>;
   listProfiles(): ConnectionProfileSummary[];
+  listApiOptions(): ConnectionApiOption[];
+  saveProfile(profile: ConnectionProfileDraft): Promise<ConnectionProfileSummary>;
 }
 
 export interface ExtensionHostService {

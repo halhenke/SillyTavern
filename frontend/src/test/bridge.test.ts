@@ -194,6 +194,11 @@ describe('createLegacyBridge', () => {
     const reloadCurrentChat = vi.fn();
     const saveMetadata = vi.fn();
     const saveWorldInfo = vi.fn();
+    const saveConnectionProfile = vi.fn(async (profile) => ({
+      ...profile,
+      id: profile.id ?? 'profile-created',
+    }));
+    const deleteConnectionProfile = vi.fn();
     const unshallowCharacter = vi.fn();
     const updateChatMetadata = vi.fn();
     const updateMessageBlock = vi.fn();
@@ -362,8 +367,13 @@ describe('createLegacyBridge', () => {
             },
           ],
           clearChat,
+          CONNECT_API_MAP: {
+            koboldcpp: { selected: 'textgenerationwebui' },
+            openrouter: { selected: 'openai' },
+          },
           createCharacter,
           deleteLastMessage,
+          deleteConnectionProfile,
           deleteSwipe,
           createNewWorldInfo,
           eventSource: {
@@ -444,6 +454,7 @@ describe('createLegacyBridge', () => {
           reloadCurrentChat,
           renameChat,
           saveChat,
+          saveConnectionProfile,
           saveMetadata,
           movePromptTemplate,
           savePromptTemplate,
@@ -676,6 +687,10 @@ describe('createLegacyBridge', () => {
       },
     ]);
     await bridge?.extensions.setExtensionEnabled('system-tool', true);
+    expect(bridge?.connections.listApiOptions()).toEqual([
+      { id: 'koboldcpp', kind: 'text', label: 'koboldcpp' },
+      { id: 'openrouter', kind: 'chat', label: 'openrouter' },
+    ]);
     expect(bridge?.connections.listProfiles()).toEqual([
       {
         api: 'koboldcpp',
@@ -697,6 +712,24 @@ describe('createLegacyBridge', () => {
       },
     ]);
     await bridge?.connections.applyProfile('profile-kobold');
+    await expect(
+      bridge?.connections.saveProfile({
+        api: 'openrouter',
+        apiUrl: 'https://openrouter.ai/api/v1',
+        model: 'openai/gpt-4.1',
+        name: 'OpenRouter Edited',
+        preset: 'Creative',
+      }),
+    ).resolves.toEqual({
+      api: 'openrouter',
+      apiUrl: 'https://openrouter.ai/api/v1',
+      id: 'profile-created',
+      isSelected: false,
+      model: 'openai/gpt-4.1',
+      name: 'OpenRouter Edited',
+      preset: 'Creative',
+    });
+    await bridge?.connections.deleteProfile('profile-kobold');
     expect(bridge?.prompts.listPrompts()).toEqual(promptTemplates);
     await bridge?.prompts.movePrompt('jailbreak', 'up');
     await bridge?.prompts.savePrompt({
@@ -809,6 +842,15 @@ describe('createLegacyBridge', () => {
       handleParserErrors: true,
       source: 'react-shell',
     });
+    expect(saveConnectionProfile).toHaveBeenCalledWith({
+      api: 'openrouter',
+      'api-url': 'https://openrouter.ai/api/v1',
+      id: undefined,
+      model: 'openai/gpt-4.1',
+      name: 'OpenRouter Edited',
+      preset: 'Creative',
+    });
+    expect(deleteConnectionProfile).toHaveBeenCalledWith('profile-kobold');
     expect(openGroupById).toHaveBeenCalledWith('g-3');
     expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/chats/search');

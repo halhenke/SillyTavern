@@ -8,6 +8,8 @@ import {
   ChatMetadata,
   ChatMessageSummary,
   ChatService,
+  ConnectionApiOption,
+  ConnectionProfileDraft,
   ComposerGenerationMode,
   ComposerService,
   ConnectionProfileSummary,
@@ -143,6 +145,7 @@ type LegacyContext = {
       source?: string;
     },
   ) => Promise<unknown>;
+  CONNECT_API_MAP?: Record<string, { selected: string }>;
   extensionSettings?: {
     connectionManager?: {
       profiles?: Array<{
@@ -158,6 +161,7 @@ type LegacyContext = {
     disabledExtensions?: string[];
   };
   createNewWorldInfo?: (name: string, options?: { interactive?: boolean }) => Promise<boolean>;
+  deleteConnectionProfile?: (id: string) => Promise<void>;
   deleteWorldInfo?: (name: string) => Promise<boolean>;
   generateQuietPrompt?: (options?: {
     quietPrompt?: string;
@@ -174,6 +178,7 @@ type LegacyContext = {
   getRequestHeaders?: () => HeadersInit;
   groups?: LegacyGroup[];
   listInstalledExtensions?: () => Promise<InstalledExtensionSummary[]>;
+  listConnectionApiOptions?: () => ConnectionApiOption[];
   mainApi?: string;
   maxContext?: number;
   name1?: string;
@@ -192,6 +197,21 @@ type LegacyContext = {
   saveSettings?: () => Promise<void>;
   movePromptTemplate?: (identifier: string, direction: 'down' | 'up') => Promise<void>;
   savePromptTemplate?: (prompt: PromptTemplate) => Promise<void>;
+  saveConnectionProfile?: (profile: {
+    api: string;
+    'api-url'?: string;
+    id?: string;
+    model?: string;
+    name: string;
+    preset?: string;
+  }) => Promise<{
+    api?: string;
+    'api-url'?: string;
+    id: string;
+    model?: string;
+    name: string;
+    preset?: string;
+  }>;
   saveWorldInfo?: (name: string, data: unknown, immediately?: boolean) => Promise<void>;
   setExtensionEnabled?: (name: string, enabled: boolean) => Promise<void>;
   setSelectedWorldInfo?: (names: string[]) => Promise<void> | void;
@@ -342,6 +362,22 @@ function getConnectionProfiles(context: LegacyContext): ConnectionProfileSummary
       preset: profile.preset,
     }))
     .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function getConnectionApiOptions(context: LegacyContext): ConnectionApiOption[] {
+  if (context.listConnectionApiOptions) {
+    return context.listConnectionApiOptions();
+  }
+
+  const connectApiMap = context.CONNECT_API_MAP ?? {};
+
+  return Object.entries(connectApiMap)
+    .map<ConnectionApiOption>(([id, config]) => ({
+      id,
+      kind: config.selected === 'openai' ? 'chat' : 'text',
+      label: id,
+    }))
+    .sort((left, right) => left.label.localeCompare(right.label));
 }
 
 function getCharacterAvatarUrl(context: LegacyContext, avatar?: string) {
@@ -1078,7 +1114,53 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
         source: 'react-shell',
       });
     },
+    deleteProfile: async (id) => {
+      const trimmedId = id.trim();
+      if (!trimmedId) {
+        throw new Error('Connection profile id is required');
+      }
+
+      if (!context.deleteConnectionProfile) {
+        throw new Error('Connection profile deletion unavailable');
+      }
+
+      await context.deleteConnectionProfile(trimmedId);
+    },
+    listApiOptions: () => getConnectionApiOptions(context),
     listProfiles: () => getConnectionProfiles(context),
+    saveProfile: async (profile: ConnectionProfileDraft) => {
+      const trimmedName = profile.name.trim();
+      const trimmedApi = profile.api.trim();
+      if (!trimmedName) {
+        throw new Error('Connection profile name is required');
+      }
+      if (!trimmedApi) {
+        throw new Error('Connection API is required');
+      }
+
+      if (!context.saveConnectionProfile) {
+        throw new Error('Connection profile editing unavailable');
+      }
+
+      const saved = await context.saveConnectionProfile({
+        api: trimmedApi,
+        'api-url': profile.apiUrl.trim(),
+        id: profile.id?.trim() || undefined,
+        model: profile.model.trim(),
+        name: trimmedName,
+        preset: profile.preset.trim(),
+      });
+
+      return {
+        api: saved.api,
+        apiUrl: saved['api-url'],
+        id: saved.id,
+        isSelected: false,
+        model: saved.model,
+        name: saved.name,
+        preset: saved.preset,
+      };
+    },
   };
 
   return {

@@ -230,6 +230,12 @@ a {
   padding: 16px;
 }
 
+.st-shell-card--connection {
+  background:
+    linear-gradient(180deg, rgba(17, 29, 42, 0.96), rgba(13, 18, 24, 0.94)),
+    var(--st-panel-strong);
+}
+
 .st-shell-card--compact {
   padding: 14px;
 }
@@ -301,6 +307,49 @@ a {
 .st-shell-facts dd {
   margin: 0;
   word-break: break-word;
+}
+
+.st-shell-connection-summary {
+  margin: 0 0 14px;
+}
+
+.st-shell-connection-actions {
+  margin: 14px 0;
+}
+
+.st-shell-connection-list {
+  display: grid;
+  gap: 10px;
+}
+
+.st-shell-connection-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid rgba(54, 66, 85, 0.72);
+  border-radius: 14px;
+  background: rgba(13, 18, 24, 0.52);
+  color: inherit;
+  text-align: left;
+}
+
+.st-shell-connection-item span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.st-shell-connection-item small {
+  color: var(--st-text-muted);
+  word-break: break-word;
+}
+
+.st-shell-connection-item--active {
+  border-color: rgba(94, 199, 165, 0.55);
+  background: rgba(94, 199, 165, 0.12);
 }
 
 .st-shell-toggles {

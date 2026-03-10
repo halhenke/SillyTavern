@@ -2291,3 +2291,28 @@
 ### Next
 1. Rebuild the frontend dist and validate the React-default boot path with smoke tests.
 2. Continue treating runtime regressions as first-priority fixes before widening the React surface again.
+
+## 2026-03-11 - React Migration Wave 24 (Connection-First Shell Layout)
+
+### Completed
+- Added connection-profile contracts and bridge support in:
+  - [frontend/src/core/contracts.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/core/contracts.ts)
+  - [frontend/src/legacy/bridge.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/legacy/bridge.ts)
+- Reworked the React shell layout in [frontend/src/features/shell/ShellPage.tsx](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/features/shell/ShellPage.tsx) so connection state is visible above the fold.
+- Added dedicated styling for the new connection card in [frontend/src/styles/global.css](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/styles/global.css).
+- Expanded tests in:
+  - [frontend/src/test/bridge.test.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/test/bridge.test.ts)
+  - [frontend/e2e/smoke.spec.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/e2e/smoke.spec.ts)
+
+### Measurable Impact
+- Connection state is now visible at the top of the default React shell instead of being buried behind lower sections or the fallback drawer.
+- Saved connection profiles can now be switched directly from React for the common “pick the active backend/profile” workflow.
+- The legacy runtime remains the richer editor for creating and editing connection profiles, but routine switching no longer requires it.
+
+### Insights
+- This was not just a layout concern. Once React became the default surface, hiding connection setup below the fold made the migrated shell materially less usable than the legacy app.
+- The right seam here was not reimplementing the whole connection-manager extension. The legacy runtime already had stable profile data plus a slash-command application path, which is enough for a pragmatic React-owned switching surface.
+
+### Next
+1. Decide whether the next connection step should be a fuller React profile editor or a different high-friction workflow.
+2. Keep prioritizing usability blockers in the default React path over broad but low-value surface expansion.

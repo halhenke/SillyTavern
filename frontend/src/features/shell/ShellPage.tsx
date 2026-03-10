@@ -4,6 +4,7 @@ import {
   CharacterCreateDraft,
   CharacterProfile,
   ChatMessageSummary,
+  ConnectionProfileSummary,
   GroupCreateDraft,
   GroupProfile,
   InstalledExtensionSummary,
@@ -45,6 +46,7 @@ const DEFAULT_CATALOG: SessionCatalog = {
 };
 
 const DEFAULT_MESSAGES: ChatMessageSummary[] = [];
+const DEFAULT_CONNECTION_PROFILES: ConnectionProfileSummary[] = [];
 const DEFAULT_NEW_CHARACTER_DRAFT: CharacterCreateDraft = {
   characterVersion: '',
   creator: '',
@@ -259,6 +261,7 @@ export function ShellPage() {
   const [activePromptId, setActivePromptId] = useState('');
   const [promptDraft, setPromptDraft] = useState<PromptTemplate | null>(null);
   const [installedExtensions, setInstalledExtensions] = useState<InstalledExtensionSummary[]>(DEFAULT_INSTALLED_EXTENSIONS);
+  const [connectionProfiles, setConnectionProfiles] = useState<ConnectionProfileSummary[]>(DEFAULT_CONNECTION_PROFILES);
   const [extensionReloadRequired, setExtensionReloadRequired] = useState(false);
   const [messages, setMessages] = useState<ChatMessageSummary[]>(DEFAULT_MESSAGES);
   const [selectedMessageId, setSelectedMessageId] = useState<number | null>(null);
@@ -290,12 +293,14 @@ export function ShellPage() {
     if (!bridge) {
       setSnapshot(DEFAULT_SNAPSHOT);
       setCatalog(DEFAULT_CATALOG);
+      setConnectionProfiles(DEFAULT_CONNECTION_PROFILES);
       setMessages(DEFAULT_MESSAGES);
       return;
     }
 
     setSnapshot(bridge.settings.getShellSnapshot());
     setCatalog(bridge.session.getCatalog());
+    setConnectionProfiles(bridge.connections.listProfiles());
     setMessages(bridge.chat.getMessages());
   }, []);
 
@@ -416,6 +421,10 @@ export function ShellPage() {
   const groupMemberOptions = useMemo(
     () => catalog.characters.filter((character) => Boolean(character.avatarFile)),
     [catalog.characters],
+  );
+  const selectedConnectionProfile = useMemo(
+    () => connectionProfiles.find((profile) => profile.isSelected) ?? null,
+    [connectionProfiles],
   );
   const parsedWorldInfo = useMemo(() => parseWorldInfoData(worldInfoDraft), [worldInfoDraft]);
   const structuredWorldInfoEntries = useMemo(() => parsedWorldInfo?.entries ?? [], [parsedWorldInfo]);
@@ -1474,16 +1483,91 @@ export function ShellPage() {
             type="button"
             onClick={() => setShowLegacyFallback(true)}
           >
-            Open legacy fallback
+            Open legacy tools
           </button>
         </div>
       </header>
 
       <section className="st-shell-layout">
         <aside className="st-shell-sidebar">
+          <section className="st-shell-card st-shell-card--connection">
+            <div className="st-shell-card__header">
+              <h2>Connection</h2>
+              <span className={`st-shell-badge${snapshot.onlineStatus ? '' : ' st-shell-badge--muted'}`}>
+                {snapshot.onlineStatus ?? 'unknown'}
+              </span>
+            </div>
+            <p className="st-note st-shell-connection-summary">
+              Connection setup should be available above the fold. The React shell now surfaces the active API and
+              saved connection profiles here, while the richer editor remains in legacy tools for now.
+            </p>
+            <dl className="st-shell-facts">
+              <div>
+                <dt>Active API</dt>
+                <dd>{snapshot.mainApi ?? 'unavailable'}</dd>
+              </div>
+              <div>
+                <dt>Profile</dt>
+                <dd>{selectedConnectionProfile?.name ?? snapshot.connectionProfileName ?? 'No profile selected'}</dd>
+              </div>
+              <div>
+                <dt>Profiles</dt>
+                <dd>{snapshot.connectionProfileCount ?? connectionProfiles.length}</dd>
+              </div>
+              <div>
+                <dt>Manager</dt>
+                <dd>{snapshot.connectionManagerEnabled ? 'available' : 'disabled'}</dd>
+              </div>
+            </dl>
+            <nav className="st-actions st-shell-connection-actions">
+              <button
+                className="st-button"
+                type="button"
+                onClick={() => setShowLegacyFallback(true)}
+              >
+                Open connection tools
+              </button>
+              <a href="/legacy" target="_blank" rel="noreferrer">
+                Open legacy app
+              </a>
+            </nav>
+            {connectionProfiles.length ? (
+              <div className="st-shell-connection-list">
+                {connectionProfiles.map((profile) => (
+                  <button
+                    className={`st-shell-connection-item${profile.isSelected ? ' st-shell-connection-item--active' : ''}`}
+                    disabled={!legacyBridge || Boolean(busyAction)}
+                    key={profile.id}
+                    type="button"
+                    onClick={() => {
+                      const bridge = legacyBridge;
+                      if (!bridge) {
+                        return;
+                      }
+
+                      void runSessionAction(`connection-${profile.id}`, () => bridge.connections.applyProfile(profile.id));
+                    }}
+                  >
+                    <span>
+                      <strong>{profile.name}</strong>
+                      <small>
+                        {[profile.api, profile.model, profile.preset].filter(Boolean).join(' · ') || 'Saved profile'}
+                      </small>
+                    </span>
+                    {profile.isSelected ? <span className="st-shell-badge">active</span> : null}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="st-note">
+                No saved connection profiles yet. Create them in legacy tools, then switch them here.
+              </p>
+            )}
+          </section>
+
           <section className="st-shell-card">
             <div className="st-shell-card__header">
-              <h2>Runtime</h2>
+              <h2>Runtime snapshot</h2>
               <span className="st-shell-badge">{snapshot.onlineStatus ?? 'unknown'}</span>
             </div>
             <dl className="st-shell-facts">

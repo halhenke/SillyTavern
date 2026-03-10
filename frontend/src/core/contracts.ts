@@ -23,6 +23,9 @@ export interface ShellSnapshot {
   canSaveSettings: boolean;
   characterId?: number;
   characterName?: string;
+  connectionManagerEnabled?: boolean;
+  connectionProfileCount?: number;
+  connectionProfileName?: string;
   currentChatId?: string;
   groupId?: string;
   mainApi?: string;
@@ -165,6 +168,16 @@ export interface InstalledExtensionSummary {
   version: string;
 }
 
+export interface ConnectionProfileSummary {
+  api?: string;
+  apiUrl?: string;
+  id: string;
+  isSelected: boolean;
+  model?: string;
+  name: string;
+  preset?: string;
+}
+
 export interface ChatMetadata {
   scenario: string;
 }
@@ -263,6 +276,11 @@ export interface ComposerService {
   triggerGeneration(mode: ComposerGenerationMode): Promise<void>;
 }
 
+export interface ConnectionService {
+  applyProfile(id: string): Promise<void>;
+  listProfiles(): ConnectionProfileSummary[];
+}
+
 export interface ExtensionHostService {
   getContext(): unknown;
   getEventTypes(): Record<string, string>;
@@ -281,5 +299,6 @@ export interface ModernizationBridge {
   worldInfo: WorldInfoService;
   prompts: PromptService;
   composer: ComposerService;
+  connections: ConnectionService;
   extensions: ExtensionHostService;
 }

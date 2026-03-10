@@ -10,6 +10,8 @@ import {
   ChatService,
   ComposerGenerationMode,
   ComposerService,
+  ConnectionProfileSummary,
+  ConnectionService,
   ExtensionHostService,
   GenerationService,
   InstalledExtensionSummary,
@@ -133,6 +135,28 @@ type LegacyContext = {
     emit?(eventName: string, ...payload: unknown[]): Promise<void> | void;
   };
   eventTypes?: Record<string, string>;
+  executeSlashCommandsWithOptions?: (
+    text: string,
+    options?: {
+      handleExecutionErrors?: boolean;
+      handleParserErrors?: boolean;
+      source?: string;
+    },
+  ) => Promise<unknown>;
+  extensionSettings?: {
+    connectionManager?: {
+      profiles?: Array<{
+        api?: string;
+        id?: string;
+        model?: string;
+        name?: string;
+        preset?: string;
+        'api-url'?: string;
+      }>;
+      selectedProfile?: string | null;
+    };
+    disabledExtensions?: string[];
+  };
   createNewWorldInfo?: (name: string, options?: { interactive?: boolean }) => Promise<boolean>;
   deleteWorldInfo?: (name: string) => Promise<boolean>;
   generateQuietPrompt?: (options?: {
@@ -281,10 +305,18 @@ function writePreferences(powerUserSettings: LegacyPowerUserSettings, next: Part
 }
 
 function getShellSnapshot(context: LegacyContext): ShellSnapshot {
+  const connectionProfiles = context.extensionSettings?.connectionManager?.profiles ?? [];
+  const selectedConnectionProfileId = context.extensionSettings?.connectionManager?.selectedProfile;
+  const selectedConnectionProfile = connectionProfiles.find((profile) => profile.id === selectedConnectionProfileId);
+  const connectionManagerEnabled = !context.extensionSettings?.disabledExtensions?.includes('connection-manager');
+
   return {
     canSaveSettings: Boolean(context.saveSettingsDebounced || context.saveSettings),
     characterId: context.characterId,
     characterName: context.name2,
+    connectionManagerEnabled,
+    connectionProfileCount: connectionProfiles.length,
+    connectionProfileName: selectedConnectionProfile?.name?.trim() || undefined,
     currentChatId: context.getCurrentChatId?.(),
     groupId: context.groupId,
     mainApi: context.mainApi,
@@ -292,6 +324,24 @@ function getShellSnapshot(context: LegacyContext): ShellSnapshot {
     preferences: readPreferences(context.powerUserSettings),
     userName: context.name1,
   };
+}
+
+function getConnectionProfiles(context: LegacyContext): ConnectionProfileSummary[] {
+  const connectionProfiles = context.extensionSettings?.connectionManager?.profiles ?? [];
+  const selectedConnectionProfileId = context.extensionSettings?.connectionManager?.selectedProfile;
+
+  return connectionProfiles
+    .filter((profile): profile is NonNullable<typeof profile> => Boolean(profile?.id && profile?.name))
+    .map((profile) => ({
+      api: profile.api,
+      apiUrl: profile['api-url'],
+      id: String(profile.id),
+      isSelected: profile.id === selectedConnectionProfileId,
+      model: profile.model,
+      name: String(profile.name).trim(),
+      preset: profile.preset,
+    }))
+    .sort((left, right) => left.name.localeCompare(right.name));
 }
 
 function getCharacterAvatarUrl(context: LegacyContext, avatar?: string) {
@@ -1006,6 +1056,31 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
     },
   };
 
+  const connections: ConnectionService = {
+    applyProfile: async (id) => {
+      const trimmedId = id.trim();
+      if (!trimmedId) {
+        throw new Error('Connection profile id is required');
+      }
+
+      const profile = getConnectionProfiles(context).find((item) => item.id === trimmedId);
+      if (!profile) {
+        throw new Error('Connection profile not found');
+      }
+
+      if (!context.executeSlashCommandsWithOptions) {
+        throw new Error('Connection profile switching unavailable');
+      }
+
+      await context.executeSlashCommandsWithOptions(`/profile ${JSON.stringify(profile.name)}`, {
+        handleExecutionErrors: true,
+        handleParserErrors: true,
+        source: 'react-shell',
+      });
+    },
+    listProfiles: () => getConnectionProfiles(context),
+  };
+
   return {
     eventBus: createCoreEventBus(context.eventSource),
     settings,
@@ -1017,6 +1092,7 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
     worldInfo,
     prompts,
     composer,
+    connections,
     extensions,
   };
 }

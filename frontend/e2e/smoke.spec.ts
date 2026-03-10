@@ -42,7 +42,7 @@ test('root route serves the configured app surface', async ({ page, request }) =
 
   if (flags.reactShellEnabled && flags.frontendBuildReady) {
     await expect(page.getByRole('heading', { name: 'SillyTavern runtime panel' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Open legacy fallback' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Open legacy tools' })).toBeVisible();
     return;
   }
 

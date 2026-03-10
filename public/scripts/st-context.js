@@ -82,6 +82,7 @@ import { ConnectionManagerRequestService } from './extensions/shared.js';
 import { updateReasoningUI, parseReasoningFromString } from './reasoning.js';
 import { IGNORE_SYMBOL } from './constants.js';
 import { createOrEditCharacter, syncCropData, syncFavChChecked } from './character-core.js';
+import { SECRET_KEYS, secret_state, writeSecret } from './secrets.js';
 
 function setCharacterFormValue(id, value) {
     const element = document.getElementById(id);
@@ -326,6 +327,45 @@ function listConnectionApiOptions() {
 const CONNECTION_COMMON_FIELDS = ['api-url', 'model', 'preset', 'stop-strings', 'start-reply-with', 'reasoning-template', 'secret-id'];
 const CONNECTION_CHAT_ONLY_FIELDS = ['proxy', 'prompt-post-processing'];
 const CONNECTION_TEXT_ONLY_FIELDS = ['instruct', 'context', 'instruct-state', 'tokenizer'];
+const CONNECTION_SECRET_CONFIG = {
+    ai21: { key: SECRET_KEYS.AI21, label: 'AI21' },
+    aimlapi: { key: SECRET_KEYS.AIMLAPI, label: 'AI/ML API' },
+    aphrodite: { requiresSecret: false, label: 'Aphrodite' },
+    claude: { key: SECRET_KEYS.CLAUDE, label: 'Claude' },
+    cohere: { key: SECRET_KEYS.COHERE, label: 'Cohere' },
+    cometapi: { key: SECRET_KEYS.COMETAPI, label: 'CometAPI' },
+    custom: { key: SECRET_KEYS.CUSTOM, label: 'Custom (OpenAI-compatible)' },
+    deepseek: { key: SECRET_KEYS.DEEPSEEK, label: 'DeepSeek' },
+    dreamgen: { key: SECRET_KEYS.DREAMGEN, label: 'DreamGen' },
+    featherless: { key: SECRET_KEYS.FEATHERLESS, label: 'Featherless' },
+    fireworks: { key: SECRET_KEYS.FIREWORKS, label: 'Fireworks AI' },
+    generic: { key: SECRET_KEYS.GENERIC, label: 'Generic (OpenAI-compatible)' },
+    google: { key: SECRET_KEYS.MAKERSUITE, label: 'Google AI Studio' },
+    groq: { key: SECRET_KEYS.GROQ, label: 'Groq' },
+    huggingface: { key: SECRET_KEYS.HUGGINGFACE, label: 'HuggingFace' },
+    infermaticai: { key: SECRET_KEYS.INFERMATICAI, label: 'InfermaticAI' },
+    kcpp: { key: SECRET_KEYS.KOBOLDCPP, label: 'KoboldCpp' },
+    koboldcpp: { key: SECRET_KEYS.KOBOLDCPP, label: 'KoboldCpp' },
+    llamacpp: { key: SECRET_KEYS.LLAMACPP, label: 'llama.cpp' },
+    mancer: { key: SECRET_KEYS.MANCER, label: 'Mancer' },
+    mistralai: { key: SECRET_KEYS.MISTRALAI, label: 'MistralAI' },
+    moonshot: { key: SECRET_KEYS.MOONSHOT, label: 'Moonshot AI' },
+    nanogpt: { key: SECRET_KEYS.NANOGPT, label: 'NanoGPT' },
+    oai: { key: SECRET_KEYS.OPENAI, label: 'OpenAI' },
+    ollama: { requiresSecret: false, label: 'Ollama' },
+    openai: { key: SECRET_KEYS.OPENAI, label: 'OpenAI' },
+    openrouter: { key: SECRET_KEYS.OPENROUTER, label: 'OpenRouter', supportsAuthorize: true },
+    'openrouter-text': { key: SECRET_KEYS.OPENROUTER, label: 'OpenRouter', supportsAuthorize: true },
+    oooba: { key: SECRET_KEYS.OOBA, label: 'Text Generation WebUI' },
+    ooba: { key: SECRET_KEYS.OOBA, label: 'Text Generation WebUI' },
+    perplexity: { key: SECRET_KEYS.PERPLEXITY, label: 'Perplexity' },
+    pollinations: { requiresSecret: false, label: 'Pollinations' },
+    tabby: { key: SECRET_KEYS.TABBY, label: 'TabbyAPI' },
+    togetherai: { key: SECRET_KEYS.TOGETHERAI, label: 'TogetherAI' },
+    vertexai: { key: SECRET_KEYS.VERTEXAI, label: 'Vertex AI' },
+    vllm: { key: SECRET_KEYS.VLLM, label: 'vLLM' },
+    xai: { key: SECRET_KEYS.XAI, label: 'xAI' },
+};
 const CONNECTION_MODEL_CONTROL_MAP = [
     { id: 'generic_model_textgenerationwebui', api: 'textgenerationwebui', type: textgen_types.GENERIC },
     { id: 'custom_model_textgenerationwebui', api: 'textgenerationwebui', type: textgen_types.OOBA },
@@ -406,6 +446,69 @@ function listConnectionModels(api) {
             label: String(option.textContent ?? option.label ?? option.value ?? '').trim(),
         }))
         .filter((option) => option.id.length > 0);
+}
+
+function hasSavedConnectionSecret(secretKey) {
+    const value = secret_state?.[secretKey];
+    if (Array.isArray(value)) {
+        return value.length > 0;
+    }
+
+    return Boolean(value);
+}
+
+function getConnectionSecretStatus(api) {
+    const trimmedApi = String(api ?? '').trim().toLowerCase();
+    const config = CONNECTION_SECRET_CONFIG[trimmedApi];
+    if (!config) {
+        return {
+            api: trimmedApi,
+            providerLabel: trimmedApi || 'Connection',
+            requiresSecret: false,
+            saved: false,
+            supportsAuthorize: false,
+            supportsManualEntry: false,
+        };
+    }
+
+    const requiresSecret = config.requiresSecret !== false && Boolean(config.key);
+    return {
+        api: trimmedApi,
+        providerLabel: config.label,
+        requiresSecret,
+        saved: requiresSecret ? hasSavedConnectionSecret(config.key) : false,
+        supportsAuthorize: Boolean(config.supportsAuthorize),
+        supportsManualEntry: requiresSecret,
+    };
+}
+
+async function saveConnectionSecret(api, value) {
+    const trimmedApi = String(api ?? '').trim().toLowerCase();
+    const trimmedValue = String(value ?? '').trim();
+    const config = CONNECTION_SECRET_CONFIG[trimmedApi];
+    if (!config?.key || config.requiresSecret === false) {
+        throw new Error('Connection secret is not required for this API');
+    }
+    if (!trimmedValue) {
+        throw new Error('Connection secret value is required');
+    }
+
+    const result = await writeSecret(config.key, trimmedValue);
+    if (!result) {
+        throw new Error(`Could not save ${config.label} secret`);
+    }
+}
+
+async function authorizeConnectionSecret(api) {
+    const trimmedApi = String(api ?? '').trim().toLowerCase();
+    const config = CONNECTION_SECRET_CONFIG[trimmedApi];
+    if (!config?.supportsAuthorize) {
+        throw new Error('Connection authorization is unavailable for this API');
+    }
+
+    const redirectUrl = new URL('/callback/openrouter', window.location.origin);
+    const openRouterUrl = `https://openrouter.ai/auth?callback_url=${encodeURIComponent(redirectUrl.toString())}`;
+    window.location.href = openRouterUrl;
 }
 
 async function saveConnectionProfile(profile) {
@@ -672,8 +775,11 @@ export function getContext() {
         getSelectedWorldInfo,
         listConnectionApiOptions,
         listConnectionModels,
+        getConnectionSecretStatus,
         movePromptTemplate,
+        saveConnectionSecret,
         saveConnectionProfile,
+        authorizeConnectionSecret,
         saveWorldInfo,
         savePromptTemplate,
         setSelectedWorldInfo,

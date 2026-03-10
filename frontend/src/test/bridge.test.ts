@@ -199,6 +199,8 @@ describe('createLegacyBridge', () => {
       id: profile.id ?? 'profile-created',
       mode: profile.api === 'openrouter' ? 'cc' : 'tc',
     }));
+    const saveConnectionSecret = vi.fn(async () => {});
+    const authorizeConnectionSecret = vi.fn(async () => {});
     const deleteConnectionProfile = vi.fn();
     const listConnectionModels = vi.fn((api: string) => {
       if (api === 'openrouter') {
@@ -438,6 +440,14 @@ describe('createLegacyBridge', () => {
           generateQuietPrompt,
           getCharacters,
           getCharacterCardFields,
+          getConnectionSecretStatus: (api: string) => ({
+            api,
+            providerLabel: api === 'openrouter' ? 'OpenRouter' : 'Connection',
+            requiresSecret: api === 'openrouter',
+            saved: api === 'openrouter',
+            supportsAuthorize: api === 'openrouter',
+            supportsManualEntry: api === 'openrouter',
+          }),
           getRequestHeaders,
           listInstalledExtensions,
           listConnectionModels,
@@ -481,6 +491,7 @@ describe('createLegacyBridge', () => {
           reloadCurrentChat,
           renameChat,
           saveChat,
+          saveConnectionSecret,
           saveConnectionProfile,
           saveMetadata,
           movePromptTemplate,
@@ -490,6 +501,7 @@ describe('createLegacyBridge', () => {
           setExtensionEnabled,
           sendMessageAsUser,
           sendSystemMessage,
+          authorizeConnectionSecret,
           swipe: {
             left: swipeLeft,
             right: swipeRight,
@@ -722,6 +734,14 @@ describe('createLegacyBridge', () => {
       { id: 'openai/gpt-4.1-mini', label: 'OpenAI: GPT-4.1 Mini | 128000 ctx' },
       { id: 'anthropic/claude-sonnet-4', label: 'Anthropic: Claude Sonnet 4 | 200000 ctx' },
     ]);
+    expect(bridge?.connections.getSecretStatus('openrouter')).toEqual({
+      api: 'openrouter',
+      providerLabel: 'OpenRouter',
+      requiresSecret: true,
+      saved: true,
+      supportsAuthorize: true,
+      supportsManualEntry: true,
+    });
     expect(bridge?.connections.listProfiles()).toEqual([
       {
         api: 'koboldcpp',
@@ -801,6 +821,8 @@ describe('createLegacyBridge', () => {
       stopStrings: 'User:',
       tokenizer: '',
     });
+    await bridge?.connections.saveSecret('openrouter', 'sk-or-test');
+    await bridge?.connections.authorizeSecret('openrouter');
     await bridge?.connections.deleteProfile('profile-kobold');
     expect(bridge?.prompts.listPrompts()).toEqual(promptTemplates);
     await bridge?.prompts.movePrompt('jailbreak', 'up');
@@ -934,6 +956,8 @@ describe('createLegacyBridge', () => {
     });
     expect(deleteConnectionProfile).toHaveBeenCalledWith('profile-kobold');
     expect(listConnectionModels).toHaveBeenCalledWith('openrouter');
+    expect(saveConnectionSecret).toHaveBeenCalledWith('openrouter', 'sk-or-test');
+    expect(authorizeConnectionSecret).toHaveBeenCalledWith('openrouter');
     expect(openGroupById).toHaveBeenCalledWith('g-3');
     expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/chats/search');

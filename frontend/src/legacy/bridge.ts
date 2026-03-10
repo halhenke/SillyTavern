@@ -9,6 +9,7 @@ import {
   ChatMessageSummary,
   ChatService,
   ConnectionApiOption,
+  ConnectionSecretStatus,
   ConnectionModelOption,
   ConnectionProfileDraft,
   ComposerGenerationMode,
@@ -194,6 +195,7 @@ type LegacyContext = {
   listInstalledExtensions?: () => Promise<InstalledExtensionSummary[]>;
   listConnectionApiOptions?: () => ConnectionApiOption[];
   listConnectionModels?: (api: string) => ConnectionModelOption[];
+  getConnectionSecretStatus?: (api: string) => ConnectionSecretStatus;
   mainApi?: string;
   maxContext?: number;
   name1?: string;
@@ -249,6 +251,8 @@ type LegacyContext = {
     tokenizer?: string;
   }>;
   saveWorldInfo?: (name: string, data: unknown, immediately?: boolean) => Promise<void>;
+  saveConnectionSecret?: (api: string, value: string) => Promise<void>;
+  authorizeConnectionSecret?: (api: string) => Promise<void>;
   setExtensionEnabled?: (name: string, enabled: boolean) => Promise<void>;
   setSelectedWorldInfo?: (names: string[]) => Promise<void> | void;
   swipe?: {
@@ -1169,6 +1173,14 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
         source: 'react-shell',
       });
     },
+    authorizeSecret: async (api) => {
+      const trimmedApi = api.trim();
+      if (!trimmedApi || !context.authorizeConnectionSecret) {
+        throw new Error('Connection authorization unavailable');
+      }
+
+      await context.authorizeConnectionSecret(trimmedApi);
+    },
     deleteProfile: async (id) => {
       const trimmedId = id.trim();
       if (!trimmedId) {
@@ -1180,6 +1192,21 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
       }
 
       await context.deleteConnectionProfile(trimmedId);
+    },
+    getSecretStatus: (api) => {
+      const trimmedApi = api.trim();
+      if (!trimmedApi || !context.getConnectionSecretStatus) {
+        return {
+          api: trimmedApi,
+          providerLabel: 'Connection',
+          requiresSecret: false,
+          saved: false,
+          supportsAuthorize: false,
+          supportsManualEntry: false,
+        };
+      }
+
+      return context.getConnectionSecretStatus(trimmedApi);
     },
     listApiOptions: () => getConnectionApiOptions(context),
     listModels: (api) => {
@@ -1244,6 +1271,15 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
         stopStrings: saved['stop-strings'],
         tokenizer: saved.tokenizer,
       };
+    },
+    saveSecret: async (api, value) => {
+      const trimmedApi = api.trim();
+      const trimmedValue = value.trim();
+      if (!trimmedApi || !trimmedValue || !context.saveConnectionSecret) {
+        throw new Error('Connection secret save unavailable');
+      }
+
+      await context.saveConnectionSecret(trimmedApi, trimmedValue);
     },
   };
 

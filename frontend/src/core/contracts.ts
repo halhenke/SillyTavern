@@ -200,6 +200,15 @@ export interface ConnectionModelOption {
   label: string;
 }
 
+export interface ConnectionSecretStatus {
+  api: string;
+  providerLabel: string;
+  requiresSecret: boolean;
+  saved: boolean;
+  supportsAuthorize: boolean;
+  supportsManualEntry: boolean;
+}
+
 export interface ConnectionProfileDraft {
   api: string;
   apiUrl: string;
@@ -319,11 +328,14 @@ export interface ComposerService {
 
 export interface ConnectionService {
   applyProfile(id: string): Promise<void>;
+  authorizeSecret(api: string): Promise<void>;
   deleteProfile(id: string): Promise<void>;
   listProfiles(): ConnectionProfileSummary[];
   listApiOptions(): ConnectionApiOption[];
   listModels(api: string): ConnectionModelOption[];
+  getSecretStatus(api: string): ConnectionSecretStatus;
   saveProfile(profile: ConnectionProfileDraft): Promise<ConnectionProfileSummary>;
+  saveSecret(api: string, value: string): Promise<void>;
 }
 
 export interface ExtensionHostService {

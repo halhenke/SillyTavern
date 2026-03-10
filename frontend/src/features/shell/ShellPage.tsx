@@ -8,6 +8,7 @@ import {
   ConnectionModelOption,
   ConnectionProfileDraft,
   ConnectionProfileSummary,
+  ConnectionSecretStatus,
   GroupCreateDraft,
   GroupProfile,
   InstalledExtensionSummary,
@@ -52,6 +53,14 @@ const DEFAULT_MESSAGES: ChatMessageSummary[] = [];
 const DEFAULT_CONNECTION_PROFILES: ConnectionProfileSummary[] = [];
 const DEFAULT_CONNECTION_API_OPTIONS: ConnectionApiOption[] = [];
 const DEFAULT_CONNECTION_MODEL_OPTIONS: ConnectionModelOption[] = [];
+const DEFAULT_CONNECTION_SECRET_STATUS: ConnectionSecretStatus = {
+  api: '',
+  providerLabel: 'Connection',
+  requiresSecret: false,
+  saved: false,
+  supportsAuthorize: false,
+  supportsManualEntry: false,
+};
 const DEFAULT_CONNECTION_PROFILE_DRAFT: ConnectionProfileDraft = {
   api: '',
   apiUrl: '',
@@ -299,6 +308,8 @@ export function ShellPage() {
   const [connectionApiOptions, setConnectionApiOptions] = useState<ConnectionApiOption[]>(DEFAULT_CONNECTION_API_OPTIONS);
   const [connectionModelOptions, setConnectionModelOptions] = useState<ConnectionModelOption[]>(DEFAULT_CONNECTION_MODEL_OPTIONS);
   const [connectionModelQuery, setConnectionModelQuery] = useState('');
+  const [connectionSecretStatus, setConnectionSecretStatus] = useState<ConnectionSecretStatus>(DEFAULT_CONNECTION_SECRET_STATUS);
+  const [connectionSecretValue, setConnectionSecretValue] = useState('');
   const [connectionDraft, setConnectionDraft] = useState<ConnectionProfileDraft>(DEFAULT_CONNECTION_PROFILE_DRAFT);
   const [extensionReloadRequired, setExtensionReloadRequired] = useState(false);
   const [messages, setMessages] = useState<ChatMessageSummary[]>(DEFAULT_MESSAGES);
@@ -524,6 +535,8 @@ export function ShellPage() {
     if (!legacyBridge) {
       setConnectionModelOptions(DEFAULT_CONNECTION_MODEL_OPTIONS);
       setConnectionModelQuery('');
+      setConnectionSecretStatus(DEFAULT_CONNECTION_SECRET_STATUS);
+      setConnectionSecretValue('');
       return;
     }
 
@@ -531,10 +544,13 @@ export function ShellPage() {
     if (!trimmedApi) {
       setConnectionModelOptions(DEFAULT_CONNECTION_MODEL_OPTIONS);
       setConnectionModelQuery('');
+      setConnectionSecretStatus(DEFAULT_CONNECTION_SECRET_STATUS);
+      setConnectionSecretValue('');
       return;
     }
 
     setConnectionModelOptions(legacyBridge.connections.listModels(trimmedApi));
+    setConnectionSecretStatus(legacyBridge.connections.getSecretStatus(trimmedApi));
     setConnectionModelQuery('');
   }, [connectionDraft.api, legacyBridge]);
 
@@ -1078,6 +1094,51 @@ export function ShellPage() {
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Could not delete connection profile');
     } finally {
+      setBusyAction('');
+    }
+  }
+
+  async function handleConnectionSecretSave() {
+    const bridge = legacyBridge;
+    const trimmedApi = connectionDraft.api.trim();
+    const trimmedValue = connectionSecretValue.trim();
+    if (!bridge || !trimmedApi) {
+      return;
+    }
+    if (!trimmedValue) {
+      setActionError('API key is required');
+      return;
+    }
+
+    setActionError('');
+    setBusyAction('connection-secret-save');
+
+    try {
+      await bridge.connections.saveSecret(trimmedApi, trimmedValue);
+      setConnectionSecretValue('');
+      setConnectionSecretStatus(bridge.connections.getSecretStatus(trimmedApi));
+      refreshRuntime(bridge);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not save API key');
+    } finally {
+      setBusyAction('');
+    }
+  }
+
+  async function handleConnectionSecretAuthorize() {
+    const bridge = legacyBridge;
+    const trimmedApi = connectionDraft.api.trim();
+    if (!bridge || !trimmedApi) {
+      return;
+    }
+
+    setActionError('');
+    setBusyAction('connection-secret-authorize');
+
+    try {
+      await bridge.connections.authorizeSecret(trimmedApi);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not start authorization');
       setBusyAction('');
     }
   }
@@ -1795,6 +1856,60 @@ export function ShellPage() {
                     onChange={(event) => updateConnectionDraft({ model: event.target.value })}
                   />
                 </label>
+                {connectionDraft.api ? (
+                  <div className="st-shell-connection-secret st-shell-editor-grid__wide">
+                    <div className="st-shell-card__header">
+                      <h4>{connectionSecretStatus.providerLabel} API key</h4>
+                      <span className={`st-shell-badge${connectionSecretStatus.saved ? '' : ' st-shell-badge--muted'}`}>
+                        {connectionSecretStatus.requiresSecret
+                          ? connectionSecretStatus.saved ? 'saved' : 'missing'
+                          : 'not required'}
+                      </span>
+                    </div>
+                    {connectionSecretStatus.requiresSecret ? (
+                      <>
+                        {connectionSecretStatus.supportsManualEntry ? (
+                          <label className="st-field">
+                            <span>Secret</span>
+                            <input
+                              disabled={Boolean(busyAction)}
+                              placeholder={connectionSecretStatus.saved ? 'Key already saved' : 'Paste API key'}
+                              type="password"
+                              value={connectionSecretValue}
+                              onChange={(event) => setConnectionSecretValue(event.target.value)}
+                            />
+                          </label>
+                        ) : null}
+                        <nav className="st-actions st-shell-connection-actions">
+                          {connectionSecretStatus.supportsManualEntry ? (
+                            <button
+                              className="st-button"
+                              disabled={!legacyBridge || Boolean(busyAction)}
+                              type="button"
+                              onClick={() => void handleConnectionSecretSave()}
+                            >
+                              Save key
+                            </button>
+                          ) : null}
+                          {connectionSecretStatus.supportsAuthorize ? (
+                            <button
+                              className="st-button st-button--ghost"
+                              disabled={!legacyBridge || Boolean(busyAction)}
+                              type="button"
+                              onClick={() => void handleConnectionSecretAuthorize()}
+                            >
+                              Authorize
+                            </button>
+                          ) : null}
+                        </nav>
+                      </>
+                    ) : (
+                      <p className="st-note">
+                        This API does not require a stored secret in the standard SillyTavern secret store.
+                      </p>
+                    )}
+                  </div>
+                ) : null}
                 {connectionModelOptions.length ? (
                   <div className="st-shell-connection-model-picker st-shell-editor-grid__wide">
                     <div className="st-shell-card__header">

@@ -2399,3 +2399,29 @@
 ### Next
 1. Manually verify the model picker against a real provider flow like OpenRouter on this branch.
 2. If it holds up, decide whether to keep this bridge-driven approach for other provider-specific selectors before replacing more of the legacy settings area.
+
+## 2026-03-11 - React Migration Wave 28 (Connection Secret Status And Save Flow)
+
+### Completed
+- Added typed connection secret status support in:
+  - [frontend/src/core/contracts.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/core/contracts.ts)
+  - [frontend/src/legacy/bridge.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/legacy/bridge.ts)
+- Exposed connection secret status and save/authorize actions in [public/scripts/st-context.js](/Users/hal/.codex/worktrees/dc18/SillyTavern/public/scripts/st-context.js), reusing the legacy `SECRET_KEYS` store and the existing OpenRouter authorization redirect.
+- Expanded the React connection panel in [frontend/src/features/shell/ShellPage.tsx](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/features/shell/ShellPage.tsx) with:
+  - current API key status
+  - password-field key entry
+  - save-key action
+  - OpenRouter authorize action
+- Expanded bridge coverage in [frontend/src/test/bridge.test.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/test/bridge.test.ts).
+
+### Measurable Impact
+- The React connection panel can now handle the common “provider key is missing” setup path for supported APIs instead of forcing a fallback to the legacy settings UI.
+- OpenRouter now has both model selection and authorization surfaced in React.
+
+### Insights
+- The useful seam is the legacy secret store, not the old settings form. Once that store is bridged directly, React can own much more of the setup workflow without reimplementing every provider panel.
+- This still is not a full “connect/test” flow. It is the credential-management half, which is the higher-friction blocker on the default React path.
+
+### Next
+1. Manually verify save and authorize flows against OpenRouter in the React shell.
+2. Decide whether the next step should be an explicit connection/apply/test action or more provider-specific settings ownership.

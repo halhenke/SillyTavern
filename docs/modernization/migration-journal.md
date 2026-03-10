@@ -2246,3 +2246,27 @@
 ### Next
 1. Prioritize runtime smoke testing and regression cleanup over widening the React surface further.
 2. Only take another migration slice if it removes a real remaining need for the visible fallback or unlocks deleting legacy UI.
+
+## 2026-03-10 - Stabilization Wave 1 (Configured Entry Smoke Coverage)
+
+### Completed
+- Expanded the Playwright smoke suite in [frontend/e2e/smoke.spec.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/e2e/smoke.spec.ts) beyond the legacy-login check.
+- Added coverage for:
+  - the frontend runtime flags endpoint
+  - the configured root entry surface at `/`, branching between React shell and legacy app based on `/api/frontend/flags`
+- Installed the Playwright Chromium runtime locally and executed the suite against a live local server.
+
+### Measurable Impact
+- The branch now has a working smoke gate for the current deployment shape, not just a static login-page reachability check.
+- Route regressions in feature-flag serving logic should now surface earlier:
+  - wrong root surface for the active flags
+  - broken `/api/frontend/flags`
+  - broken legacy login reachability
+
+### Insights
+- The right smoke assertion is not “React should always render.” The repo still supports both surfaces, so the gate should assert the configured serving path rather than the long-term target state.
+- Stabilization has become high leverage. Small missing bindings and route mismatches are now more likely to waste time than the next marginal React panel.
+
+### Next
+1. Keep using smoke-first validation before further migration waves.
+2. Add one or two higher-value authenticated smoke paths only after deciding which runtime workflow is the next stable contract to protect.

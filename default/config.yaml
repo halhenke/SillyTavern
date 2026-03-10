@@ -39,9 +39,9 @@ browserLaunch:
 # -- FRONTEND MODERNIZATION FLAGS --
 frontend:
   # Enables serving the React login flow at /login when the frontend build exists.
-  reactLoginEnabled: false
+  reactLoginEnabled: true
   # Enables serving the React app shell at / when the frontend build exists.
-  reactShellEnabled: false
+  reactShellEnabled: true
   # Path to the built React frontend relative to the project root (or absolute).
   distDirectory: frontend/dist
 # Server port

@@ -27,6 +27,13 @@ test('legacy login remains reachable', async ({ page }) => {
   await expect(page).toHaveTitle(/SillyTavern/i);
 });
 
+test('legacy app fallback remains reachable', async ({ page }) => {
+  await page.goto('/legacy');
+  await expect(page).toHaveTitle(/SillyTavern/i);
+  await expect(page.locator('#send_textarea')).toBeVisible();
+  await expect(page.locator('#options_button')).toBeVisible();
+});
+
 test('root route serves the configured app surface', async ({ page, request }) => {
   const flags = await getFrontendFlags(request);
 

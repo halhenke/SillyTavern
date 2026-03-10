@@ -2270,3 +2270,24 @@
 ### Next
 1. Keep using smoke-first validation before further migration waves.
 2. Add one or two higher-value authenticated smoke paths only after deciding which runtime workflow is the next stable contract to protect.
+
+## 2026-03-10 - React Migration Wave 23 (Enable React Frontend By Default)
+
+### Completed
+- Enabled the React frontend flags in:
+  - [config.yaml](/Users/hal/.codex/worktrees/dc18/SillyTavern/config.yaml)
+  - [default/config.yaml](/Users/hal/.codex/worktrees/dc18/SillyTavern/default/config.yaml)
+- Expanded the smoke suite in [frontend/e2e/smoke.spec.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/e2e/smoke.spec.ts) with an explicit `/legacy` fallback check, since the React shell is now the default root surface.
+- Rebuilt the frontend dist and validated the React-default configuration with smoke tests.
+
+### Measurable Impact
+- This branch now serves the migrated React shell at `/` by default when the frontend build exists.
+- The legacy runtime remains reachable through `/legacy`, and that fallback is now covered by smoke tests.
+
+### Insights
+- The migration had reached the point where keeping the React shell disabled by default was obscuring progress and reducing the practical value of testing. Serving React by default on this branch is the correct forcing function now.
+- Once React becomes the default surface, fallback reachability matters more than legacy parity at `/`. The smoke suite needs to protect both the new default and the old escape hatch.
+
+### Next
+1. Rebuild the frontend dist and validate the React-default boot path with smoke tests.
+2. Continue treating runtime regressions as first-priority fixes before widening the React surface again.

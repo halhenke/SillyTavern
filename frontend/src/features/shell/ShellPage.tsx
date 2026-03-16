@@ -341,6 +341,9 @@ export function ShellPage() {
   const [showLegacyFallback, setShowLegacyFallback] = useState(false);
   const legacySource = useMemo(() => `/legacy${window.location.search}`, []);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
+  const transcriptTailRef = useRef('');
+  const transcriptStickToBottomRef = useRef(true);
+  const transcriptAutoScrollEnabledRef = useRef(DEFAULT_SNAPSHOT.preferences.autoScrollChatToBottom);
 
   const refreshRuntime = useCallback((bridge: LegacyBridge | null) => {
     if (!bridge) {
@@ -687,6 +690,36 @@ export function ShellPage() {
   }, [legacyBridge, snapshot.groupId]);
 
   useEffect(() => {
+    const element = transcriptRef.current;
+    if (!element) {
+      return;
+    }
+    const currentElement: HTMLDivElement = element;
+
+    function updateTranscriptStickiness() {
+      const distanceFromBottom = currentElement.scrollHeight - currentElement.scrollTop - currentElement.clientHeight;
+      transcriptStickToBottomRef.current = distanceFromBottom <= 72;
+    }
+
+    updateTranscriptStickiness();
+    currentElement.addEventListener('scroll', updateTranscriptStickiness);
+
+    return () => {
+      currentElement.removeEventListener('scroll', updateTranscriptStickiness);
+    };
+  }, []);
+
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1];
+    const nextTail = lastMessage
+      ? `${messages.length}:${lastMessage.id}:${lastMessage.timestamp ?? ''}:${lastMessage.text}`
+      : '';
+    const previousTail = transcriptTailRef.current;
+    const autoScrollJustEnabled = !transcriptAutoScrollEnabledRef.current && snapshot.preferences.autoScrollChatToBottom;
+
+    transcriptTailRef.current = nextTail;
+    transcriptAutoScrollEnabledRef.current = snapshot.preferences.autoScrollChatToBottom;
+
     if (!snapshot.preferences.autoScrollChatToBottom) {
       return;
     }
@@ -696,7 +729,17 @@ export function ShellPage() {
       return;
     }
 
+    const tailChanged = previousTail !== nextTail;
+    if (!autoScrollJustEnabled && previousTail && !tailChanged) {
+      return;
+    }
+
+    if (!autoScrollJustEnabled && previousTail && !transcriptStickToBottomRef.current) {
+      return;
+    }
+
     element.scrollTop = element.scrollHeight;
+    transcriptStickToBottomRef.current = true;
   }, [messages, snapshot.preferences.autoScrollChatToBottom]);
 
   useEffect(() => {

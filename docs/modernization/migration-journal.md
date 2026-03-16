@@ -2478,3 +2478,23 @@
 ### Next
 1. Manually smoke the React transcript with real markdown-heavy and HTML-heavy messages to catch any remaining layout or sanitization mismatches.
 2. If needed, tighten transcript-specific CSS around code blocks, blockquotes, and tables rather than introducing a new formatter.
+
+## 2026-03-17 - React Migration Wave 31 (Transcript Autoscroll Stabilization)
+
+### Completed
+- Updated the React transcript scroll behavior in [frontend/src/features/shell/ShellPage.tsx](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/features/shell/ShellPage.tsx) so polling refreshes do not force the viewport back to the bottom on every message snapshot.
+- Added transcript stickiness tracking that only keeps auto-scroll active when the user is already near the bottom.
+- Changed the auto-scroll effect to react to real tail changes instead of every refreshed `messages` array instance.
+- Preserved the expected behavior when auto-scroll is explicitly re-enabled by the user: the transcript jumps once and then resumes stick-to-bottom behavior.
+
+### Measurable Impact
+- Scrolling back through chat history in the React workspace no longer gets interrupted every polling cycle.
+- New messages still pin to the bottom when the user is already following the live end of the transcript.
+
+### Insights
+- The issue was not the polling interval itself. The problem was tying scroll behavior directly to a recreated message array rather than to meaningful transcript tail changes.
+- For the React runtime path, scroll policy needs to be user-position aware. "Auto-scroll enabled" should not mean "override manual reading state on every refresh."
+
+### Next
+1. Add clearer live connection/apply feedback in the React connection panel so switching profiles gives immediate runtime confirmation.
+2. Keep prioritizing default-path usability issues in the React chat workspace before widening more side panels.

@@ -9,6 +9,7 @@ import {
   ChatMessageSummary,
   ChatService,
   ConnectionApiOption,
+  ConnectionSecretSummary,
   ConnectionSecretStatus,
   ConnectionModelOption,
   ConnectionProfileDraft,
@@ -196,6 +197,7 @@ type LegacyContext = {
   listConnectionApiOptions?: () => ConnectionApiOption[];
   listConnectionModels?: (api: string) => ConnectionModelOption[];
   getConnectionSecretStatus?: (api: string) => ConnectionSecretStatus;
+  listConnectionSecrets?: (api: string) => ConnectionSecretSummary[];
   mainApi?: string;
   maxContext?: number;
   name1?: string;
@@ -251,8 +253,10 @@ type LegacyContext = {
     tokenizer?: string;
   }>;
   saveWorldInfo?: (name: string, data: unknown, immediately?: boolean) => Promise<void>;
-  saveConnectionSecret?: (api: string, value: string) => Promise<void>;
+  saveConnectionSecret?: (api: string, value: string, label?: string) => Promise<void>;
   authorizeConnectionSecret?: (api: string) => Promise<void>;
+  deleteConnectionSecret?: (api: string, id: string) => Promise<void>;
+  activateConnectionSecret?: (api: string, id: string) => Promise<void>;
   setExtensionEnabled?: (name: string, enabled: boolean) => Promise<void>;
   setSelectedWorldInfo?: (names: string[]) => Promise<void> | void;
   swipe?: {
@@ -1152,6 +1156,15 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
   };
 
   const connections: ConnectionService = {
+    activateSecret: async (api, id) => {
+      const trimmedApi = api.trim();
+      const trimmedId = id.trim();
+      if (!trimmedApi || !trimmedId || !context.activateConnectionSecret) {
+        throw new Error('Connection secret activation unavailable');
+      }
+
+      await context.activateConnectionSecret(trimmedApi, trimmedId);
+    },
     applyProfile: async (id) => {
       const trimmedId = id.trim();
       if (!trimmedId) {
@@ -1193,6 +1206,15 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
 
       await context.deleteConnectionProfile(trimmedId);
     },
+    deleteSecret: async (api, id) => {
+      const trimmedApi = api.trim();
+      const trimmedId = id.trim();
+      if (!trimmedApi || !trimmedId || !context.deleteConnectionSecret) {
+        throw new Error('Connection secret deletion unavailable');
+      }
+
+      await context.deleteConnectionSecret(trimmedApi, trimmedId);
+    },
     getSecretStatus: (api) => {
       const trimmedApi = api.trim();
       if (!trimmedApi || !context.getConnectionSecretStatus) {
@@ -1216,6 +1238,14 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
       }
 
       return context.listConnectionModels(trimmedApi);
+    },
+    listSecrets: (api) => {
+      const trimmedApi = api.trim();
+      if (!trimmedApi || !context.listConnectionSecrets) {
+        return [];
+      }
+
+      return context.listConnectionSecrets(trimmedApi);
     },
     listProfiles: () => getConnectionProfiles(context),
     saveProfile: async (profile: ConnectionProfileDraft) => {
@@ -1272,14 +1302,14 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
         tokenizer: saved.tokenizer,
       };
     },
-    saveSecret: async (api, value) => {
+    saveSecret: async (api, value, label) => {
       const trimmedApi = api.trim();
       const trimmedValue = value.trim();
       if (!trimmedApi || !trimmedValue || !context.saveConnectionSecret) {
         throw new Error('Connection secret save unavailable');
       }
 
-      await context.saveConnectionSecret(trimmedApi, trimmedValue);
+      await context.saveConnectionSecret(trimmedApi, trimmedValue, label?.trim() || undefined);
     },
   };
 

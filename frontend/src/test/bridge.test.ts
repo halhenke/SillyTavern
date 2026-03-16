@@ -201,12 +201,28 @@ describe('createLegacyBridge', () => {
     }));
     const saveConnectionSecret = vi.fn(async () => {});
     const authorizeConnectionSecret = vi.fn(async () => {});
+    const deleteConnectionSecret = vi.fn(async () => {});
+    const activateConnectionSecret = vi.fn(async () => {});
     const deleteConnectionProfile = vi.fn();
     const listConnectionModels = vi.fn((api: string) => {
       if (api === 'openrouter') {
         return [
           { id: 'openai/gpt-4.1-mini', label: 'OpenAI: GPT-4.1 Mini | 128000 ctx' },
           { id: 'anthropic/claude-sonnet-4', label: 'Anthropic: Claude Sonnet 4 | 200000 ctx' },
+        ];
+      }
+
+      return [];
+    });
+    const listConnectionSecrets = vi.fn((api: string) => {
+      if (api === 'openrouter') {
+        return [
+          {
+            active: true,
+            id: 'secret-openrouter-1',
+            label: 'OpenRouter Primary',
+            valuePreview: '*******358',
+          },
         ];
       }
 
@@ -385,8 +401,10 @@ describe('createLegacyBridge', () => {
             openrouter: { selected: 'openai' },
           },
           createCharacter,
+          activateConnectionSecret,
           deleteLastMessage,
           deleteConnectionProfile,
+          deleteConnectionSecret,
           deleteSwipe,
           createNewWorldInfo,
           eventSource: {
@@ -451,6 +469,7 @@ describe('createLegacyBridge', () => {
           getRequestHeaders,
           listInstalledExtensions,
           listConnectionModels,
+          listConnectionSecrets,
           getPromptTemplates: () => promptTemplates,
           getSelectedWorldInfo: () => [...selectedWorldNames],
           getThumbnailUrl: vi.fn((type: string, file: string) => `/thumb/${type}/${file}`),
@@ -742,6 +761,14 @@ describe('createLegacyBridge', () => {
       supportsAuthorize: true,
       supportsManualEntry: true,
     });
+    expect(bridge?.connections.listSecrets('openrouter')).toEqual([
+      {
+        active: true,
+        id: 'secret-openrouter-1',
+        label: 'OpenRouter Primary',
+        valuePreview: '*******358',
+      },
+    ]);
     expect(bridge?.connections.listProfiles()).toEqual([
       {
         api: 'koboldcpp',
@@ -821,8 +848,10 @@ describe('createLegacyBridge', () => {
       stopStrings: 'User:',
       tokenizer: '',
     });
-    await bridge?.connections.saveSecret('openrouter', 'sk-or-test');
+    await bridge?.connections.saveSecret('openrouter', 'sk-or-test', 'OpenRouter React');
     await bridge?.connections.authorizeSecret('openrouter');
+    await bridge?.connections.activateSecret('openrouter', 'secret-openrouter-1');
+    await bridge?.connections.deleteSecret('openrouter', 'secret-openrouter-1');
     await bridge?.connections.deleteProfile('profile-kobold');
     expect(bridge?.prompts.listPrompts()).toEqual(promptTemplates);
     await bridge?.prompts.movePrompt('jailbreak', 'up');
@@ -956,8 +985,11 @@ describe('createLegacyBridge', () => {
     });
     expect(deleteConnectionProfile).toHaveBeenCalledWith('profile-kobold');
     expect(listConnectionModels).toHaveBeenCalledWith('openrouter');
-    expect(saveConnectionSecret).toHaveBeenCalledWith('openrouter', 'sk-or-test');
+    expect(listConnectionSecrets).toHaveBeenCalledWith('openrouter');
+    expect(saveConnectionSecret).toHaveBeenCalledWith('openrouter', 'sk-or-test', 'OpenRouter React');
     expect(authorizeConnectionSecret).toHaveBeenCalledWith('openrouter');
+    expect(activateConnectionSecret).toHaveBeenCalledWith('openrouter', 'secret-openrouter-1');
+    expect(deleteConnectionSecret).toHaveBeenCalledWith('openrouter', 'secret-openrouter-1');
     expect(openGroupById).toHaveBeenCalledWith('g-3');
     expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/chats/search');

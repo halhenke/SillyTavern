@@ -2425,3 +2425,35 @@
 ### Next
 1. Manually verify save and authorize flows against OpenRouter in the React shell.
 2. Decide whether the next step should be an explicit connection/apply/test action or more provider-specific settings ownership.
+
+## 2026-03-17 - React Migration Wave 29 (Connection Secret Manager)
+
+### Completed
+- Extended connection secret contracts and bridge support in:
+  - [frontend/src/core/contracts.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/core/contracts.ts)
+  - [frontend/src/legacy/bridge.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/legacy/bridge.ts)
+- Expanded [public/scripts/st-context.js](/Users/hal/.codex/worktrees/dc18/SillyTavern/public/scripts/st-context.js) so React can:
+  - list saved secrets for the selected API
+  - add a new secret with an optional label
+  - activate a saved secret
+  - delete a saved secret
+- Reworked the React connection secret panel in [frontend/src/features/shell/ShellPage.tsx](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/features/shell/ShellPage.tsx) to expose the actual secret-manager workflow instead of a single saved/missing field.
+- Added UI styling in [frontend/src/styles/global.css](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/styles/global.css).
+- Expanded bridge tests in [frontend/src/test/bridge.test.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/test/bridge.test.ts).
+
+### Measurable Impact
+- The React connection panel now covers the common secret-manager tasks the legacy UI exposed:
+  - add key
+  - inspect saved keys
+  - activate key
+  - delete key
+  - bind a saved secret id into the current profile
+- This removes one of the more confusing remaining gaps between the React shell and the legacy connection manager.
+
+### Insights
+- The `secret-id` field only becomes understandable once the saved-secret list is visible next to it. Exposing that list is more important than preserving a minimal-looking secret card.
+- Bridging the legacy secret store directly is still the right approach here. The user-facing problem was not storage, it was missing workflow ownership in React.
+
+### Next
+1. Manually verify add/activate/delete secret flows against OpenRouter in the React panel.
+2. Revisit whether the next connection step should be explicit apply/test feedback or deeper provider-specific settings ownership.

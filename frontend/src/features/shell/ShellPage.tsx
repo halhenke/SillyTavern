@@ -8,6 +8,7 @@ import {
   ConnectionModelOption,
   ConnectionProfileDraft,
   ConnectionProfileSummary,
+  ConnectionSecretSummary,
   ConnectionSecretStatus,
   GroupCreateDraft,
   GroupProfile,
@@ -61,6 +62,7 @@ const DEFAULT_CONNECTION_SECRET_STATUS: ConnectionSecretStatus = {
   supportsAuthorize: false,
   supportsManualEntry: false,
 };
+const DEFAULT_CONNECTION_SECRETS: ConnectionSecretSummary[] = [];
 const DEFAULT_CONNECTION_PROFILE_DRAFT: ConnectionProfileDraft = {
   api: '',
   apiUrl: '',
@@ -309,6 +311,8 @@ export function ShellPage() {
   const [connectionModelOptions, setConnectionModelOptions] = useState<ConnectionModelOption[]>(DEFAULT_CONNECTION_MODEL_OPTIONS);
   const [connectionModelQuery, setConnectionModelQuery] = useState('');
   const [connectionSecretStatus, setConnectionSecretStatus] = useState<ConnectionSecretStatus>(DEFAULT_CONNECTION_SECRET_STATUS);
+  const [connectionSecrets, setConnectionSecrets] = useState<ConnectionSecretSummary[]>(DEFAULT_CONNECTION_SECRETS);
+  const [connectionSecretLabel, setConnectionSecretLabel] = useState('');
   const [connectionSecretValue, setConnectionSecretValue] = useState('');
   const [connectionDraft, setConnectionDraft] = useState<ConnectionProfileDraft>(DEFAULT_CONNECTION_PROFILE_DRAFT);
   const [extensionReloadRequired, setExtensionReloadRequired] = useState(false);
@@ -536,6 +540,8 @@ export function ShellPage() {
       setConnectionModelOptions(DEFAULT_CONNECTION_MODEL_OPTIONS);
       setConnectionModelQuery('');
       setConnectionSecretStatus(DEFAULT_CONNECTION_SECRET_STATUS);
+      setConnectionSecrets(DEFAULT_CONNECTION_SECRETS);
+      setConnectionSecretLabel('');
       setConnectionSecretValue('');
       return;
     }
@@ -545,12 +551,15 @@ export function ShellPage() {
       setConnectionModelOptions(DEFAULT_CONNECTION_MODEL_OPTIONS);
       setConnectionModelQuery('');
       setConnectionSecretStatus(DEFAULT_CONNECTION_SECRET_STATUS);
+      setConnectionSecrets(DEFAULT_CONNECTION_SECRETS);
+      setConnectionSecretLabel('');
       setConnectionSecretValue('');
       return;
     }
 
     setConnectionModelOptions(legacyBridge.connections.listModels(trimmedApi));
     setConnectionSecretStatus(legacyBridge.connections.getSecretStatus(trimmedApi));
+    setConnectionSecrets(legacyBridge.connections.listSecrets(trimmedApi));
     setConnectionModelQuery('');
   }, [connectionDraft.api, legacyBridge]);
 
@@ -1114,12 +1123,59 @@ export function ShellPage() {
     setBusyAction('connection-secret-save');
 
     try {
-      await bridge.connections.saveSecret(trimmedApi, trimmedValue);
+      await bridge.connections.saveSecret(trimmedApi, trimmedValue, connectionSecretLabel);
+      setConnectionSecrets(bridge.connections.listSecrets(trimmedApi));
       setConnectionSecretValue('');
+      setConnectionSecretLabel('');
       setConnectionSecretStatus(bridge.connections.getSecretStatus(trimmedApi));
       refreshRuntime(bridge);
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Could not save API key');
+    } finally {
+      setBusyAction('');
+    }
+  }
+
+  async function handleConnectionSecretDelete(secretId: string) {
+    const bridge = legacyBridge;
+    const trimmedApi = connectionDraft.api.trim();
+    if (!bridge || !trimmedApi) {
+      return;
+    }
+
+    setActionError('');
+    setBusyAction('connection-secret-delete');
+
+    try {
+      await bridge.connections.deleteSecret(trimmedApi, secretId);
+      setConnectionSecrets(bridge.connections.listSecrets(trimmedApi));
+      setConnectionSecretStatus(bridge.connections.getSecretStatus(trimmedApi));
+      refreshRuntime(bridge);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not delete API key');
+    } finally {
+      setBusyAction('');
+    }
+  }
+
+  async function handleConnectionSecretActivate(secretId: string) {
+    const bridge = legacyBridge;
+    const trimmedApi = connectionDraft.api.trim();
+    if (!bridge || !trimmedApi) {
+      return;
+    }
+
+    setActionError('');
+    setBusyAction('connection-secret-activate');
+
+    try {
+      await bridge.connections.activateSecret(trimmedApi, secretId);
+      setConnectionSecrets(bridge.connections.listSecrets(trimmedApi));
+      setConnectionSecretStatus(bridge.connections.getSecretStatus(trimmedApi));
+      updateConnectionDraft({ secretId });
+      refreshRuntime(bridge);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Could not activate API key');
     } finally {
       setBusyAction('');
     }
@@ -1869,16 +1925,28 @@ export function ShellPage() {
                     {connectionSecretStatus.requiresSecret ? (
                       <>
                         {connectionSecretStatus.supportsManualEntry ? (
-                          <label className="st-field">
-                            <span>Secret</span>
-                            <input
-                              disabled={Boolean(busyAction)}
-                              placeholder={connectionSecretStatus.saved ? 'Key already saved' : 'Paste API key'}
-                              type="password"
-                              value={connectionSecretValue}
-                              onChange={(event) => setConnectionSecretValue(event.target.value)}
-                            />
-                          </label>
+                          <div className="st-shell-editor-grid">
+                            <label className="st-field">
+                              <span>Label</span>
+                              <input
+                                disabled={Boolean(busyAction)}
+                                placeholder={`${connectionSecretStatus.providerLabel} key`}
+                                type="text"
+                                value={connectionSecretLabel}
+                                onChange={(event) => setConnectionSecretLabel(event.target.value)}
+                              />
+                            </label>
+                            <label className="st-field">
+                              <span>Secret</span>
+                              <input
+                                disabled={Boolean(busyAction)}
+                                placeholder={connectionSecrets.length ? 'Add another API key' : 'Paste API key'}
+                                type="password"
+                                value={connectionSecretValue}
+                                onChange={(event) => setConnectionSecretValue(event.target.value)}
+                              />
+                            </label>
+                          </div>
                         ) : null}
                         <nav className="st-actions st-shell-connection-actions">
                           {connectionSecretStatus.supportsManualEntry ? (
@@ -1888,7 +1956,7 @@ export function ShellPage() {
                               type="button"
                               onClick={() => void handleConnectionSecretSave()}
                             >
-                              Save key
+                              Add key
                             </button>
                           ) : null}
                           {connectionSecretStatus.supportsAuthorize ? (
@@ -1902,6 +1970,50 @@ export function ShellPage() {
                             </button>
                           ) : null}
                         </nav>
+                        {connectionSecrets.length ? (
+                          <div className="st-shell-connection-secret-list">
+                            {connectionSecrets.map((secret) => (
+                              <div
+                                className={`st-shell-connection-secret-item${secret.active ? ' st-shell-connection-secret-item--active' : ''}`}
+                                key={secret.id}
+                              >
+                                <span>
+                                  <strong>{secret.label}</strong>
+                                  <small>{secret.valuePreview || secret.id}</small>
+                                  <small>ID: {secret.id}</small>
+                                </span>
+                                <nav className="st-actions">
+                                  <button
+                                    className="st-button st-button--ghost"
+                                    disabled={!legacyBridge || Boolean(busyAction)}
+                                    type="button"
+                                    onClick={() => updateConnectionDraft({ secretId: secret.id })}
+                                  >
+                                    Use in profile
+                                  </button>
+                                  <button
+                                    className="st-button st-button--ghost"
+                                    disabled={!legacyBridge || secret.active || Boolean(busyAction)}
+                                    type="button"
+                                    onClick={() => void handleConnectionSecretActivate(secret.id)}
+                                  >
+                                    {secret.active ? 'Active' : 'Make active'}
+                                  </button>
+                                  <button
+                                    className="st-button st-button--ghost"
+                                    disabled={!legacyBridge || Boolean(busyAction)}
+                                    type="button"
+                                    onClick={() => void handleConnectionSecretDelete(secret.id)}
+                                  >
+                                    Delete
+                                  </button>
+                                </nav>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="st-note">No saved API keys for this provider yet.</p>
+                        )}
                       </>
                     ) : (
                       <p className="st-note">

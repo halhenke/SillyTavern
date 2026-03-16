@@ -353,6 +353,38 @@ a {
   font-size: 0.95rem;
 }
 
+.st-shell-connection-secret-list {
+  display: grid;
+  gap: 10px;
+}
+
+.st-shell-connection-secret-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid rgba(54, 66, 85, 0.72);
+  border-radius: 12px;
+  background: rgba(12, 18, 26, 0.72);
+}
+
+.st-shell-connection-secret-item span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.st-shell-connection-secret-item small {
+  color: var(--st-text-muted);
+  word-break: break-word;
+}
+
+.st-shell-connection-secret-item--active {
+  border-color: rgba(94, 199, 165, 0.55);
+  background: rgba(94, 199, 165, 0.12);
+}
+
 .st-shell-connection-model-picker h4 {
   margin: 0;
   font-size: 0.95rem;

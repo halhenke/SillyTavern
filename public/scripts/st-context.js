@@ -82,7 +82,7 @@ import { ConnectionManagerRequestService } from './extensions/shared.js';
 import { updateReasoningUI, parseReasoningFromString } from './reasoning.js';
 import { IGNORE_SYMBOL } from './constants.js';
 import { createOrEditCharacter, syncCropData, syncFavChChecked } from './character-core.js';
-import { SECRET_KEYS, secret_state, writeSecret } from './secrets.js';
+import { SECRET_KEYS, deleteSecret, rotateSecret, secret_state, writeSecret } from './secrets.js';
 
 function setCharacterFormValue(id, value) {
     const element = document.getElementById(id);
@@ -457,9 +457,14 @@ function hasSavedConnectionSecret(secretKey) {
     return Boolean(value);
 }
 
+function getConnectionSecretConfig(api) {
+    const trimmedApi = String(api ?? '').trim().toLowerCase();
+    return CONNECTION_SECRET_CONFIG[trimmedApi] ?? null;
+}
+
 function getConnectionSecretStatus(api) {
     const trimmedApi = String(api ?? '').trim().toLowerCase();
-    const config = CONNECTION_SECRET_CONFIG[trimmedApi];
+    const config = getConnectionSecretConfig(trimmedApi);
     if (!config) {
         return {
             api: trimmedApi,
@@ -482,10 +487,31 @@ function getConnectionSecretStatus(api) {
     };
 }
 
-async function saveConnectionSecret(api, value) {
+function listConnectionSecrets(api) {
+    const trimmedApi = String(api ?? '').trim().toLowerCase();
+    const config = getConnectionSecretConfig(trimmedApi);
+    if (!config?.key) {
+        return [];
+    }
+
+    const secrets = secret_state?.[config.key];
+    if (!Array.isArray(secrets)) {
+        return [];
+    }
+
+    return secrets.map((secret) => ({
+        active: Boolean(secret?.active),
+        id: String(secret?.id ?? ''),
+        label: String(secret?.label ?? config.label),
+        valuePreview: String(secret?.value ?? ''),
+    })).filter((secret) => secret.id);
+}
+
+async function saveConnectionSecret(api, value, label) {
     const trimmedApi = String(api ?? '').trim().toLowerCase();
     const trimmedValue = String(value ?? '').trim();
-    const config = CONNECTION_SECRET_CONFIG[trimmedApi];
+    const trimmedLabel = String(label ?? '').trim();
+    const config = getConnectionSecretConfig(trimmedApi);
     if (!config?.key || config.requiresSecret === false) {
         throw new Error('Connection secret is not required for this API');
     }
@@ -493,7 +519,7 @@ async function saveConnectionSecret(api, value) {
         throw new Error('Connection secret value is required');
     }
 
-    const result = await writeSecret(config.key, trimmedValue);
+    const result = await writeSecret(config.key, trimmedValue, trimmedLabel || undefined);
     if (!result) {
         throw new Error(`Could not save ${config.label} secret`);
     }
@@ -501,7 +527,7 @@ async function saveConnectionSecret(api, value) {
 
 async function authorizeConnectionSecret(api) {
     const trimmedApi = String(api ?? '').trim().toLowerCase();
-    const config = CONNECTION_SECRET_CONFIG[trimmedApi];
+    const config = getConnectionSecretConfig(trimmedApi);
     if (!config?.supportsAuthorize) {
         throw new Error('Connection authorization is unavailable for this API');
     }
@@ -509,6 +535,28 @@ async function authorizeConnectionSecret(api) {
     const redirectUrl = new URL('/callback/openrouter', window.location.origin);
     const openRouterUrl = `https://openrouter.ai/auth?callback_url=${encodeURIComponent(redirectUrl.toString())}`;
     window.location.href = openRouterUrl;
+}
+
+async function deleteConnectionSecret(api, id) {
+    const trimmedApi = String(api ?? '').trim().toLowerCase();
+    const trimmedId = String(id ?? '').trim();
+    const config = getConnectionSecretConfig(trimmedApi);
+    if (!config?.key || !trimmedId) {
+        throw new Error('Connection secret deletion is unavailable');
+    }
+
+    await deleteSecret(config.key, trimmedId);
+}
+
+async function activateConnectionSecret(api, id) {
+    const trimmedApi = String(api ?? '').trim().toLowerCase();
+    const trimmedId = String(id ?? '').trim();
+    const config = getConnectionSecretConfig(trimmedApi);
+    if (!config?.key || !trimmedId) {
+        throw new Error('Connection secret activation is unavailable');
+    }
+
+    await rotateSecret(config.key, trimmedId);
 }
 
 async function saveConnectionProfile(profile) {
@@ -775,8 +823,11 @@ export function getContext() {
         getSelectedWorldInfo,
         listConnectionApiOptions,
         listConnectionModels,
+        listConnectionSecrets,
         getConnectionSecretStatus,
         movePromptTemplate,
+        deleteConnectionSecret,
+        activateConnectionSecret,
         saveConnectionSecret,
         saveConnectionProfile,
         authorizeConnectionSecret,

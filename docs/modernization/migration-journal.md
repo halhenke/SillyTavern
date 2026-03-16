@@ -2457,3 +2457,24 @@
 ### Next
 1. Manually verify add/activate/delete secret flows against OpenRouter in the React panel.
 2. Revisit whether the next connection step should be explicit apply/test feedback or deeper provider-specific settings ownership.
+
+## 2026-03-17 - React Migration Wave 30 (Legacy-Formatted React Transcript Rendering)
+
+### Completed
+- Extended chat message summaries in [frontend/src/core/contracts.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/core/contracts.ts) with an optional `renderedHtml` field for preformatted transcript output.
+- Expanded the legacy bridge in [frontend/src/legacy/bridge.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/legacy/bridge.ts) so `getMessages()` now reuses the existing legacy `messageFormatting(...)` pipeline when shaping React transcript messages.
+- Updated the React chat workspace in [frontend/src/features/shell/ShellPage.tsx](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/features/shell/ShellPage.tsx) to render formatted transcript HTML instead of printing raw message text.
+- Added transcript body styling in [frontend/src/styles/global.css](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/styles/global.css) so formatted blocks fit the React card layout cleanly.
+- Expanded bridge coverage in [frontend/src/test/bridge.test.ts](/Users/hal/.codex/worktrees/dc18/SillyTavern/frontend/src/test/bridge.test.ts) to verify the legacy formatter is invoked and its HTML is carried through the bridge.
+
+### Measurable Impact
+- The React chat workspace now uses the same markdown/HTML conversion and sanitization path as the legacy transcript instead of showing raw `**markdown**` or literal HTML snippets.
+- System messages that depend on rendered HTML and assistant messages that depend on markdown formatting now have a much closer parity path in React.
+
+### Insights
+- Reusing the legacy `messageFormatting(...)` path is the correct seam here. The rendering problem was not missing CSS, it was that React had bypassed the formatter entirely.
+- The React transcript should not own a second markdown parser while the legacy runtime remains authoritative for message rendering behavior.
+
+### Next
+1. Manually smoke the React transcript with real markdown-heavy and HTML-heavy messages to catch any remaining layout or sanitization mismatches.
+2. If needed, tighten transcript-specific CSS around code blocks, blockquotes, and tables rather than introducing a new formatter.

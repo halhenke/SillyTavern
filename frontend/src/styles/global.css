@@ -640,6 +640,20 @@ a {
   line-height: 1.5;
 }
 
+.st-shell-message__body {
+  min-width: 0;
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+.st-shell-message__body > :first-child {
+  margin-top: 0;
+}
+
+.st-shell-message__body > :last-child {
+  margin-bottom: 0;
+}
+
 .st-shell-composer-surface {
   border: 1px solid rgba(54, 66, 85, 0.72);
   border-radius: 18px;

@@ -3782,7 +3782,14 @@ export function ShellPage() {
                             {message.timestamp ? ` · ${message.timestamp}` : ''}
                           </small>
                         </div>
-                        <p>{message.text || '(empty message)'}</p>
+                        {message.renderedHtml ? (
+                          <div
+                            className="st-shell-message__body"
+                            dangerouslySetInnerHTML={{ __html: message.renderedHtml }}
+                          />
+                        ) : (
+                          <p>{message.text || '(empty message)'}</p>
+                        )}
                       </article>
                     ))
                   ) : (

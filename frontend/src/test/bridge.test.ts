@@ -169,6 +169,7 @@ describe('createLegacyBridge', () => {
     const generate = vi.fn();
     const getCharacters = vi.fn();
     const getRequestHeaders = vi.fn(() => ({ 'X-CSRF-Token': 'token' }));
+    const messageFormatting = vi.fn((text: string) => `<p>${text}</p>`);
     const getCharacterCardFields = vi.fn(() => ({
       creatorNotes: 'Card notes',
       description: 'Card description',
@@ -467,6 +468,7 @@ describe('createLegacyBridge', () => {
             supportsManualEntry: api === 'openrouter',
           }),
           getRequestHeaders,
+          messageFormatting,
           listInstalledExtensions,
           listConnectionModels,
           listConnectionSecrets,
@@ -602,6 +604,7 @@ describe('createLegacyBridge', () => {
         isSystem: false,
         isUser: true,
         name: 'Hal',
+        renderedHtml: '<p>User line</p>',
         text: 'User line',
         timestamp: '2025-01-02',
         tokenCount: undefined,
@@ -611,6 +614,7 @@ describe('createLegacyBridge', () => {
         isSystem: false,
         isUser: false,
         name: 'Mage',
+        renderedHtml: '<p>Assistant line</p>',
         swipeCount: 2,
         swipeIndex: 1,
         text: 'Assistant line',
@@ -618,6 +622,8 @@ describe('createLegacyBridge', () => {
         tokenCount: 42,
       },
     ]);
+    expect(messageFormatting).toHaveBeenCalledWith('User line', 'Hal', false, true, 0, {}, false);
+    expect(messageFormatting).toHaveBeenCalledWith('Assistant line', 'Mage', false, false, 1, {}, false);
     expect(bridge?.chat.getMetadata()).toEqual({ scenario: 'Current metadata scenario' });
     await bridge?.chat.saveMetadata({ scenario: 'Updated metadata scenario' });
     await bridge?.chat.addSystemMessage('System memo');

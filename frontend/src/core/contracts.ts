@@ -246,6 +246,7 @@ export interface ChatMessageSummary {
   isSystem: boolean;
   isUser: boolean;
   name: string;
+  renderedHtml?: string;
   swipeCount?: number;
   swipeIndex?: number;
   text: string;

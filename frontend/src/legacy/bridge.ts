@@ -140,6 +140,7 @@ type LegacyContext = {
   characters?: LegacyCharacter[];
   chat?: Array<{
     extra?: {
+      display_text?: string;
       token_count?: number;
     };
     is_system?: boolean;
@@ -200,6 +201,15 @@ type LegacyContext = {
   listConnectionSecrets?: (api: string) => ConnectionSecretSummary[];
   mainApi?: string;
   maxContext?: number;
+  messageFormatting?: (
+    mes: string,
+    chName: string,
+    isSystem: boolean,
+    isUser: boolean,
+    messageId: number,
+    sanitizerOverrides?: Record<string, unknown>,
+    isReasoning?: boolean,
+  ) => string;
   name1?: string;
   name2?: string;
   openGroupChat?: (groupId: string, chatId?: string) => Promise<void>;
@@ -624,17 +634,26 @@ async function getSessionHistory(context: LegacyContext, query = ''): Promise<Se
 }
 
 function getChatMessages(context: LegacyContext): ChatMessageSummary[] {
-  return (context.chat ?? []).map((message, index) => ({
-    id: index,
-    isSystem: Boolean(message.is_system),
-    isUser: Boolean(message.is_user),
-    name: message.name ?? (message.is_user ? context.name1 ?? 'User' : context.name2 ?? 'Assistant'),
-    swipeCount: Array.isArray((message as { swipes?: unknown[] }).swipes) ? (message as { swipes: unknown[] }).swipes.length : undefined,
-    swipeIndex: typeof (message as { swipe_id?: unknown }).swipe_id === 'number' ? (message as { swipe_id: number }).swipe_id : undefined,
-    text: message.mes ?? '',
-    timestamp: message.send_date,
-    tokenCount: message.extra?.token_count,
-  }));
+  return (context.chat ?? []).map((message, index) => {
+    const isSystem = Boolean(message.is_system);
+    const isUser = Boolean(message.is_user);
+    const name = message.name ?? (message.is_user ? context.name1 ?? 'User' : context.name2 ?? 'Assistant');
+    const text = message.mes ?? '';
+    const displayText = message.extra?.display_text ?? text;
+
+    return {
+      id: index,
+      isSystem,
+      isUser,
+      name,
+      renderedHtml: context.messageFormatting?.(displayText, name, isSystem, isUser, index, {}, false),
+      swipeCount: Array.isArray((message as { swipes?: unknown[] }).swipes) ? (message as { swipes: unknown[] }).swipes.length : undefined,
+      swipeIndex: typeof (message as { swipe_id?: unknown }).swipe_id === 'number' ? (message as { swipe_id: number }).swipe_id : undefined,
+      text,
+      timestamp: message.send_date,
+      tokenCount: message.extra?.token_count,
+    };
+  });
 }
 
 function getChatMessage(context: LegacyContext, id: number) {

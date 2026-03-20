@@ -3,8 +3,10 @@ import { event_types, eventSource } from './events.js';
 import { is_group_generating, selected_group } from './group-chats.js';
 import { t } from './i18n.js';
 import { favsToHotswap } from './RossAscends-mods.js';
+import { tag_map } from './tags.js';
 import { is_send_press } from './ui-core.js';
 import { getCharaFilename, ensureImageFormatSupported } from './utils.js';
+import { accountStorage } from './util/AccountStorage.js';
 import { world_info } from './world-info.js';
 import { getRequestHeaders } from './network-core.js';
 import { saveSettingsDebounced } from './settings-core.js';
@@ -14,16 +16,21 @@ let buildAvatarListImpl = null;
 let characterToEntityImpl = null;
 let clearChatImpl = null;
 let createTagMapFromListImpl = null;
-let deleteCharacterImpl = null;
 let duplicateCharacterImpl = null;
 let getChatImpl = null;
+let getCurrentChatIdImpl = null;
 let getFirstMessageImpl = null;
 let getCharactersImpl = null;
+let getPastCharacterChatsImpl = null;
 let groupToEntityImpl = null;
+let preserveNeutralChatImpl = null;
 let printMessagesImpl = null;
 let printCharactersImpl = null;
 let renameCharacterImpl = null;
+let resetChatStateImpl = null;
+let restoreNeutralChatImpl = null;
 let saveChatConditionalImpl = null;
+let saveSettingsDebouncedImpl = null;
 let selectRmInfoImpl = null;
 
 export let characterGroupOverlay = null;
@@ -47,16 +54,21 @@ function throwUnbound(name) {
  *   characterToEntity: (...args: any[]) => any,
  *   clearChat: (...args: any[]) => Promise<any>,
  *   createTagMapFromList: (...args: any[]) => any,
- *   deleteCharacter: (...args: any[]) => Promise<any>,
  *   duplicateCharacter: (...args: any[]) => Promise<any>,
  *   getChat: () => any[],
+ *   getCurrentChatId: () => string|undefined,
  *   getFirstMessage: (...args: any[]) => any,
  *   getCharacters: (...args: any[]) => Promise<any>,
+ *   getPastCharacterChats: (...args: any[]) => Promise<any>,
  *   groupToEntity: (...args: any[]) => any,
+ *   preserveNeutralChat: (...args: any[]) => any,
  *   printMessages: (...args: any[]) => Promise<any>,
  *   printCharacters: (...args: any[]) => Promise<any>,
  *   renameCharacter: (...args: any[]) => Promise<any>,
+ *   resetChatState: (...args: any[]) => any,
+ *   restoreNeutralChat: (...args: any[]) => any,
  *   saveChatConditional: (...args: any[]) => Promise<any>,
+ *   saveSettingsDebounced: (...args: any[]) => any,
  *   select_rm_info: (...args: any[]) => any,
  * }} impl Implementations to bind
  */
@@ -65,16 +77,21 @@ export function bindCharacterCore(impl) {
     characterToEntityImpl = impl?.characterToEntity ?? null;
     clearChatImpl = impl?.clearChat ?? null;
     createTagMapFromListImpl = impl?.createTagMapFromList ?? null;
-    deleteCharacterImpl = impl?.deleteCharacter ?? null;
     duplicateCharacterImpl = impl?.duplicateCharacter ?? null;
     getChatImpl = impl?.getChat ?? null;
+    getCurrentChatIdImpl = impl?.getCurrentChatId ?? null;
     getFirstMessageImpl = impl?.getFirstMessage ?? null;
     getCharactersImpl = impl?.getCharacters ?? null;
+    getPastCharacterChatsImpl = impl?.getPastCharacterChats ?? null;
     groupToEntityImpl = impl?.groupToEntity ?? null;
+    preserveNeutralChatImpl = impl?.preserveNeutralChat ?? null;
     printMessagesImpl = impl?.printMessages ?? null;
     printCharactersImpl = impl?.printCharacters ?? null;
     renameCharacterImpl = impl?.renameCharacter ?? null;
+    resetChatStateImpl = impl?.resetChatState ?? null;
+    restoreNeutralChatImpl = impl?.restoreNeutralChat ?? null;
     saveChatConditionalImpl = impl?.saveChatConditional ?? null;
+    saveSettingsDebouncedImpl = impl?.saveSettingsDebounced ?? null;
     selectRmInfoImpl = impl?.select_rm_info ?? null;
 }
 
@@ -131,11 +148,61 @@ export function characterToEntity(...args) {
 }
 
 export function deleteCharacter(...args) {
-    if (!deleteCharacterImpl) {
-        throwUnbound('deleteCharacter');
+    return deleteCharacterInternal(...args);
+}
+
+async function deleteCharacterInternal(characterKey, { deleteChats = true } = {}) {
+    if (!getPastCharacterChatsImpl) {
+        throwUnbound('getPastCharacterChats');
+    }
+    if (!selectRmInfoImpl) {
+        throwUnbound('select_rm_info');
     }
 
-    return deleteCharacterImpl(...args);
+    if (!Array.isArray(characterKey)) {
+        characterKey = [characterKey];
+    }
+
+    for (const key of characterKey) {
+        const character = characters.find(x => x.avatar == key);
+        if (!character) {
+            toastr.warning(t`Character ${key} not found. Skipping deletion.`);
+            continue;
+        }
+
+        const chid = characters.indexOf(character);
+        const pastChats = await getPastCharacterChatsImpl(chid);
+
+        const msg = { avatar_url: character.avatar, delete_chats: deleteChats };
+        const response = await fetch('/api/characters/delete', {
+            method: 'POST',
+            headers: getRequestHeaders(),
+            body: JSON.stringify(msg),
+            cache: 'no-cache',
+        });
+
+        if (!response.ok) {
+            toastr.error(`${response.status} ${response.statusText}`, t`Failed to delete character`);
+            continue;
+        }
+
+        accountStorage.removeItem(`AlertWI_${character.avatar}`);
+        accountStorage.removeItem(`AlertRegex_${character.avatar}`);
+        accountStorage.removeItem(`mediaWarningShown:${character.avatar}`);
+        delete tag_map[character.avatar];
+        selectRmInfoImpl('char_delete', character.name);
+
+        if (deleteChats) {
+            for (const chat of pastChats) {
+                const name = chat.file_name.replace('.jsonl', '');
+                await eventSource.emit(event_types.CHAT_DELETED, name);
+            }
+        }
+
+        await eventSource.emit(event_types.CHARACTER_DELETED, { id: chid, character });
+    }
+
+    await removeCharacterFromUI();
 }
 
 export function duplicateCharacter(...args) {
@@ -176,6 +243,44 @@ export function renameCharacter(...args) {
     }
 
     return renameCharacterImpl(...args);
+}
+
+async function removeCharacterFromUI() {
+    if (!preserveNeutralChatImpl) {
+        throwUnbound('preserveNeutralChat');
+    }
+    if (!clearChatImpl) {
+        throwUnbound('clearChat');
+    }
+    if (!resetChatStateImpl) {
+        throwUnbound('resetChatState');
+    }
+    if (!restoreNeutralChatImpl) {
+        throwUnbound('restoreNeutralChat');
+    }
+    if (!getCharactersImpl) {
+        throwUnbound('getCharacters');
+    }
+    if (!printMessagesImpl) {
+        throwUnbound('printMessages');
+    }
+    if (!saveSettingsDebouncedImpl) {
+        throwUnbound('saveSettingsDebounced');
+    }
+    if (!getCurrentChatIdImpl) {
+        throwUnbound('getCurrentChatId');
+    }
+
+    preserveNeutralChatImpl();
+    await clearChatImpl();
+    $('#character_cross').trigger('click');
+    resetChatStateImpl();
+    $(document.getElementById('rm_button_selected_ch')).children('h2').text('');
+    restoreNeutralChatImpl();
+    await getCharactersImpl();
+    await printMessagesImpl();
+    saveSettingsDebouncedImpl();
+    await eventSource.emit(event_types.CHAT_CHANGED, getCurrentChatIdImpl());
 }
 
 export async function getOneCharacter(avatarUrl) {

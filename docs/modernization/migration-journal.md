@@ -2576,3 +2576,31 @@
 ### Next
 1. Continue with another coherent chat/session orchestration batch, likely around character/group selection side effects or chat-file lifecycle actions.
 2. After another one or two such waves, reassess whether the remaining `script.js` ownership is mostly bootstrap/export glue versus still-meaningful runtime behavior.
+
+## 2026-03-21 - Monolith Reduction Wave 38 (Character Deletion Lifecycle Move)
+
+### Completed
+- Moved the character deletion lifecycle out of `public/script.js` into `public/scripts/character-core.js`:
+  - `deleteCharacter(...)`
+  - the post-delete UI cleanup flow that refreshes chat/session state after deletion
+- Updated `public/script.js` to keep a thin exported wrapper that delegates to `character-core`.
+- Rewired `bindCharacterCore(...)` so the core now receives the narrower dependencies it still needs for deletion cleanup:
+  - current chat id lookup
+  - past-character-chat lookup
+  - neutral-chat preservation/restore hooks
+  - session reset hook
+  - settings debounce trigger
+- Removed the now-redundant `deleteCharacter` implementation body and local post-delete cleanup helper from `public/script.js`.
+- Verified syntax for the touched legacy JS files with `node --check`.
+
+### Measurable Impact
+- `public/script.js` no longer owns one of the larger remaining character lifecycle flows.
+- Character deletion now lives beside other character-domain behavior in `character-core` instead of in the monolith.
+
+### Insights
+- This confirms the next productive pattern: move cohesive orchestration batches into the nearest domain core, then pass only the minimal remaining UI/runtime hooks through bindings.
+- The remaining high-value monolith work is now less about helper extraction and more about draining these multi-step lifecycle paths from `script.js`.
+
+### Next
+1. Continue with another character/session lifecycle batch, likely character selection/editor side effects or chat-file rename/delete flows.
+2. Reassess whether `script.js` is approaching a “bootstrap plus export wrappers” state after one or two more waves like this.

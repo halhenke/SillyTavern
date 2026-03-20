@@ -259,7 +259,7 @@ import { extractReasoningFromData, initReasoning, parseReasoningInSwipes, Prompt
 import { bindAppStateCore, setMenuType as setMenuTypeCore, syncDefaultPrintTimeout, syncEntitiesFilter, syncIsChatSaving, syncMenuType } from './scripts/app-state-core.js';
 import { getClientVersion as getClientVersionCore, syncClientVersion, syncConnectApiMap, syncMainApi, syncNaiSettings } from './scripts/api-core.js';
 import { bindBackendStatusCore, cancelStatusCheck as cancelStatusCheckCore, displayOnlineStatus as displayOnlineStatusCore, resultCheckStatus as resultCheckStatusCore, setAbortStatusCheck, setOnlineStatus as setOnlineStatusCore, startStatusLoading as startStatusLoadingCore, stopStatusLoading as stopStatusLoadingCore } from './scripts/backend-status-core.js';
-import { bindCharacterCore, createOrEditCharacter as createOrEditCharacterCore, getOneCharacter as getOneCharacterCore, syncCharacterGroupOverlay, syncCharacters, syncCreateSave as syncCharacterCreateSave, syncCropData, syncDepthPromptDepthDefault as syncCharacterDepthPromptDepthDefault, syncDepthPromptRoleDefault as syncCharacterDepthPromptRoleDefault, syncFavChChecked, syncPrintCharactersDebounced, syncTalkativenessDefault as syncCharacterTalkativenessDefault } from './scripts/character-core.js';
+import { bindCharacterCore, createOrEditCharacter as createOrEditCharacterCore, deleteCharacter as deleteCharacterCore, getOneCharacter as getOneCharacterCore, syncCharacterGroupOverlay, syncCharacters, syncCreateSave as syncCharacterCreateSave, syncCropData, syncDepthPromptDepthDefault as syncCharacterDepthPromptDepthDefault, syncDepthPromptRoleDefault as syncCharacterDepthPromptRoleDefault, syncFavChChecked, syncPrintCharactersDebounced, syncTalkativenessDefault as syncCharacterTalkativenessDefault } from './scripts/character-core.js';
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
 import { addOneMessage as addOneMessageCore, bindChatOperationsCore, clearChat as clearChatCore, displayPastChats as displayPastChatsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, getCurrentChatDetails as getCurrentChatDetailsCore, getFirstMessage as getFirstMessageCore, getPastCharacterChats as getPastCharacterChatsCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
@@ -467,16 +467,21 @@ bindCharacterCore({
     characterToEntity,
     clearChat,
     createTagMapFromList,
-    deleteCharacter,
     duplicateCharacter,
     getChat: () => chat,
+    getCurrentChatId,
     getFirstMessage: getFirstMessageCore,
     getCharacters,
+    getPastCharacterChats,
     groupToEntity,
+    preserveNeutralChat,
     printMessages,
     printCharacters,
     renameCharacter,
+    resetChatState,
+    restoreNeutralChat,
     saveChatConditional,
+    saveSettingsDebounced,
     select_rm_info,
 });
 bindChatCore({
@@ -7342,71 +7347,7 @@ export async function handleDeleteCharacter(this_chid, delete_chats) {
  * @return {Promise<void>} - A promise that resolves when the character is successfully deleted
  */
 export async function deleteCharacter(characterKey, { deleteChats = true } = {}) {
-    if (!Array.isArray(characterKey)) {
-        characterKey = [characterKey];
-    }
-
-    for (const key of characterKey) {
-        const character = characters.find(x => x.avatar == key);
-        if (!character) {
-            toastr.warning(t`Character ${key} not found. Skipping deletion.`);
-            continue;
-        }
-
-        const chid = characters.indexOf(character);
-        const pastChats = await getPastCharacterChats(chid);
-
-        const msg = { avatar_url: character.avatar, delete_chats: deleteChats };
-
-        const response = await fetch('/api/characters/delete', {
-            method: 'POST',
-            headers: getRequestHeaders(),
-            body: JSON.stringify(msg),
-            cache: 'no-cache',
-        });
-
-        if (!response.ok) {
-            toastr.error(`${response.status} ${response.statusText}`, t`Failed to delete character`);
-            continue;
-        }
-
-        accountStorage.removeItem(`AlertWI_${character.avatar}`);
-        accountStorage.removeItem(`AlertRegex_${character.avatar}`);
-        accountStorage.removeItem(`mediaWarningShown:${character.avatar}`);
-        delete tag_map[character.avatar];
-        select_rm_info('char_delete', character.name);
-
-        if (deleteChats) {
-            for (const chat of pastChats) {
-                const name = chat.file_name.replace('.jsonl', '');
-                await eventSource.emit(event_types.CHAT_DELETED, name);
-            }
-        }
-
-        await eventSource.emit(event_types.CHARACTER_DELETED, { id: chid, character: character });
-    }
-
-    await removeCharacterFromUI();
-}
-
-/**
- * Function to delete a character from UI after character deletion API success.
- * It manages necessary UI changes such as closing advanced editing popup, unsetting
- * character ID, resetting characters array and chat metadata, deselecting character's tab
- * panel, removing character name from navigation tabs, clearing chat, fetching updated list of characters.
- * It also ensures to save the settings after all the operations.
- */
-async function removeCharacterFromUI() {
-    preserveNeutralChat();
-    await clearChat();
-    $('#character_cross').trigger('click');
-    resetChatState();
-    $(document.getElementById('rm_button_selected_ch')).children('h2').text('');
-    restoreNeutralChat();
-    await getCharacters();
-    await printMessages();
-    saveSettingsDebounced();
-    await eventSource.emit(event_types.CHAT_CHANGED, getCurrentChatId());
+    return deleteCharacterCore(characterKey, { deleteChats });
 }
 
 /**

@@ -2664,3 +2664,26 @@
 ### Next
 1. Continue with another coherent UI/session batch, likely chat rename flows or smaller residual character-panel helper ownership.
 2. Reassess whether `public/script.js` is now close to “bootstrap/event wiring plus wrappers” rather than containing major lifecycle logic.
+
+## 2026-03-21 - Monolith Reduction Wave 41 (Past Chat Delete Flow Move)
+
+### Completed
+- Moved the past-chat delete orchestration out of `public/script.js` into `public/scripts/session-core.js`:
+  - close past chat popup
+  - dispatch group vs character chat deletion
+  - loader handling
+  - slash-command vs UI reopen behavior
+- Reduced the inline `handleDeleteChat(...)` body in `public/script.js` to a thin call into `session-core`.
+- Verified syntax for the touched legacy JS files with `node --check` via `mise`.
+
+### Measurable Impact
+- Another multi-step UI/session lifecycle no longer lives in the monolith.
+- The remaining past-chat event handlers in `public/script.js` are now mostly confirmation/wiring glue rather than owning delete behavior.
+
+### Insights
+- `session-core` is continuing to absorb the “user chose an operation, now coordinate the right UI/session side effects” logic cleanly.
+- The next productive reductions are increasingly about removing these small orchestration islands rather than large domain bodies.
+
+### Next
+1. Continue with the remaining small orchestration helpers in `public/script.js`, likely `updateFavButtonState(...)` and other residual character-panel state glue.
+2. Reassess whether some of the remaining wrapper-only exports can be collapsed once the adapters are fully on the extracted cores.

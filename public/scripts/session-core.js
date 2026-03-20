@@ -223,6 +223,36 @@ export async function doNewChat({ deleteCurrentChat = false } = {}) {
     }
 }
 
+export async function handleDeleteChat(chatFile, group, { fromSlashCommand = false } = {}) {
+    if (group && !deleteGroupChatImpl) {
+        throwUnbound('deleteGroupChat');
+    }
+    if (!group && !delChatImpl) {
+        throwUnbound('delChat');
+    }
+
+    $('#select_chat_cross').trigger('click');
+    showLoader();
+
+    if (group) {
+        await deleteGroupChatImpl(group, chatFile);
+    } else {
+        await delChatImpl(chatFile);
+    }
+
+    if (fromSlashCommand) {
+        $('#options').hide();
+        hideLoader();
+        return;
+    }
+
+    setTimeout(function () {
+        $('#option_select_chat').trigger('click');
+        $('#options').hide();
+        hideLoader();
+    }, 2000);
+}
+
 export function getEntitiesList(...args) {
     if (!getEntitiesListImpl) {
         throwUnbound('getEntitiesList');

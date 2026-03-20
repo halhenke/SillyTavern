@@ -2708,3 +2708,29 @@
 ### Next
 1. Reassess the next meaningful extraction batch from `public/script.js`, with character list/entity rendering still looking like one of the largest remaining ownership clusters.
 2. Continue draining small duplicated state helpers when they clearly belong to an extracted core already.
+
+## 2026-03-21 - Monolith Reduction Wave 43 (Character List Rendering Move)
+
+### Completed
+- Moved the character/entity list rendering and entity-list construction flow out of `public/script.js` into `public/scripts/character-core.js`:
+  - `printCharacters(...)`
+  - `getEntitiesList(...)`
+  - `characterToEntity(...)`
+  - `groupToEntity(...)`
+  - `tagToEntity(...)`
+  - list/pagination helpers and search-sort visibility handling used only by that flow
+- Reduced `public/script.js` to thin wrappers for those exports and removed the monolith-local character list pagination state.
+- Kept the extracted logic leaning on already modular helpers from tags/groups/persona modules rather than re-embedding new monolith dependencies.
+- Verified syntax for the touched legacy JS files with `node --check` via `mise`.
+
+### Measurable Impact
+- One of the largest remaining non-bootstrap ownership clusters has been drained out of `public/script.js`.
+- Character list rendering, entity construction, and bogus-folder-aware filtering now live in `character-core`, which is the more natural long-term owner for that behavior.
+
+### Insights
+- This was the first post-bootstrap batch large enough that it materially changes the remaining shape of `public/script.js`; what is left is increasingly concentrated in generation, chat editing, and startup/event wiring.
+- The extraction worked cleanly because the supporting list/filter logic had already been modularized elsewhere, so `character-core` could compose those modules directly instead of depending on the monolith.
+
+### Next
+1. Reassess the next largest ownership cluster still in `public/script.js`, likely in generation/chat-editing flows rather than character/session selection now.
+2. Continue removing any remaining duplicated bootstrap-local state that was only supporting these extracted list/editor flows.

@@ -1,19 +1,25 @@
 import { DOMPurify } from '../lib.js';
+import { entitiesFilter } from './app-state-core.js';
 import { event_types, eventSource } from './events.js';
-import { is_group_generating, selected_group } from './group-chats.js';
+import { default_avatar } from './chat-core.js';
+import { FILTER_STATES, FILTER_TYPES, isFilterState } from './filters.js';
+import { is_group_generating, selected_group, groups, getGroupBlock } from './group-chats.js';
 import { t } from './i18n.js';
+import { getThumbnailUrl, getRequestHeaders } from './network-core.js';
+import { updatePersonaConnectionsAvatarList } from './personas.js';
+import { power_user, sortEntitiesList } from './power-user.js';
 import { favsToHotswap } from './RossAscends-mods.js';
-import { tag_map } from './tags.js';
+import { renderTemplateAsync } from './templates.js';
+import { applyTagsOnCharacterSelect, applyTagsOnGroupSelect, compareTagsForSort, filterByTagState, getTagBlock, isBogusFolder, isBogusFolderOpen, printTagFilters, printTagList, tag_filter_type, tag_map, tags } from './tags.js';
 import { is_send_press } from './ui-core.js';
-import { getCharaFilename, ensureImageFormatSupported } from './utils.js';
+import { delay, ensureImageFormatSupported, flashHighlight, getCharaFilename, localizePagination, PAGINATION_TEMPLATE, paginationDropdownChangeHandler, renderPaginationDropdown } from './utils.js';
 import { accountStorage } from './util/AccountStorage.js';
+import { getPermanentAssistantAvatar } from './welcome-screen.js';
 import { world_info } from './world-info.js';
-import { getRequestHeaders } from './network-core.js';
 import { saveSettingsDebounced } from './settings-core.js';
 import { chat_metadata, this_chid } from './chat-core.js';
 
 let buildAvatarListImpl = null;
-let characterToEntityImpl = null;
 let clearChatImpl = null;
 let createTagMapFromListImpl = null;
 let duplicateCharacterImpl = null;
@@ -22,10 +28,8 @@ let getCurrentChatIdImpl = null;
 let getFirstMessageImpl = null;
 let getCharactersImpl = null;
 let getPastCharacterChatsImpl = null;
-let groupToEntityImpl = null;
 let preserveNeutralChatImpl = null;
 let printMessagesImpl = null;
-let printCharactersImpl = null;
 let renameCharacterImpl = null;
 let resetChatStateImpl = null;
 let restoreNeutralChatImpl = null;
@@ -43,6 +47,9 @@ export let fav_ch_checked = false;
 export let printCharactersDebounced = null;
 export let talkativeness_default = 0.5;
 
+let saveCharactersPage = 0;
+const CHARACTER_LIST_PAGE_DEFAULT = 50;
+
 function throwUnbound(name) {
     throw new Error(`[character-core] ${name} was called before bindings were initialized`);
 }
@@ -51,7 +58,6 @@ function throwUnbound(name) {
  * Binds legacy character implementations to standalone wrappers.
  * @param {{
  *   buildAvatarList: (...args: any[]) => any,
- *   characterToEntity: (...args: any[]) => any,
  *   clearChat: (...args: any[]) => Promise<any>,
  *   createTagMapFromList: (...args: any[]) => any,
  *   duplicateCharacter: (...args: any[]) => Promise<any>,
@@ -60,10 +66,8 @@ function throwUnbound(name) {
  *   getFirstMessage: (...args: any[]) => any,
  *   getCharacters: (...args: any[]) => Promise<any>,
  *   getPastCharacterChats: (...args: any[]) => Promise<any>,
- *   groupToEntity: (...args: any[]) => any,
  *   preserveNeutralChat: (...args: any[]) => any,
  *   printMessages: (...args: any[]) => Promise<any>,
- *   printCharacters: (...args: any[]) => Promise<any>,
  *   renameCharacter: (...args: any[]) => Promise<any>,
  *   resetChatState: (...args: any[]) => any,
  *   restoreNeutralChat: (...args: any[]) => any,
@@ -74,7 +78,6 @@ function throwUnbound(name) {
  */
 export function bindCharacterCore(impl) {
     buildAvatarListImpl = impl?.buildAvatarList ?? null;
-    characterToEntityImpl = impl?.characterToEntity ?? null;
     clearChatImpl = impl?.clearChat ?? null;
     createTagMapFromListImpl = impl?.createTagMapFromList ?? null;
     duplicateCharacterImpl = impl?.duplicateCharacter ?? null;
@@ -83,10 +86,8 @@ export function bindCharacterCore(impl) {
     getFirstMessageImpl = impl?.getFirstMessage ?? null;
     getCharactersImpl = impl?.getCharacters ?? null;
     getPastCharacterChatsImpl = impl?.getPastCharacterChats ?? null;
-    groupToEntityImpl = impl?.groupToEntity ?? null;
     preserveNeutralChatImpl = impl?.preserveNeutralChat ?? null;
     printMessagesImpl = impl?.printMessages ?? null;
-    printCharactersImpl = impl?.printCharacters ?? null;
     renameCharacterImpl = impl?.renameCharacter ?? null;
     resetChatStateImpl = impl?.resetChatState ?? null;
     restoreNeutralChatImpl = impl?.restoreNeutralChat ?? null;
@@ -139,12 +140,8 @@ export function buildAvatarList(...args) {
     return buildAvatarListImpl(...args);
 }
 
-export function characterToEntity(...args) {
-    if (!characterToEntityImpl) {
-        throwUnbound('characterToEntity');
-    }
-
-    return characterToEntityImpl(...args);
+export function characterToEntity(character, id) {
+    return { item: character, id, type: 'character' };
 }
 
 export function deleteCharacter(...args) {
@@ -222,19 +219,11 @@ export function getCharacters(...args) {
 }
 
 export function groupToEntity(...args) {
-    if (!groupToEntityImpl) {
-        throwUnbound('groupToEntity');
-    }
-
-    return groupToEntityImpl(...args);
+    return groupToEntityInternal(...args);
 }
 
 export function printCharacters(...args) {
-    if (!printCharactersImpl) {
-        throwUnbound('printCharacters');
-    }
-
-    return printCharactersImpl(...args);
+    return printCharactersInternal(...args);
 }
 
 export function updateFavButtonState(state) {
@@ -242,6 +231,60 @@ export function updateFavButtonState(state) {
     $('#fav_checkbox').prop('checked', fav_ch_checked);
     $('#favorite_button').toggleClass('fav_on', fav_ch_checked);
     $('#favorite_button').toggleClass('fav_off', !fav_ch_checked);
+}
+
+export function tagToEntity(tag) {
+    return { item: structuredClone(tag), id: tag.id, type: 'tag', entities: [] };
+}
+
+export function getEntitiesList({ doFilter = false, doSort = true } = {}) {
+    let entities = [
+        ...characters.map((item, index) => characterToEntity(item, index)),
+        ...groups.map(item => groupToEntityInternal(item)),
+        ...(power_user.bogus_folders ? tags.filter(isBogusFolder).sort(compareTagsForSort).map(item => tagToEntity(item)) : []),
+    ];
+
+    if (doFilter) {
+        entities = filterByTagState(entities);
+    }
+
+    for (const entity of entities) {
+        if (entity.type === 'tag') {
+            let subEntities = filterByTagState(entities, { subForEntity: entity, filterHidden: false });
+            const subCount = subEntities.length;
+            subEntities = filterByTagState(entities, { subForEntity: entity });
+            if (doFilter) {
+                subEntities = entitiesFilter.applyFilters(subEntities, { clearScoreCache: false, tempOverrides: { [FILTER_TYPES.FOLDER]: FILTER_STATES.UNDEFINED }, clearFuzzySearchCaches: false });
+            }
+            if (doSort) {
+                sortEntitiesList(subEntities, false);
+            }
+            entity.entities = subEntities;
+            entity.hidden = subCount - subEntities.length;
+        }
+    }
+
+    if (doFilter) {
+        const beforeFinalEntities = filterByTagState(entities, { globalDisplayFilters: true });
+        entities = entitiesFilter.applyFilters(beforeFinalEntities, { clearFuzzySearchCaches: false });
+
+        if (isFilterState(entitiesFilter.getFilterData(FILTER_TYPES.FOLDER), FILTER_STATES.SELECTED) && entities.filter(x => x.type == 'tag').length == 0) {
+            entities = entitiesFilter.applyFilters(beforeFinalEntities, { tempOverrides: { [FILTER_TYPES.FOLDER]: FILTER_STATES.UNDEFINED }, clearFuzzySearchCaches: false });
+        }
+    }
+
+    const nonTagEntitiesCount = entities.filter(entity => entity.type !== 'tag').length;
+    for (const entity of entities) {
+        if (entity.type === 'tag' && entity.entities?.length == nonTagEntitiesCount) {
+            entity.isUseless = true;
+        }
+    }
+
+    if (doSort) {
+        sortEntitiesList(entities, false);
+    }
+    entitiesFilter.clearFuzzySearchCaches();
+    return entities;
 }
 
 export function renameCharacter(...args) {
@@ -288,6 +331,167 @@ async function removeCharacterFromUI() {
     await printMessagesImpl();
     saveSettingsDebouncedImpl();
     await eventSource.emit(event_types.CHAT_CHANGED, getCurrentChatIdImpl());
+}
+
+function groupToEntityInternal(group) {
+    return { item: group, id: group.id, type: 'group' };
+}
+
+function getBackBlock() {
+    return $('#bogus_folder_back_template .bogus_folder_select').clone();
+}
+
+async function getEmptyBlock() {
+    const icons = ['fa-dragon', 'fa-otter', 'fa-kiwi-bird', 'fa-crow', 'fa-frog'];
+    const texts = [t`Here be dragons`, t`Otterly empty`, t`Kiwibunga`, t`Pump-a-Rum`, t`Croak it`];
+    const roll = new Date().getMinutes() % icons.length;
+    const emptyBlock = await renderTemplateAsync('emptyBlock', { text: texts[roll], icon: icons[roll] });
+    return $(emptyBlock);
+}
+
+async function getHiddenBlock(hidden) {
+    const hiddenBlock = await renderTemplateAsync('hiddenBlock', {
+        text: (hidden > 1 ? t`${hidden} characters hidden.` : t`${hidden} character hidden.`),
+    });
+    return $(hiddenBlock);
+}
+
+function getCharacterBlock(item, id) {
+    const avatarUrl = item.avatar != 'none' ? getThumbnailUrl('avatar', item.avatar) : default_avatar;
+    const template = $('#character_template .character_select').clone();
+    template.attr({ 'data-chid': id, id: `CharID${id}` });
+    template.find('img').attr('src', avatarUrl).attr('alt', item.name);
+    template.find('.avatar').attr('title', `[Character] ${item.name}\nFile: ${item.avatar}`);
+    template.find('.ch_name').text(item.name).attr('title', `[Character] ${item.name}`);
+    if (power_user.show_card_avatar_urls) {
+        template.find('.ch_avatar_url').text(item.avatar);
+    }
+    template.find('.ch_fav_icon').css('display', 'none');
+    template.toggleClass('is_fav', item.fav || item.fav == 'true');
+    template.find('.ch_fav').val(item.fav);
+
+    if (item.avatar !== getPermanentAssistantAvatar()) {
+        template.find('.ch_assistant').remove();
+    }
+
+    const description = item.data?.creator_notes || '';
+    if (description) {
+        template.find('.ch_description').text(description);
+    } else {
+        template.find('.ch_description').hide();
+    }
+
+    const auxFieldName = power_user.aux_field || 'character_version';
+    const auxFieldValue = (item.data && item.data[auxFieldName]) || '';
+    if (auxFieldValue) {
+        template.find('.character_version').text(auxFieldValue);
+    } else {
+        template.find('.character_version').hide();
+    }
+
+    printTagList(template.find('.tags'), { forEntityOrKey: id, tagOptions: { isCharacterList: true } });
+    return template;
+}
+
+async function printCharactersInternal(fullRefresh = false) {
+    const storageKey = 'Characters_PerPage';
+    const listId = '#rm_print_characters_block';
+    let currentScrollTop = $(listId).scrollTop();
+
+    if (fullRefresh) {
+        saveCharactersPage = 0;
+        currentScrollTop = 0;
+        await delay(1);
+    }
+
+    verifyCharactersSearchSortRule();
+    printTagFilters(tag_filter_type.character);
+    printTagFilters(tag_filter_type.group_member);
+    applyTagsOnCharacterSelect();
+    applyTagsOnGroupSelect();
+
+    const entities = getEntitiesList({ doFilter: true });
+    const pageSize = Number(accountStorage.getItem(storageKey)) || CHARACTER_LIST_PAGE_DEFAULT;
+    const sizeChangerOptions = [10, 25, 50, 100, 250, 500, 1000];
+
+    $('#rm_print_characters_pagination').pagination({
+        dataSource: entities,
+        pageSize,
+        pageRange: 1,
+        pageNumber: saveCharactersPage || 1,
+        position: 'top',
+        showPageNumbers: false,
+        showSizeChanger: true,
+        prevText: '<',
+        nextText: '>',
+        formatNavigator: PAGINATION_TEMPLATE,
+        formatSizeChanger: renderPaginationDropdown(pageSize, sizeChangerOptions),
+        showNavigator: true,
+        callback: async function (data) {
+            $(listId).empty();
+            if (power_user.bogus_folders && isBogusFolderOpen()) {
+                $(listId).append(getBackBlock());
+            }
+            if (!data.length) {
+                $(listId).append(await getEmptyBlock());
+            }
+
+            let displayCount = 0;
+            for (const entity of data) {
+                switch (entity.type) {
+                    case 'character':
+                        $(listId).append(getCharacterBlock(entity.item, entity.id));
+                        displayCount++;
+                        break;
+                    case 'group':
+                        $(listId).append(getGroupBlock(entity.item));
+                        displayCount++;
+                        break;
+                    case 'tag':
+                        $(listId).append(getTagBlock(entity.item, entity.entities, entity.hidden, entity.isUseless));
+                        break;
+                }
+            }
+
+            const hidden = (characters.length + groups.length) - displayCount;
+            if (hidden > 0 && entitiesFilter.hasAnyFilter()) {
+                $(listId).append(await getHiddenBlock(hidden));
+            }
+
+            localizePagination($('#rm_print_characters_pagination'));
+            eventSource.emit(event_types.CHARACTER_PAGE_LOADED);
+        },
+        afterSizeSelectorChange: function (e, size) {
+            accountStorage.setItem(storageKey, e.target.value);
+            paginationDropdownChangeHandler(e, size);
+        },
+        afterPaging: function (e) {
+            saveCharactersPage = e;
+        },
+        afterRender: function () {
+            $(listId).scrollTop(currentScrollTop);
+        },
+    });
+
+    favsToHotswap();
+    updatePersonaConnectionsAvatarList();
+}
+
+function verifyCharactersSearchSortRule() {
+    const searchTerm = entitiesFilter.getFilterData(FILTER_TYPES.SEARCH);
+    const searchOption = $('#character_sort_order option[data-field="search"]');
+    const selector = $('#character_sort_order');
+    const isHidden = searchOption.attr('hidden') !== undefined;
+
+    if (searchTerm && isHidden) {
+        searchOption.removeAttr('hidden');
+        searchOption.prop('selected', true);
+        flashHighlight(selector);
+    }
+    if (!searchTerm && !isHidden) {
+        searchOption.attr('hidden', '');
+        $(`#character_sort_order option[data-order="${power_user.sort_order}"][data-field="${power_user.sort_field}"]`).prop('selected', true);
+    }
 }
 
 export async function getOneCharacter(avatarUrl) {

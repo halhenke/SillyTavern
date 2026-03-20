@@ -235,6 +235,16 @@ export interface ConnectionProfileDraft {
   tokenizer: string;
 }
 
+export interface ConnectionApplyResult {
+  mainApi?: string;
+  onlineStatus?: string;
+  requestedProfileId: string;
+  requestedProfileName: string;
+  selectedProfileId?: string;
+  selectedProfileName?: string;
+  verified: boolean;
+}
+
 export interface ChatMetadata {
   scenario: string;
 }
@@ -336,7 +346,7 @@ export interface ComposerService {
 
 export interface ConnectionService {
   activateSecret(api: string, id: string): Promise<void>;
-  applyProfile(id: string): Promise<void>;
+  applyProfile(id: string): Promise<ConnectionApplyResult>;
   authorizeSecret(api: string): Promise<void>;
   deleteProfile(id: string): Promise<void>;
   deleteSecret(api: string, id: string): Promise<void>;

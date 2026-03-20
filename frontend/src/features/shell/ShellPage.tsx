@@ -5,6 +5,7 @@ import {
   CharacterProfile,
   ChatMessageSummary,
   ConnectionApiOption,
+  ConnectionApplyResult,
   ConnectionModelOption,
   ConnectionProfileDraft,
   ConnectionProfileSummary,
@@ -130,6 +131,16 @@ type WorldInfoData = {
   entries: Record<string, WorldInfoEntry>;
 } & Record<string, unknown>;
 
+type ConnectionApplyFeedback = {
+  mainApi?: string;
+  onlineStatus?: string;
+  requestedProfileId: string;
+  requestedProfileName: string;
+  selectedProfileId?: string;
+  selectedProfileName?: string;
+  state: 'applying' | 'confirmed' | 'pending';
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -192,6 +203,18 @@ function getConnectionProfileKind(
   }
 
   return options.find((option) => option.id === trimmedApi)?.kind ?? null;
+}
+
+function createConnectionApplyFeedback(result: ConnectionApplyResult): ConnectionApplyFeedback {
+  return {
+    mainApi: result.mainApi,
+    onlineStatus: result.onlineStatus,
+    requestedProfileId: result.requestedProfileId,
+    requestedProfileName: result.requestedProfileName,
+    selectedProfileId: result.selectedProfileId,
+    selectedProfileName: result.selectedProfileName,
+    state: result.verified ? 'confirmed' : 'pending',
+  };
 }
 
 const PREFERENCE_CONTROLS: Array<{
@@ -315,6 +338,7 @@ export function ShellPage() {
   const [connectionSecretLabel, setConnectionSecretLabel] = useState('');
   const [connectionSecretValue, setConnectionSecretValue] = useState('');
   const [connectionDraft, setConnectionDraft] = useState<ConnectionProfileDraft>(DEFAULT_CONNECTION_PROFILE_DRAFT);
+  const [connectionApplyFeedback, setConnectionApplyFeedback] = useState<ConnectionApplyFeedback | null>(null);
   const [extensionReloadRequired, setExtensionReloadRequired] = useState(false);
   const [messages, setMessages] = useState<ChatMessageSummary[]>(DEFAULT_MESSAGES);
   const [selectedMessageId, setSelectedMessageId] = useState<number | null>(null);
@@ -485,6 +509,44 @@ export function ShellPage() {
     [connectionProfiles],
   );
   const selectedConnectionProfileId = selectedConnectionProfile?.id ?? null;
+  const connectionApplyStatus = useMemo(() => {
+    if (!connectionApplyFeedback) {
+      return null;
+    }
+
+    if (connectionApplyFeedback.state === 'applying') {
+      return {
+        detail: 'Waiting for the legacy runtime to finish switching profiles.',
+        label: 'switching',
+        toneClassName: 'st-shell-status',
+        title: `Applying ${connectionApplyFeedback.requestedProfileName}`,
+      };
+    }
+
+    const runtimeProfileName =
+      connectionApplyFeedback.selectedProfileName ??
+      selectedConnectionProfile?.name ??
+      snapshot.connectionProfileName ??
+      'unknown profile';
+    const runtimeApi = connectionApplyFeedback.mainApi ?? snapshot.mainApi ?? 'unknown API';
+    const runtimeStatus = connectionApplyFeedback.onlineStatus ?? snapshot.onlineStatus ?? 'status unavailable';
+
+    if (connectionApplyFeedback.state === 'confirmed') {
+      return {
+        detail: `Runtime now reports ${runtimeProfileName} on ${runtimeApi} (${runtimeStatus}).`,
+        label: 'live',
+        toneClassName: 'st-shell-status st-shell-status--healthy',
+        title: `Applied ${connectionApplyFeedback.requestedProfileName}`,
+      };
+    }
+
+    return {
+      detail: `Requested ${connectionApplyFeedback.requestedProfileName}. Waiting for the runtime snapshot to confirm the active profile.`,
+      label: 'pending',
+      toneClassName: 'st-shell-status',
+      title: 'Apply requested',
+    };
+  }, [connectionApplyFeedback, selectedConnectionProfile?.name, snapshot.connectionProfileName, snapshot.mainApi, snapshot.onlineStatus]);
   const connectionProfileKind = useMemo(
     () => getConnectionProfileKind(connectionDraft.api, connectionApiOptions),
     [connectionApiOptions, connectionDraft.api],
@@ -537,6 +599,23 @@ export function ShellPage() {
 
     setConnectionDraft((current) => (current.id ? DEFAULT_CONNECTION_PROFILE_DRAFT : current));
   }, [selectedConnectionProfileId]);
+
+  useEffect(() => {
+    setConnectionApplyFeedback((current) => {
+      if (!current || current.state !== 'pending' || selectedConnectionProfileId !== current.requestedProfileId) {
+        return current;
+      }
+
+      return {
+        ...current,
+        mainApi: snapshot.mainApi,
+        onlineStatus: snapshot.onlineStatus,
+        selectedProfileId: selectedConnectionProfile?.id,
+        selectedProfileName: selectedConnectionProfile?.name ?? snapshot.connectionProfileName,
+        state: 'confirmed',
+      };
+    });
+  }, [selectedConnectionProfile?.id, selectedConnectionProfile?.name, selectedConnectionProfileId, snapshot.connectionProfileName, snapshot.mainApi, snapshot.onlineStatus]);
 
   useEffect(() => {
     if (!legacyBridge) {
@@ -1145,6 +1224,32 @@ export function ShellPage() {
       refreshRuntime(bridge);
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Could not delete connection profile');
+    } finally {
+      setBusyAction('');
+    }
+  }
+
+  async function handleConnectionProfileApply(profile: ConnectionProfileSummary) {
+    const bridge = legacyBridge;
+    if (!bridge) {
+      return;
+    }
+
+    setActionError('');
+    setConnectionApplyFeedback({
+      requestedProfileId: profile.id,
+      requestedProfileName: profile.name,
+      state: 'applying',
+    });
+    setBusyAction(`connection-${profile.id}`);
+
+    try {
+      const result = await bridge.connections.applyProfile(profile.id);
+      refreshRuntime(bridge);
+      setConnectionApplyFeedback(createConnectionApplyFeedback(result));
+    } catch (error) {
+      setConnectionApplyFeedback(null);
+      setActionError(error instanceof Error ? error.message : 'Could not apply connection profile');
     } finally {
       setBusyAction('');
     }
@@ -1871,14 +1976,7 @@ export function ShellPage() {
                     disabled={!legacyBridge || Boolean(busyAction)}
                     key={profile.id}
                     type="button"
-                    onClick={() => {
-                      const bridge = legacyBridge;
-                      if (!bridge) {
-                        return;
-                      }
-
-                      void runSessionAction(`connection-${profile.id}`, () => bridge.connections.applyProfile(profile.id));
-                    }}
+                    onClick={() => void handleConnectionProfileApply(profile)}
                   >
                     <span>
                       <strong>{profile.name}</strong>
@@ -1895,6 +1993,17 @@ export function ShellPage() {
                 No saved connection profiles yet. Create one below or fall back to the legacy connection manager.
               </p>
             )}
+            {connectionApplyStatus ? (
+              <div className="st-shell-connection-feedback">
+                <div className="st-shell-connection-feedback__header">
+                  <div className={connectionApplyStatus.toneClassName}>{connectionApplyStatus.title}</div>
+                  <span className={`st-shell-badge${connectionApplyFeedback?.state === 'confirmed' ? '' : ' st-shell-badge--muted'}`}>
+                    {connectionApplyStatus.label}
+                  </span>
+                </div>
+                <p className="st-note">{connectionApplyStatus.detail}</p>
+              </div>
+            ) : null}
             <div className="st-shell-connection-editor">
               <div className="st-shell-card__header">
                 <h3>{connectionDraft.id ? 'Edit profile' : 'New profile'}</h3>

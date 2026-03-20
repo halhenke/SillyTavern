@@ -2498,3 +2498,32 @@
 ### Next
 1. Add clearer live connection/apply feedback in the React connection panel so switching profiles gives immediate runtime confirmation.
 2. Keep prioritizing default-path usability issues in the React chat workspace before widening more side panels.
+
+## 2026-03-21 - React Migration Wave 32 (Connection Apply Feedback)
+
+### Completed
+- Extended the typed connection bridge contract in `frontend/src/core/contracts.ts` so profile application returns an explicit result instead of only firing the legacy command.
+- Updated `frontend/src/legacy/bridge.ts` so `connections.applyProfile(...)` now reports:
+  - requested profile id/name
+  - immediately observed selected profile id/name
+  - current runtime API and online status
+  - whether the legacy runtime confirmed the requested switch synchronously
+- Reworked the React connection panel in `frontend/src/features/shell/ShellPage.tsx` to show apply-state feedback:
+  - applying
+  - pending runtime confirmation
+  - confirmed live
+- Added compact styling for the new feedback block in `frontend/src/styles/global.css`.
+- Expanded `frontend/src/test/bridge.test.ts` so the apply-profile path verifies the returned confirmation payload and the mocked legacy runtime selection change.
+- Installed frontend workspace dependencies in this worktree and reran `npm run typecheck` and `npm run test`.
+
+### Measurable Impact
+- Switching saved connection profiles in React no longer relies entirely on the user noticing the general runtime snapshot update on the next poll.
+- The React shell can now tell the user whether the requested profile switch was immediately confirmed by the bridged legacy runtime or is still waiting for confirmation.
+
+### Insights
+- The missing UX piece was not another editor field. The gap was that the apply action had no typed success payload, so the UI could not distinguish "command fired" from "runtime switched."
+- Returning a small verification object from the bridge keeps the React shell honest about what was actually observed, while still preserving the existing legacy slash-command seam.
+
+### Next
+1. Manually smoke the React connection switch flow against a real provider setup to confirm the returned runtime API/profile data stays accurate outside the test harness.
+2. If needed, add the same explicit verification treatment to other high-friction bridge actions that currently rely on polling-only confirmation.

@@ -322,6 +322,27 @@ a {
   gap: 10px;
 }
 
+.st-shell-connection-feedback {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid rgba(54, 66, 85, 0.72);
+  border-radius: 14px;
+  background: rgba(12, 18, 26, 0.72);
+}
+
+.st-shell-connection-feedback__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.st-shell-connection-feedback p {
+  margin: 0;
+}
+
 .st-shell-connection-editor {
   display: grid;
   gap: 12px;

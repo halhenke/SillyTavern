@@ -9,6 +9,7 @@ import {
   ChatMessageSummary,
   ChatService,
   ConnectionApiOption,
+  ConnectionApplyResult,
   ConnectionSecretSummary,
   ConnectionSecretStatus,
   ConnectionModelOption,
@@ -1204,6 +1205,19 @@ export function createLegacyBridge(windowObject: Window): LegacyBridge | null {
         handleParserErrors: true,
         source: 'react-shell',
       });
+
+      const selectedProfile = getConnectionProfiles(context).find((item) => item.isSelected);
+      const result: ConnectionApplyResult = {
+        mainApi: context.mainApi,
+        onlineStatus: context.onlineStatus,
+        requestedProfileId: trimmedId,
+        requestedProfileName: profile.name,
+        selectedProfileId: selectedProfile?.id,
+        selectedProfileName: selectedProfile?.name,
+        verified: selectedProfile?.id === trimmedId,
+      };
+
+      return result;
     },
     authorizeSecret: async (api) => {
       const trimmedApi = api.trim();

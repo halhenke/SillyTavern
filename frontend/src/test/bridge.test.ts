@@ -233,7 +233,14 @@ describe('createLegacyBridge', () => {
     const updateChatMetadata = vi.fn();
     const updateMessageBlock = vi.fn();
     const openGroupById = vi.fn();
-    const executeSlashCommandsWithOptions = vi.fn();
+    const executeSlashCommandsWithOptions = vi.fn(async (command: string) => {
+      if (command === '/profile "Kobold Local"') {
+        context.extensionSettings.connectionManager.selectedProfile = 'profile-kobold';
+        context.mainApi = 'koboldcpp';
+      }
+
+      return null;
+    });
     let worldNames = ['Core Lore', 'City Lore'];
     let selectedWorldNames = ['Core Lore'];
     const loadWorldInfo = vi.fn(async (name: string) => ({ entries: { 0: { comment: `${name} entry` } } }));
@@ -335,9 +342,7 @@ describe('createLegacyBridge', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const windowObject = {
-      SillyTavern: {
-        getContext: () => ({
+    const context = {
           characterId: 1,
           characters: [
             { avatar: 'hero.png', chat: 'hero-chat', name: 'Hero' },
@@ -478,6 +483,8 @@ describe('createLegacyBridge', () => {
           getWorldNames: () => [...worldNames],
           defaultAvatar: 'img/ai4.png',
           groupId: 'g-2',
+          mainApi: 'openrouter',
+          onlineStatus: 'Connected',
           groups: [
             {
               activation_strategy: 1,
@@ -536,7 +543,10 @@ describe('createLegacyBridge', () => {
           updateMessageBlock,
           deleteGroupChatByName,
           deleteWorldInfo,
-        }),
+        };
+    const windowObject = {
+      SillyTavern: {
+        getContext: () => context,
       },
     } as unknown as Window;
 
@@ -815,7 +825,15 @@ describe('createLegacyBridge', () => {
         tokenizer: undefined,
       },
     ]);
-    await bridge?.connections.applyProfile('profile-kobold');
+    await expect(bridge?.connections.applyProfile('profile-kobold')).resolves.toEqual({
+      mainApi: 'koboldcpp',
+      onlineStatus: 'Connected',
+      requestedProfileId: 'profile-kobold',
+      requestedProfileName: 'Kobold Local',
+      selectedProfileId: 'profile-kobold',
+      selectedProfileName: 'Kobold Local',
+      verified: true,
+    });
     await expect(
       bridge?.connections.saveProfile({
         api: 'openrouter',

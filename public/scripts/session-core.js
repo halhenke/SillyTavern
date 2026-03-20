@@ -1,5 +1,5 @@
 import { isChatSaving, menu_type, setMenuType } from './app-state-core.js';
-import { characters, create_save, depth_prompt_depth_default, depth_prompt_role_default, getRequestHeaders, talkativeness_default } from './character-core.js';
+import { characters, create_save, depth_prompt_depth_default, depth_prompt_role_default, getRequestHeaders, talkativeness_default, updateFavButtonState } from './character-core.js';
 import { chat_metadata, default_avatar, getCurrentChatId, name2, setCharacterId as setChatCharacterId, setCharacterName as setChatCharacterName, this_chid, syncChatMetadata, syncName2, syncThisChid } from './chat-core.js';
 import { chat, clearChat, getChat, getCurrentChatDetails, reloadCurrentChat, saveChatConditional, systemUserName } from './chat-operations-core.js';
 import { Generate } from './generation-core.js';
@@ -47,7 +47,6 @@ let setCharacterIdImpl = null;
 let setCharacterNameImpl = null;
 let setScenarioOverrideImpl = null;
 let unshallowCharacterImpl = null;
-let updateFavButtonStateImpl = null;
 
 export let active_character = '';
 export let active_group = '';
@@ -95,7 +94,6 @@ function throwUnbound(name) {
  *   setCharacterName: (...args: any[]) => any,
  *   setScenarioOverride: (...args: any[]) => Promise<any>,
  *   unshallowCharacter: (...args: any[]) => Promise<any>,
- *   updateFavButtonState: (...args: any[]) => any,
  * }} impl Implementations to bind
  */
 export function bindSessionCore(impl) {
@@ -130,7 +128,6 @@ export function bindSessionCore(impl) {
     setCharacterNameImpl = impl?.setCharacterName ?? null;
     setScenarioOverrideImpl = impl?.setScenarioOverride ?? null;
     unshallowCharacterImpl = impl?.unshallowCharacter ?? null;
-    updateFavButtonStateImpl = impl?.updateFavButtonState ?? null;
 }
 
 export function syncActiveCharacter(value) {
@@ -499,9 +496,6 @@ export function select_selected_character(chid, { switchMenu = true } = {}) {
     if (!formatCreatorNotesImpl) {
         throwUnbound('formatCreatorNotes');
     }
-    if (!updateFavButtonStateImpl) {
-        throwUnbound('updateFavButtonState');
-    }
     if (!setWorldInfoButtonClassImpl) {
         throwUnbound('setWorldInfoButtonClass');
     }
@@ -560,7 +554,7 @@ export function select_selected_character(chid, { switchMenu = true } = {}) {
     $('#chat_import_character_name').val(characters[chid].name);
     $('#character_json_data').val(characters[chid].json_data);
 
-    updateFavButtonStateImpl(characters[chid].fav || characters[chid].fav == 'true');
+    updateFavButtonState(characters[chid].fav || characters[chid].fav == 'true');
 
     const avatarUrl = characters[chid].avatar != 'none' ? getThumbnailUrl('avatar', characters[chid].avatar) : default_avatar;
     $('#avatar_load_preview').attr('src', avatarUrl);
@@ -592,9 +586,6 @@ export function select_rm_create({ switchMenu = true } = {}) {
     }
     if (!setWorldInfoButtonClassImpl) {
         throwUnbound('setWorldInfoButtonClass');
-    }
-    if (!updateFavButtonStateImpl) {
-        throwUnbound('updateFavButtonState');
     }
     if (!checkEmbeddedWorldImpl) {
         throwUnbound('checkEmbeddedWorld');
@@ -656,7 +647,7 @@ export function select_rm_create({ switchMenu = true } = {}) {
     $('.open_alternate_greetings').data('chid', -1);
     $('#set_character_world').data('chid', -1);
     setWorldInfoButtonClassImpl(undefined, !!create_save.world);
-    updateFavButtonStateImpl(false);
+    updateFavButtonState(false);
     checkEmbeddedWorldImpl();
 
     $('#form_create').attr('actiontype', 'createcharacter');

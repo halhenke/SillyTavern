@@ -237,6 +237,13 @@ export function printCharacters(...args) {
     return printCharactersImpl(...args);
 }
 
+export function updateFavButtonState(state) {
+    fav_ch_checked = Boolean(state);
+    $('#fav_checkbox').prop('checked', fav_ch_checked);
+    $('#favorite_button').toggleClass('fav_on', fav_ch_checked);
+    $('#favorite_button').toggleClass('fav_off', !fav_ch_checked);
+}
+
 export function renameCharacter(...args) {
     if (!renameCharacterImpl) {
         throwUnbound('renameCharacter');

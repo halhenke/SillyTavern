@@ -2687,3 +2687,24 @@
 ### Next
 1. Continue with the remaining small orchestration helpers in `public/script.js`, likely `updateFavButtonState(...)` and other residual character-panel state glue.
 2. Reassess whether some of the remaining wrapper-only exports can be collapsed once the adapters are fully on the extracted cores.
+
+## 2026-03-21 - Monolith Reduction Wave 42 (Favorite Button State Move)
+
+### Completed
+- Moved the character favorite-button state updater out of `public/script.js` into `public/scripts/character-core.js`:
+  - `updateFavButtonState(...)`
+- Updated `public/scripts/session-core.js` to consume the character-core helper directly instead of receiving a callback from the bootstrap layer.
+- Removed the redundant monolith-local `fav_ch_checked` mirror from `public/script.js` and switched the click handler to read the exported character-core state.
+- Verified syntax for the touched legacy JS files with `node --check` via `mise`.
+
+### Measurable Impact
+- One more piece of character-panel state is now owned by `character-core` instead of duplicated in `script.js`.
+- `session-core` now depends on one fewer bootstrap callback for its character editor flows.
+
+### Insights
+- Some remaining monolith cleanup is less about moving large lifecycle paths and more about deleting these duplicated local mirrors as the extracted cores become the real state owners.
+- This also makes the next larger moves safer, because there are fewer bootstrap-only state copies left to keep in sync.
+
+### Next
+1. Reassess the next meaningful extraction batch from `public/script.js`, with character list/entity rendering still looking like one of the largest remaining ownership clusters.
+2. Continue draining small duplicated state helpers when they clearly belong to an extracted core already.

@@ -259,7 +259,7 @@ import { extractReasoningFromData, initReasoning, parseReasoningInSwipes, Prompt
 import { bindAppStateCore, setMenuType as setMenuTypeCore, syncDefaultPrintTimeout, syncEntitiesFilter, syncIsChatSaving, syncMenuType } from './scripts/app-state-core.js';
 import { getClientVersion as getClientVersionCore, syncClientVersion, syncConnectApiMap, syncMainApi, syncNaiSettings } from './scripts/api-core.js';
 import { bindBackendStatusCore, cancelStatusCheck as cancelStatusCheckCore, displayOnlineStatus as displayOnlineStatusCore, resultCheckStatus as resultCheckStatusCore, setAbortStatusCheck, setOnlineStatus as setOnlineStatusCore, startStatusLoading as startStatusLoadingCore, stopStatusLoading as stopStatusLoadingCore } from './scripts/backend-status-core.js';
-import { bindCharacterCore, createOrEditCharacter as createOrEditCharacterCore, deleteCharacter as deleteCharacterCore, getOneCharacter as getOneCharacterCore, syncCharacterGroupOverlay, syncCharacters, syncCreateSave as syncCharacterCreateSave, syncCropData, syncDepthPromptDepthDefault as syncCharacterDepthPromptDepthDefault, syncDepthPromptRoleDefault as syncCharacterDepthPromptRoleDefault, syncFavChChecked, syncPrintCharactersDebounced, syncTalkativenessDefault as syncCharacterTalkativenessDefault } from './scripts/character-core.js';
+import { bindCharacterCore, createOrEditCharacter as createOrEditCharacterCore, deleteCharacter as deleteCharacterCore, fav_ch_checked as favChCheckedCore, getOneCharacter as getOneCharacterCore, syncCharacterGroupOverlay, syncCharacters, syncCreateSave as syncCharacterCreateSave, syncCropData, syncDepthPromptDepthDefault as syncCharacterDepthPromptDepthDefault, syncDepthPromptRoleDefault as syncCharacterDepthPromptRoleDefault, syncPrintCharactersDebounced, syncTalkativenessDefault as syncCharacterTalkativenessDefault, updateFavButtonState as updateFavButtonStateCore } from './scripts/character-core.js';
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
 import { addOneMessage as addOneMessageCore, bindChatOperationsCore, clearChat as clearChatCore, delChat as delChatCore, deleteCharacterChatByName as deleteCharacterChatByNameCore, displayPastChats as displayPastChatsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, getCurrentChatDetails as getCurrentChatDetailsCore, getFirstMessage as getFirstMessageCore, getPastCharacterChats as getPastCharacterChatsCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, replaceCurrentChat as replaceCurrentChatCore, saveChatConditional as saveChatConditionalCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
@@ -429,8 +429,6 @@ syncStreamingProcessor(streamingProcessor);
 let crop_data = undefined;
 syncCropData(crop_data);
 let is_delete_mode = false;
-let fav_ch_checked = false;
-syncFavChChecked(fav_ch_checked);
 let scrollLock = false;
 export let abortStatusCheck = new AbortController();
 setAbortStatusCheck(abortStatusCheck);
@@ -519,7 +517,6 @@ bindSessionCore({
     setCharacterName,
     setScenarioOverride,
     unshallowCharacter,
-    updateFavButtonState,
 });
 bindGenerationCore({
     adjustHordeGenerationParams,
@@ -5878,13 +5875,7 @@ export function updateChatMetadata(newValues, reset) {
  * @param {boolean} state Whether the favorite button should be on or off.
  */
 function updateFavButtonState(state) {
-    // Update global state of the flag
-    // TODO: This is bad and needs to be refactored.
-    fav_ch_checked = state;
-    syncFavChChecked(fav_ch_checked);
-    $('#fav_checkbox').prop('checked', state);
-    $('#favorite_button').toggleClass('fav_on', state);
-    $('#favorite_button').toggleClass('fav_off', !state);
+    return updateFavButtonStateCore(state);
 }
 
 export async function setScenarioOverride() {
@@ -7526,7 +7517,7 @@ jQuery(async function () {
     });
 
     $('#favorite_button').on('click', function () {
-        updateFavButtonState(!fav_ch_checked);
+        updateFavButtonState(!favChCheckedCore);
         if (menu_type != 'create') {
             saveCharacterDebounced();
         }

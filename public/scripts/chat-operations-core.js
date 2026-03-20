@@ -6,8 +6,9 @@ import { default_avatar, getCurrentChatId, chat_metadata, syncChatMetadata, this
 import { debounce_timeout } from './constants.js';
 import { event_types, eventSource } from './events.js';
 import { getRegexedString, regex_placement } from './extensions/regex/engine.js';
-import { getThumbnailUrl } from './network-core.js';
-import { humanFileSize, timestampToMoment, waitUntilCondition, uuidv4 } from './utils.js';
+import { groups, selected_group } from './group-chats.js';
+import { getRequestHeaders, getThumbnailUrl } from './network-core.js';
+import { debounce, humanFileSize, sortMoments, timestampToMoment, waitUntilCondition, uuidv4 } from './utils.js';
 import { humanizedDateTime } from './RossAscends-mods.js';
 
 let activateSendButtonsImpl = null;
@@ -19,14 +20,12 @@ let closeMessageEditorImpl = null;
 let createOrEditCharacterImpl = null;
 let deactivateSendButtonsImpl = null;
 let deleteSwipeImpl = null;
-let displayPastChatsImpl = null;
 let extractMessageBiasImpl = null;
 let formatCharacterAvatarImpl = null;
 let getChatTruncationImpl = null;
 let getCharacterAvatarImpl = null;
 let getCharacterCardFieldsImpl = null;
 let getCharactersImpl = null;
-let getCurrentChatDetailsImpl = null;
 let getSelectedGroupImpl = null;
 let getMaxContextSizeImpl = null;
 let hideSwipeButtonsImpl = null;
@@ -83,14 +82,12 @@ function throwUnbound(name) {
  *   createOrEditCharacter: (...args: any[]) => Promise<any>,
   *   deactivateSendButtons: (...args: any[]) => any,
   *   deleteSwipe: (...args: any[]) => Promise<any>,
-  *   displayPastChats: (...args: any[]) => Promise<any>,
   *   extractMessageBias: (...args: any[]) => any,
   *   formatCharacterAvatar: (...args: any[]) => any,
  *   getChatTruncation: () => number,
  *   getCharacterAvatar: (...args: any[]) => any,
   *   getCharacterCardFields: (...args: any[]) => any,
   *   getCharacters: (...args: any[]) => Promise<any>,
-  *   getCurrentChatDetails: (...args: any[]) => any,
  *   getItemizedPrompts: () => any[],
  *   getSelectedGroup: () => string|null|undefined,
   *   getGroupChat: (...args: any[]) => Promise<any>,
@@ -136,14 +133,12 @@ export function bindChatOperationsCore(impl) {
     createOrEditCharacterImpl = impl?.createOrEditCharacter ?? null;
     deactivateSendButtonsImpl = impl?.deactivateSendButtons ?? null;
     deleteSwipeImpl = impl?.deleteSwipe ?? null;
-    displayPastChatsImpl = impl?.displayPastChats ?? null;
     extractMessageBiasImpl = impl?.extractMessageBias ?? null;
     formatCharacterAvatarImpl = impl?.formatCharacterAvatar ?? null;
     getChatTruncationImpl = impl?.getChatTruncation ?? null;
     getCharacterAvatarImpl = impl?.getCharacterAvatar ?? null;
     getCharacterCardFieldsImpl = impl?.getCharacterCardFields ?? null;
     getCharactersImpl = impl?.getCharacters ?? null;
-    getCurrentChatDetailsImpl = impl?.getCurrentChatDetails ?? null;
     getItemizedPromptsImpl = impl?.getItemizedPrompts ?? null;
     getSelectedGroupImpl = impl?.getSelectedGroup ?? null;
     getGroupChatImpl = impl?.getGroupChat ?? null;
@@ -260,9 +255,29 @@ export async function deleteLastMessage() {
     await eventSource.emit(event_types.MESSAGE_DELETED, chat.length);
 }
 
-export function displayPastChats(...args) {
-    if (!displayPastChatsImpl) throwUnbound('displayPastChats');
-    return displayPastChatsImpl(...args);
+export async function displayPastChats() {
+    $('#select_chat_div').empty();
+    $('#select_chat_search').val('').off('input');
+
+    const chatDetails = getCurrentChatDetails();
+    const currentChat = chatDetails.sessionName;
+    const avatarImg = chatDetails.avatarImgURL;
+
+    await displayChats('', currentChat, avatarImg, selected_group);
+
+    const debouncedDisplay = debounce((searchQuery) => {
+        displayChats(searchQuery, currentChat, avatarImg, selected_group);
+    });
+
+    $('#select_chat_search').on('input', function () {
+        const searchQuery = $(this).val();
+        debouncedDisplay(searchQuery);
+    });
+
+    setTimeout(function () {
+        const textSearchElement = $('#select_chat_search');
+        textSearchElement.trigger('click').trigger('focus').trigger('select');
+    }, 200);
 }
 
 export function extractMessageBias(...args) {
@@ -290,9 +305,88 @@ export function getCharacters(...args) {
     return getCharactersImpl(...args);
 }
 
-export function getCurrentChatDetails(...args) {
-    if (!getCurrentChatDetailsImpl) throwUnbound('getCurrentChatDetails');
-    return getCurrentChatDetailsImpl(...args);
+export function getCurrentChatDetails() {
+    if (!characters[this_chid] && !selected_group) {
+        return { sessionName: '', group: null, characterName: '', avatarImgURL: '' };
+    }
+
+    const group = selected_group ? groups.find(x => x.id === selected_group) : null;
+    const currentChat = selected_group ? group?.chat_id : characters[this_chid]?.chat;
+    const displayName = selected_group ? group?.name : characters[this_chid]?.name;
+    const avatarImg = selected_group ? group?.avatar_url : getThumbnailUrl('avatar', characters[this_chid]?.avatar);
+    return { sessionName: currentChat, group, characterName: displayName, avatarImgURL: avatarImg };
+}
+
+export async function getPastCharacterChats(characterId = null) {
+    characterId = characterId ?? parseInt(this_chid);
+    if (!characters[characterId]) {
+        return [];
+    }
+
+    const response = await fetch('/api/characters/chats', {
+        method: 'POST',
+        body: JSON.stringify({ avatar_url: characters[characterId].avatar }),
+        headers: getRequestHeaders(),
+    });
+
+    if (!response.ok) {
+        return [];
+    }
+
+    const data = await response.json();
+    if (typeof data === 'object' && data.error === true) {
+        return [];
+    }
+
+    const chats = Object.values(data);
+    return chats.sort((a, b) => a.file_name.localeCompare(b.file_name)).reverse();
+}
+
+async function displayChats(searchQuery, currentChat, avatarImg, groupId) {
+    try {
+        const trimExtension = (fileName) => String(fileName).replace('.jsonl', '');
+
+        const response = await fetch('/api/chats/search', {
+            method: 'POST',
+            headers: getRequestHeaders(),
+            body: JSON.stringify({
+                query: searchQuery,
+                avatar_url: groupId ? null : characters[this_chid].avatar,
+                group_id: groupId || null,
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error('Search failed');
+        }
+
+        const filteredData = await response.json();
+        $('#select_chat_div').empty();
+
+        filteredData.sort((a, b) => sortMoments(timestampToMoment(a.last_mes), timestampToMoment(b.last_mes)));
+
+        for (const chat of filteredData) {
+            const isSelected = trimExtension(currentChat) === trimExtension(chat.file_name);
+            const template = $('#past_chat_template .select_chat_block_wrapper').clone();
+            template.find('.select_chat_block').attr('file_name', chat.file_name);
+            template.find('.avatar img').attr('src', avatarImg);
+            template.find('.select_chat_block_filename').text(chat.file_name);
+            template.find('.chat_file_size').text(`(${chat.file_size},`);
+            template.find('.chat_messages_num').text(`${chat.message_count} 💬)`);
+            template.find('.select_chat_block_mes').text(chat.preview_message);
+            template.find('.PastChat_cross').attr('file_name', chat.file_name);
+            template.find('.chat_messages_date').text(timestampToMoment(chat.last_mes).format('lll'));
+
+            if (isSelected) {
+                template.find('.select_chat_block').attr('highlight', String(true));
+            }
+
+            $('#select_chat_div').append(template);
+        }
+    } catch (error) {
+        console.error('Error loading chats:', error);
+        toastr.error('Could not load chat data. Try reloading the page.');
+    }
 }
 
 export function getMaxContextSize(...args) {

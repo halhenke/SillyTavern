@@ -2527,3 +2527,52 @@
 ### Next
 1. Manually smoke the React connection switch flow against a real provider setup to confirm the returned runtime API/profile data stays accurate outside the test harness.
 2. If needed, add the same explicit verification treatment to other high-friction bridge actions that currently rely on polling-only confirmation.
+
+## 2026-03-21 - Stabilization Wave 2 (Shell Connection Apply UI Coverage)
+
+### Completed
+- Added a focused `ShellPage` test harness in `frontend/src/test/ShellPage.test.tsx` that mocks the iframe bridge seam instead of standing up the full frontend app.
+- Added targeted React UI coverage for connection profile apply feedback:
+  - in-flight `applying` state
+  - `pending` state when the bridge cannot confirm the switch immediately
+  - transition to `confirmed` once the runtime snapshot catches up
+- Cleaned up the async test flow so the deferred apply promise resolves inside React `act(...)`.
+- Reran `npm run typecheck` and `npm run test` after the UI test addition.
+
+### Measurable Impact
+- The new connection apply feedback is now protected at both layers:
+  - bridge contract level
+  - rendered shell behavior level
+- Regressions where the shell stops surfacing `applying`, `pending`, or `confirmed` states should now fail in frontend tests rather than being caught only by manual use.
+
+### Insights
+- The iframe bridge load path is testable without bringing up the whole app router or backend flags flow, which makes this a practical seam for other shell-surface tests.
+- For this branch, targeted UI tests on top of a mocked bridge give a better risk/effort tradeoff than jumping straight to broader E2E coverage for every shell interaction.
+
+### Next
+1. Manually smoke the live connection switch flow with a real provider/runtime to validate the same states outside the mocked bridge harness.
+2. Reuse the same mocked bridge harness pattern for other high-friction shell interactions that currently depend on runtime polling or delayed confirmation.
+
+## 2026-03-21 - Monolith Reduction Wave 37 (Past Chat Lifecycle Move)
+
+### Completed
+- Moved the past-chat/session-details cluster out of `public/script.js` into `public/scripts/chat-operations-core.js`:
+  - `getPastCharacterChats(...)`
+  - `getCurrentChatDetails()`
+  - `displayPastChats()`
+  - the internal chat-search/render helper used by the manage-chat-files view
+- Updated `public/script.js` to keep thin exported wrappers that delegate to `chat-operations-core`.
+- Removed now-redundant `bindChatOperationsCore(...)` bindings for `displayPastChats` and `getCurrentChatDetails`, since those implementations now live in the core directly.
+- Verified syntax for the touched legacy JS files with `node --check`.
+
+### Measurable Impact
+- `public/script.js` no longer owns the manage-chat-files display flow or the current-session detail helper that other orchestration paths reuse.
+- The chat-operations core now owns a fuller slice of chat lifecycle behavior rather than only wrapping DOM/message primitives.
+
+### Insights
+- This was a good next extraction seam because it is cohesive, frequently reused, and only lightly coupled to the rest of the generation/runtime pipeline.
+- The right follow-up is another chat/session lifecycle batch, not another small helper. The remaining value is in draining orchestration ownership from `script.js`, not micro-extracting utilities.
+
+### Next
+1. Continue with another coherent chat/session orchestration batch, likely around character/group selection side effects or chat-file lifecycle actions.
+2. After another one or two such waves, reassess whether the remaining `script.js` ownership is mostly bootstrap/export glue versus still-meaningful runtime behavior.

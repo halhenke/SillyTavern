@@ -261,7 +261,7 @@ import { getClientVersion as getClientVersionCore, syncClientVersion, syncConnec
 import { bindBackendStatusCore, cancelStatusCheck as cancelStatusCheckCore, displayOnlineStatus as displayOnlineStatusCore, resultCheckStatus as resultCheckStatusCore, setAbortStatusCheck, setOnlineStatus as setOnlineStatusCore, startStatusLoading as startStatusLoadingCore, stopStatusLoading as stopStatusLoadingCore } from './scripts/backend-status-core.js';
 import { bindCharacterCore, createOrEditCharacter as createOrEditCharacterCore, getOneCharacter as getOneCharacterCore, syncCharacterGroupOverlay, syncCharacters, syncCreateSave as syncCharacterCreateSave, syncCropData, syncDepthPromptDepthDefault as syncCharacterDepthPromptDepthDefault, syncDepthPromptRoleDefault as syncCharacterDepthPromptRoleDefault, syncFavChChecked, syncPrintCharactersDebounced, syncTalkativenessDefault as syncCharacterTalkativenessDefault } from './scripts/character-core.js';
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
-import { addOneMessage as addOneMessageCore, bindChatOperationsCore, clearChat as clearChatCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, getFirstMessage as getFirstMessageCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
+import { addOneMessage as addOneMessageCore, bindChatOperationsCore, clearChat as clearChatCore, displayPastChats as displayPastChatsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, getCurrentChatDetails as getCurrentChatDetailsCore, getFirstMessage as getFirstMessageCore, getPastCharacterChats as getPastCharacterChatsCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
 import { TempResponseLength, bindGenerationCore, buildCombinedPrompt as buildCombinedPromptCore, executeGenerationRequestFlow as executeGenerationRequestFlowCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, handleGenerationError as handleGenerationErrorCore, prepareContextPackingState as prepareContextPackingStateCore, prepareCoreChatState as prepareCoreChatStateCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationData as prepareGenerationDataCore, prepareGenerationEntryState as prepareGenerationEntryStateCore, prepareGenerationMessages as prepareGenerationMessagesCore, prepareMessageHistoryState as prepareMessageHistoryStateCore, preparePromptAssemblyState as preparePromptAssemblyStateCore, preparePromptAugmentationState as preparePromptAugmentationStateCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
 import { bindMessageCore, setEditedMessageId as setEditedMessageIdCore, updateMessageBlock as updateMessageBlockCore } from './scripts/message-core.js';
@@ -719,14 +719,12 @@ bindChatOperationsCore({
     createOrEditCharacter,
     deactivateSendButtons,
     deleteSwipe,
-    displayPastChats,
     extractMessageBias,
     formatCharacterAvatar,
     getChatTruncation: () => power_user.chat_truncation,
     getCharacterAvatar,
     getCharacterCardFields,
     getCharacters,
-    getCurrentChatDetails,
     getGroupChat,
     getItemizedPrompts: () => itemizedPrompts,
     getMaxContextSize,
@@ -5817,41 +5815,14 @@ export async function getChatsFromFiles(data, isGroupChat) {
  * response is an object with an `error` property set to `true`.
  */
 export async function getPastCharacterChats(characterId = null) {
-    characterId = characterId ?? parseInt(this_chid);
-    if (!characters[characterId]) return [];
-
-    const response = await fetch('/api/characters/chats', {
-        method: 'POST',
-        body: JSON.stringify({ avatar_url: characters[characterId].avatar }),
-        headers: getRequestHeaders(),
-    });
-
-    if (!response.ok) {
-        return [];
-    }
-
-    const data = await response.json();
-    if (typeof data === 'object' && data.error === true) {
-        return [];
-    }
-
-    const chats = Object.values(data);
-    return chats.sort((a, b) => a['file_name'].localeCompare(b['file_name'])).reverse();
+    return getPastCharacterChatsCore(characterId);
 }
 
 /**
  * Helper for `displayPastChats`, to make the same info consistently available for other functions
  */
 export function getCurrentChatDetails() {
-    if (!characters[this_chid] && !selected_group) {
-        return { sessionName: '', group: null, characterName: '', avatarImgURL: '' };
-    }
-
-    const group = selected_group ? groups.find(x => x.id === selected_group) : null;
-    const currentChat = selected_group ? group?.chat_id : characters[this_chid]['chat'];
-    const displayName = selected_group ? group?.name : characters[this_chid].name;
-    const avatarImg = selected_group ? group?.avatar_url : getThumbnailUrl('avatar', characters[this_chid]['avatar']);
-    return { sessionName: currentChat, group: group, characterName: displayName, avatarImgURL: avatarImg };
+    return getCurrentChatDetailsCore();
 }
 
 /**
@@ -5861,78 +5832,7 @@ export function getCurrentChatDetails() {
  * displayed chats based on a search query.
  */
 export async function displayPastChats() {
-    $('#select_chat_div').empty();
-    $('#select_chat_search').val('').off('input');
-
-    const chatDetails = getCurrentChatDetails();
-    const currentChat = chatDetails.sessionName;
-    const displayName = chatDetails.characterName;
-    const avatarImg = chatDetails.avatarImgURL;
-
-    await displayChats('', currentChat, displayName, avatarImg, selected_group);
-
-    const debouncedDisplay = debounce((searchQuery) => {
-        displayChats(searchQuery, currentChat, displayName, avatarImg, selected_group);
-    });
-
-    // Define the search input listener
-    $('#select_chat_search').on('input', function () {
-        const searchQuery = $(this).val();
-        debouncedDisplay(searchQuery);
-    });
-
-    // UX convenience: Focus the search field when the Manage Chat Files view opens.
-    setTimeout(function () {
-        const textSearchElement = $('#select_chat_search');
-        textSearchElement.trigger('click').trigger('focus').trigger('select');
-    }, 200);
-}
-
-async function displayChats(searchQuery, currentChat, displayName, avatarImg, selected_group) {
-    try {
-        const trimExtension = (fileName) => String(fileName).replace('.jsonl', '');
-
-        const response = await fetch('/api/chats/search', {
-            method: 'POST',
-            headers: getRequestHeaders(),
-            body: JSON.stringify({
-                query: searchQuery,
-                avatar_url: selected_group ? null : characters[this_chid].avatar,
-                group_id: selected_group || null,
-            }),
-        });
-
-        if (!response.ok) {
-            throw new Error('Search failed');
-        }
-
-        const filteredData = await response.json();
-        $('#select_chat_div').empty();
-
-        filteredData.sort((a, b) => sortMoments(timestampToMoment(a.last_mes), timestampToMoment(b.last_mes)));
-
-        for (const chat of filteredData) {
-            const isSelected = trimExtension(currentChat) === trimExtension(chat.file_name);
-            const template = $('#past_chat_template .select_chat_block_wrapper').clone();
-            template.find('.select_chat_block').attr('file_name', chat.file_name);
-            template.find('.avatar img').attr('src', avatarImg);
-            template.find('.select_chat_block_filename').text(chat.file_name);
-            template.find('.chat_file_size').text(`(${chat.file_size},`);
-            template.find('.chat_messages_num').text(`${chat.message_count} 💬)`);
-            template.find('.select_chat_block_mes').text(chat.preview_message);
-            template.find('.PastChat_cross').attr('file_name', chat.file_name);
-            template.find('.chat_messages_date').text(timestampToMoment(chat.last_mes).format('lll'));
-
-            if (isSelected) {
-                template.find('.select_chat_block').attr('highlight', String(true));
-            }
-
-            $('#select_chat_div').append(template);
-        }
-    } catch (error) {
-        console.error('Error loading chats:', error);
-        toastr.error('Could not load chat data. Try reloading the page.');
-    }
+    return displayPastChatsCore();
 }
 
 export function selectRightMenuWithAnimation(selectedMenuId) {

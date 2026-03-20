@@ -1,50 +1,61 @@
-import { isChatSaving, menu_type } from './app-state-core.js';
-import { characters, getRequestHeaders } from './character-core.js';
-import { chat_metadata, getCurrentChatId, name2, setCharacterId as setChatCharacterId, setCharacterName as setChatCharacterName, this_chid, syncChatMetadata, syncName2, syncThisChid } from './chat-core.js';
+import { isChatSaving, menu_type, setMenuType } from './app-state-core.js';
+import { characters, create_save, depth_prompt_depth_default, depth_prompt_role_default, getRequestHeaders, talkativeness_default } from './character-core.js';
+import { chat_metadata, default_avatar, getCurrentChatId, name2, setCharacterId as setChatCharacterId, setCharacterName as setChatCharacterName, this_chid, syncChatMetadata, syncName2, syncThisChid } from './chat-core.js';
 import { chat, clearChat, getChat, getCurrentChatDetails, reloadCurrentChat, saveChatConditional, systemUserName } from './chat-operations-core.js';
 import { Generate } from './generation-core.js';
 import { t } from './i18n.js';
 import { hideLoader, showLoader } from './loader.js';
 import { editedMessageId } from './message-core.js';
+import { getThumbnailUrl } from './network-core.js';
 import { POPUP_TYPE, callGenericPopup } from './popup.js';
 import { humanizedDateTime } from './RossAscends-mods.js';
+import { saveSettingsDebounced } from './settings-core.js';
 import { SAFETY_CHAT } from './system-messages.js';
-import { is_send_press } from './ui-core.js';
-import { delay, equalsIgnoreCaseAndAccents, waitUntilCondition } from './utils.js';
+import { animation_duration, animation_easing, is_send_press } from './ui-core.js';
+import { accountStorage } from './util/AccountStorage.js';
+import { delay, equalsIgnoreCaseAndAccents, flashHighlight, waitUntilCondition } from './utils.js';
 import { debounce_timeout } from './constants.js';
 
 let cancelTtsPlayImpl = null;
+let checkEmbeddedWorldImpl = null;
 let createNewGroupChatImpl = null;
 let createOrEditCharacterImpl = null;
 let deleteCharacterChatByNameImpl = null;
 let deleteGroupChatImpl = null;
 let delChatImpl = null;
 let doNavbarIconClickImpl = null;
+let formatCreatorNotesImpl = null;
 let getEntitiesListImpl = null;
+let getCharactersPerPageDefaultImpl = null;
 let getContinueOnSendImpl = null;
 let getSelectedGroupImpl = null;
+let getSelectedButtonImpl = null;
 let getSystemMessageByTypeImpl = null;
 let hasPendingFileAttachmentImpl = null;
+let isExternalMediaAllowedImpl = null;
 let isExecutingCommandsFromChatInputImpl = null;
 let openPermanentAssistantChatImpl = null;
+let printCharactersImpl = null;
+let readAvatarLoadImpl = null;
 let renameGroupChatImpl = null;
 let selectCharacterByIdImpl = null;
-let selectRightMenuWithAnimationImpl = null;
-let selectRmInfoImpl = null;
-let selectSelectedCharacterImpl = null;
 let sendSystemMessageImpl = null;
+let setWorldInfoButtonClassImpl = null;
 let setActiveCharacterImpl = null;
 let setActiveGroupImpl = null;
 let setCharacterIdImpl = null;
 let setCharacterNameImpl = null;
 let setScenarioOverrideImpl = null;
 let unshallowCharacterImpl = null;
+let updateFavButtonStateImpl = null;
 
 export let active_character = '';
 export let active_group = '';
 export let externalAbortController = null;
 export let neutralCharacterName = '';
 export let system_message_types = {};
+
+let importFlashTimeout = null;
 
 function throwUnbound(name) {
     throw new Error(`[session-core] ${name} was called before bindings were initialized`);
@@ -54,60 +65,72 @@ function throwUnbound(name) {
  * Binds legacy session/orchestration implementations to standalone wrappers.
  * @param {{
  *   cancelTtsPlay: (...args: any[]) => any,
+ *   checkEmbeddedWorld: (...args: any[]) => any,
  *   createNewGroupChat: (...args: any[]) => Promise<any>,
  *   createOrEditCharacter: (...args: any[]) => Promise<any>,
  *   deleteCharacterChatByName: (...args: any[]) => Promise<any>,
  *   deleteGroupChat: (...args: any[]) => Promise<any>,
  *   delChat: (...args: any[]) => Promise<any>,
  *   doNavbarIconClick: (...args: any[]) => Promise<any>,
+ *   formatCreatorNotes: (...args: any[]) => any,
  *   getContinueOnSend: () => boolean,
  *   getEntitiesList: (...args: any[]) => any,
+ *   getCharactersPerPageDefault: () => number,
  *   getSelectedGroup: () => string|null|undefined,
+ *   getSelectedButton: () => string,
  *   getSystemMessageByType: (...args: any[]) => any,
  *   hasPendingFileAttachment: () => boolean,
+ *   isExternalMediaAllowed: () => boolean,
  *   isExecutingCommandsFromChatInput: () => boolean,
  *   openPermanentAssistantChat: (...args: any[]) => Promise<any>,
+ *   printCharacters: (...args: any[]) => any,
+ *   readAvatarLoad: (...args: any[]) => Promise<any>,
  *   renameGroupChat: (...args: any[]) => Promise<any>,
  *   selectCharacterById: (...args: any[]) => Promise<any>,
- *   selectRightMenuWithAnimation: (...args: any[]) => Promise<any>,
- *   select_rm_info: (...args: any[]) => any,
- *   select_selected_character: (...args: any[]) => Promise<any>,
  *   sendSystemMessage: (...args: any[]) => any,
+ *   setWorldInfoButtonClass: (...args: any[]) => any,
  *   setActiveCharacter: (...args: any[]) => any,
  *   setActiveGroup: (...args: any[]) => any,
  *   setCharacterId: (...args: any[]) => any,
  *   setCharacterName: (...args: any[]) => any,
  *   setScenarioOverride: (...args: any[]) => Promise<any>,
  *   unshallowCharacter: (...args: any[]) => Promise<any>,
+ *   updateFavButtonState: (...args: any[]) => any,
  * }} impl Implementations to bind
  */
 export function bindSessionCore(impl) {
     cancelTtsPlayImpl = impl?.cancelTtsPlay ?? null;
+    checkEmbeddedWorldImpl = impl?.checkEmbeddedWorld ?? null;
     createNewGroupChatImpl = impl?.createNewGroupChat ?? null;
     createOrEditCharacterImpl = impl?.createOrEditCharacter ?? null;
     deleteCharacterChatByNameImpl = impl?.deleteCharacterChatByName ?? null;
     deleteGroupChatImpl = impl?.deleteGroupChat ?? null;
     delChatImpl = impl?.delChat ?? null;
     doNavbarIconClickImpl = impl?.doNavbarIconClick ?? null;
+    formatCreatorNotesImpl = impl?.formatCreatorNotes ?? null;
     getContinueOnSendImpl = impl?.getContinueOnSend ?? null;
     getEntitiesListImpl = impl?.getEntitiesList ?? null;
+    getCharactersPerPageDefaultImpl = impl?.getCharactersPerPageDefault ?? null;
     getSelectedGroupImpl = impl?.getSelectedGroup ?? null;
+    getSelectedButtonImpl = impl?.getSelectedButton ?? null;
     getSystemMessageByTypeImpl = impl?.getSystemMessageByType ?? null;
     hasPendingFileAttachmentImpl = impl?.hasPendingFileAttachment ?? null;
+    isExternalMediaAllowedImpl = impl?.isExternalMediaAllowed ?? null;
     isExecutingCommandsFromChatInputImpl = impl?.isExecutingCommandsFromChatInput ?? null;
     openPermanentAssistantChatImpl = impl?.openPermanentAssistantChat ?? null;
+    printCharactersImpl = impl?.printCharacters ?? null;
+    readAvatarLoadImpl = impl?.readAvatarLoad ?? null;
     renameGroupChatImpl = impl?.renameGroupChat ?? null;
     selectCharacterByIdImpl = impl?.selectCharacterById ?? null;
-    selectRightMenuWithAnimationImpl = impl?.selectRightMenuWithAnimation ?? null;
-    selectRmInfoImpl = impl?.select_rm_info ?? null;
-    selectSelectedCharacterImpl = impl?.select_selected_character ?? null;
     sendSystemMessageImpl = impl?.sendSystemMessage ?? null;
+    setWorldInfoButtonClassImpl = impl?.setWorldInfoButtonClass ?? null;
     setActiveCharacterImpl = impl?.setActiveCharacter ?? null;
     setActiveGroupImpl = impl?.setActiveGroup ?? null;
     setCharacterIdImpl = impl?.setCharacterId ?? null;
     setCharacterNameImpl = impl?.setCharacterName ?? null;
     setScenarioOverrideImpl = impl?.setScenarioOverride ?? null;
     unshallowCharacterImpl = impl?.unshallowCharacter ?? null;
+    updateFavButtonStateImpl = impl?.updateFavButtonState ?? null;
 }
 
 export function syncActiveCharacter(value) {
@@ -318,6 +341,44 @@ export function resetChatState() {
     };
 }
 
+function flashEntityListEntry({ lookupValue, lookup, selector, selectElement, missingLabel }) {
+    if (!getEntitiesListImpl) {
+        throwUnbound('getEntitiesList');
+    }
+    if (!getCharactersPerPageDefaultImpl) {
+        throwUnbound('getCharactersPerPageDefault');
+    }
+
+    const entries = getEntitiesListImpl({ doFilter: true });
+    const index = lookup(entries);
+
+    if (index === -1) {
+        console.log(`Could not find ${missingLabel} ${lookupValue} in the list`);
+        return;
+    }
+
+    try {
+        const perPage = Number(accountStorage.getItem('Characters_PerPage')) || getCharactersPerPageDefaultImpl();
+        const page = Math.floor(index / perPage) + 1;
+        $('#rm_print_characters_pagination').pagination('go', page);
+
+        waitUntilCondition(() => document.querySelector(selector) !== null).then(() => {
+            const element = selectElement(selector);
+
+            if (element.length === 0) {
+                console.log(`Could not find element for ${missingLabel} ${lookupValue}`);
+                return;
+            }
+
+            const scrollOffset = element.offset().top - element.parent().offset().top;
+            element.parent().scrollTop(scrollOffset);
+            flashHighlight(element, 5000);
+        });
+    } catch (error) {
+        console.error(error);
+    }
+}
+
 export function selectCharacterById(...args) {
     if (!selectCharacterByIdImpl) {
         throwUnbound('selectCharacterById');
@@ -326,28 +387,262 @@ export function selectCharacterById(...args) {
     return selectCharacterByIdImpl(...args);
 }
 
-export function selectRightMenuWithAnimation(...args) {
-    if (!selectRightMenuWithAnimationImpl) {
-        throwUnbound('selectRightMenuWithAnimation');
-    }
+export function selectRightMenuWithAnimation(selectedMenuId) {
+    const displayModes = {
+        rm_group_chats_block: 'flex',
+        rm_api_block: 'grid',
+        rm_characters_block: 'flex',
+    };
 
-    return selectRightMenuWithAnimationImpl(...args);
+    $('#result_info').toggle(selectedMenuId === 'rm_ch_create_block');
+    document.querySelectorAll('#right-nav-panel .right_menu').forEach((menu) => {
+        $(menu).css('display', 'none');
+
+        if (selectedMenuId && selectedMenuId.replace('#', '') === menu.id) {
+            const mode = displayModes[menu.id] ?? 'block';
+            $(menu).css('display', mode);
+            $(menu).css('opacity', 0.0);
+            $(menu).transition({
+                opacity: 1.0,
+                duration: animation_duration,
+                easing: animation_easing,
+                complete: function () { },
+            });
+        }
+    });
 }
 
-export function select_rm_info(...args) {
-    if (!selectRmInfoImpl) {
-        throwUnbound('select_rm_info');
+export function select_rm_info(type, charId, previousCharId = null) {
+    if (!type) {
+        toastr.error(t`Invalid process (no 'type')`);
+        return;
+    }
+    if (!getEntitiesListImpl) {
+        throwUnbound('getEntitiesList');
+    }
+    if (!getCharactersPerPageDefaultImpl) {
+        throwUnbound('getCharactersPerPageDefault');
     }
 
-    return selectRmInfoImpl(...args);
+    const displayName = type !== 'group_create' ? String(charId).replace('.png', '') : null;
+
+    if (type === 'char_delete') toastr.warning(t`Character Deleted: ${displayName}`);
+    if (type === 'char_create') toastr.success(t`Character Created: ${displayName}`);
+    if (type === 'group_create') toastr.success(t`Group Created`);
+    if (type === 'group_delete') toastr.warning(t`Group Deleted`);
+    if (type === 'char_import') toastr.success(t`Character Imported: ${displayName}`);
+
+    selectRightMenuWithAnimation('rm_characters_block');
+
+    clearTimeout(importFlashTimeout);
+    importFlashTimeout = setTimeout(() => {
+        if (type === 'char_import' || type === 'char_create' || type === 'char_import_no_toast') {
+            flashEntityListEntry({
+                lookupValue: charId,
+                lookup: (entries) => entries.findIndex((x) => x?.item?.avatar?.startsWith(charId)),
+                selector: `#rm_print_characters_block [title*="${charId}"]`,
+                selectElement: (selector) => $(selector).parent(),
+                missingLabel: 'character',
+            });
+        }
+
+        if (type === 'group_create') {
+            flashEntityListEntry({
+                lookupValue: charId,
+                lookup: (entries) => entries.findIndex((x) => String(x?.item?.id) === String(charId)),
+                selector: `#rm_print_characters_block [grid="${charId}"]`,
+                selectElement: (selector) => $(selector),
+                missingLabel: 'group',
+            });
+        }
+    }, 250);
+
+    if (previousCharId && setCharacterIdImpl) {
+        const newId = characters.findIndex((x) => x.avatar == previousCharId);
+        if (newId >= 0) {
+            setCharacterIdImpl(newId);
+        }
+    }
 }
 
-export function select_selected_character(...args) {
-    if (!selectSelectedCharacterImpl) {
-        throwUnbound('select_selected_character');
+export function select_selected_character(chid, { switchMenu = true } = {}) {
+    if (!formatCreatorNotesImpl) {
+        throwUnbound('formatCreatorNotes');
+    }
+    if (!updateFavButtonStateImpl) {
+        throwUnbound('updateFavButtonState');
+    }
+    if (!setWorldInfoButtonClassImpl) {
+        throwUnbound('setWorldInfoButtonClass');
+    }
+    if (!checkEmbeddedWorldImpl) {
+        throwUnbound('checkEmbeddedWorld');
+    }
+    if (!isExternalMediaAllowedImpl) {
+        throwUnbound('isExternalMediaAllowed');
     }
 
-    return selectSelectedCharacterImpl(...args);
+    select_rm_create({ switchMenu });
+    if (switchMenu) {
+        setMenuType('character_edit');
+    }
+
+    $('#delete_button').css('display', 'flex');
+    $('#export_button').css('display', 'flex');
+    $('#rm_button_back').css('display', 'none');
+    $('#create_button').attr('value', 'Save');
+    $('#dupe_button').show();
+    $('#create_button_label').css('display', 'none');
+    $('#char_connections_button').show();
+
+    const selectedGroup = getSelectedGroupImpl?.();
+    $('#set_chat_scenario').toggle(!selectedGroup);
+
+    if (!selectedGroup) {
+        $('#rm_button_selected_ch').children('h2').text(characters[chid].name);
+    }
+
+    $('#add_avatar_button').val('');
+    $('#character_popup-button-h3').text(characters[chid].name);
+    $('#character_name_pole').val(characters[chid].name);
+    $('#description_textarea').val(characters[chid].description);
+    $('#character_world').val(characters[chid].data?.extensions?.world || '');
+    $('#creator_notes_textarea').val(characters[chid].data?.creator_notes || characters[chid].creatorcomment);
+    $('#creator_notes_spoiler').html(formatCreatorNotesImpl(characters[chid].data?.creator_notes || characters[chid].creatorcomment, characters[chid].avatar));
+    $('#character_version_textarea').val(characters[chid].data?.character_version || '');
+    $('#system_prompt_textarea').val(characters[chid].data?.system_prompt || '');
+    $('#post_history_instructions_textarea').val(characters[chid].data?.post_history_instructions || '');
+    $('#tags_textarea').val(Array.isArray(characters[chid].data?.tags) ? characters[chid].data.tags.join(', ') : '');
+    $('#creator_textarea').val(characters[chid].data?.creator);
+    $('#character_version_textarea').val(characters[chid].data?.character_version || '');
+    $('#personality_textarea').val(characters[chid].personality);
+    $('#firstmessage_textarea').val(characters[chid].first_mes);
+    $('#scenario_pole').val(characters[chid].scenario);
+    $('#depth_prompt_prompt').val(characters[chid].data?.extensions?.depth_prompt?.prompt ?? '');
+    $('#depth_prompt_depth').val(characters[chid].data?.extensions?.depth_prompt?.depth ?? depth_prompt_depth_default);
+    $('#depth_prompt_role').val(characters[chid].data?.extensions?.depth_prompt?.role ?? depth_prompt_role_default);
+    $('#talkativeness_slider').val(characters[chid].talkativeness || talkativeness_default);
+    $('#mes_example_textarea').val(characters[chid].mes_example);
+    $('#selected_chat_pole').val(characters[chid].chat);
+    $('#create_date_pole').val(characters[chid].create_date);
+    $('#avatar_url_pole').val(characters[chid].avatar);
+    $('#chat_import_avatar_url').val(characters[chid].avatar);
+    $('#chat_import_character_name').val(characters[chid].name);
+    $('#character_json_data').val(characters[chid].json_data);
+
+    updateFavButtonStateImpl(characters[chid].fav || characters[chid].fav == 'true');
+
+    const avatarUrl = characters[chid].avatar != 'none' ? getThumbnailUrl('avatar', characters[chid].avatar) : default_avatar;
+    $('#avatar_load_preview').attr('src', avatarUrl);
+    $('.open_alternate_greetings').data('chid', chid);
+    $('#set_character_world').data('chid', chid);
+    setWorldInfoButtonClassImpl(chid);
+    checkEmbeddedWorldImpl(chid);
+
+    $('#name_div').removeClass('displayBlock');
+    $('#name_div').addClass('displayNone');
+    $('#renameCharButton').css('display', '');
+    $('#form_create').attr('actiontype', 'editcharacter');
+    $('.form_create_bottom_buttons_block .chat_lorebook_button').show();
+
+    const externalMediaState = isExternalMediaAllowedImpl();
+    $('#character_open_media_overrides').toggle(!selectedGroup);
+    $('#character_media_allowed_icon').toggle(externalMediaState);
+    $('#character_media_forbidden_icon').toggle(!externalMediaState);
+
+    saveSettingsDebounced();
+}
+
+export function select_rm_create({ switchMenu = true } = {}) {
+    if (!getSelectedButtonImpl) {
+        throwUnbound('getSelectedButton');
+    }
+    if (!formatCreatorNotesImpl) {
+        throwUnbound('formatCreatorNotes');
+    }
+    if (!setWorldInfoButtonClassImpl) {
+        throwUnbound('setWorldInfoButtonClass');
+    }
+    if (!updateFavButtonStateImpl) {
+        throwUnbound('updateFavButtonState');
+    }
+    if (!checkEmbeddedWorldImpl) {
+        throwUnbound('checkEmbeddedWorld');
+    }
+
+    if (switchMenu) {
+        setMenuType('create');
+    }
+
+    if (getSelectedButtonImpl() == 'create' && create_save.avatar) {
+        if (!readAvatarLoadImpl) {
+            throwUnbound('readAvatarLoad');
+        }
+        const addAvatarInput = /** @type {HTMLInputElement} */ ($('#add_avatar_button').get(0));
+        addAvatarInput.files = create_save.avatar;
+        readAvatarLoadImpl(addAvatarInput);
+    }
+
+    if (switchMenu) {
+        selectRightMenuWithAnimation('rm_ch_create_block');
+    }
+
+    $('#set_chat_scenario').hide();
+    $('#delete_button_div').css('display', 'none');
+    $('#delete_button').css('display', 'none');
+    $('#export_button').css('display', 'none');
+    $('#create_button_label').css('display', '');
+    $('#create_button').attr('value', 'Create');
+    $('#dupe_button').hide();
+    $('#char_connections_button').hide();
+
+    $('#rm_button_back').css('display', '');
+    $('#character_import_button').css('display', '');
+    $('#character_popup-button-h3').text('Create character');
+    $('#character_name_pole').val(create_save.name);
+    $('#description_textarea').val(create_save.description);
+    $('#character_world').val(create_save.world);
+    $('#creator_notes_textarea').val(create_save.creator_notes);
+    $('#creator_notes_spoiler').html(formatCreatorNotesImpl(create_save.creator_notes, ''));
+    $('#post_history_instructions_textarea').val(create_save.post_history_instructions);
+    $('#system_prompt_textarea').val(create_save.system_prompt);
+    $('#tags_textarea').val(create_save.tags);
+    $('#creator_textarea').val(create_save.creator);
+    $('#character_version_textarea').val(create_save.character_version);
+    $('#personality_textarea').val(create_save.personality);
+    $('#firstmessage_textarea').val(create_save.first_message);
+    $('#talkativeness_slider').val(create_save.talkativeness);
+    $('#scenario_pole').val(create_save.scenario);
+    $('#depth_prompt_prompt').val(create_save.depth_prompt_prompt);
+    $('#depth_prompt_depth').val(create_save.depth_prompt_depth);
+    $('#depth_prompt_role').val(create_save.depth_prompt_role);
+    $('#mes_example_textarea').val(create_save.mes_example);
+    $('#character_json_data').val('');
+    $('#avatar_div').css('display', 'flex');
+    $('#avatar_load_preview').attr('src', default_avatar);
+    $('#renameCharButton').css('display', 'none');
+    $('#name_div').removeClass('displayNone');
+    $('#name_div').addClass('displayBlock');
+    $('.open_alternate_greetings').data('chid', -1);
+    $('#set_character_world').data('chid', -1);
+    setWorldInfoButtonClassImpl(undefined, !!create_save.world);
+    updateFavButtonStateImpl(false);
+    checkEmbeddedWorldImpl();
+
+    $('#form_create').attr('actiontype', 'createcharacter');
+    $('.form_create_bottom_buttons_block .chat_lorebook_button').hide();
+    $('#character_open_media_overrides').hide();
+}
+
+export function select_rm_characters() {
+    if (!printCharactersImpl) {
+        throwUnbound('printCharacters');
+    }
+
+    const doFullRefresh = menu_type === 'characters';
+    setMenuType('characters');
+    selectRightMenuWithAnimation('rm_characters_block');
+    printCharactersImpl(doFullRefresh);
 }
 
 export function sendSystemMessage(...args) {

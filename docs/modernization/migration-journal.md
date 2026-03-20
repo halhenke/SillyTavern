@@ -2632,3 +2632,35 @@
 ### Next
 1. Continue draining `public/script.js` with another chat/session orchestration batch, most likely chat rename flows or character selection side effects.
 2. Reassess whether the remaining monolith ownership is now mostly bootstrap/event wiring plus a shrinking set of UI-side orchestration paths.
+
+## 2026-03-21 - Monolith Reduction Wave 40 (Character Editor Selection Flow Move)
+
+### Completed
+- Moved the character editor/right-menu selection flow out of `public/script.js` into `public/scripts/session-core.js`:
+  - `selectRightMenuWithAnimation(...)`
+  - `select_rm_info(...)`
+  - `select_selected_character(...)`
+  - `select_rm_create(...)`
+  - `select_rm_characters()`
+- Rewired `bindSessionCore(...)` so `session-core` now receives only the remaining helper hooks it still needs from the legacy bootstrap:
+  - creator notes formatting
+  - world-info button/embed checks
+  - external media allowance lookup
+  - avatar file preload reader
+  - favorite button DOM updater
+  - filtered entity list lookup / character list printing
+  - selected-button / per-page state reads
+- Reduced `public/script.js` to thin wrappers for those flows instead of keeping the full DOM orchestration bodies there.
+- Verified syntax for the touched legacy JS files with `node --check` via `mise`.
+
+### Measurable Impact
+- `public/script.js` no longer owns the main character editor selection/menu lifecycle.
+- `session-core` now owns a more coherent slice of character/session UI orchestration instead of only session switching helpers.
+
+### Insights
+- This batch confirmed that `session-core` is the right home for these “which panel/state should be active now?” behaviors, even when they still need a handful of DOM helper callbacks from the bootstrap layer.
+- The remaining monolith code is increasingly concentrated in event wiring and smaller UI helper pockets, which makes future extraction batches less risky.
+
+### Next
+1. Continue with another coherent UI/session batch, likely chat rename flows or smaller residual character-panel helper ownership.
+2. Reassess whether `public/script.js` is now close to “bootstrap/event wiring plus wrappers” rather than containing major lifecycle logic.

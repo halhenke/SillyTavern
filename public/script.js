@@ -267,7 +267,7 @@ import { TempResponseLength, bindGenerationCore, buildCombinedPrompt as buildCom
 import { bindMessageCore, setEditedMessageId as setEditedMessageIdCore, updateMessageBlock as updateMessageBlockCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
-import { bindSessionCore, doNewChat as doNewChatCore, newAssistantChat as newAssistantChatCore, renameGroupOrCharacterChat as renameGroupOrCharacterChatCore, resetChatState as resetChatStateCore, sendTextareaMessage as sendTextareaMessageCore, setExternalAbortController as setExternalAbortControllerCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes, updateRemoteChatName as updateRemoteChatNameCore } from './scripts/session-core.js';
+import { bindSessionCore, doNewChat as doNewChatCore, newAssistantChat as newAssistantChatCore, renameGroupOrCharacterChat as renameGroupOrCharacterChatCore, resetChatState as resetChatStateCore, selectRightMenuWithAnimation as selectRightMenuWithAnimationCore, select_rm_characters as selectRmCharactersCore, select_rm_create as selectRmCreateCore, select_rm_info as selectRmInfoCore, select_selected_character as selectSelectedCharacterCore, sendTextareaMessage as sendTextareaMessageCore, setExternalAbortController as setExternalAbortControllerCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes, updateRemoteChatName as updateRemoteChatNameCore } from './scripts/session-core.js';
 import { bindSettingsCore } from './scripts/settings-core.js';
 import { activateSendButtons as activateSendButtonsCore, bindUiCore, deactivateSendButtons as deactivateSendButtonsCore, getSlideToggleOptions as getSlideToggleOptionsCore, hideStopButton as hideStopButtonCore, reloadMarkdownProcessor as reloadMarkdownProcessorCore, setAnimationDuration as setAnimationDurationCore, setSendButtonState as setSendButtonStateCore, showStopButton as showStopButtonCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
 import { accountStorage } from './scripts/util/AccountStorage.js';
@@ -378,7 +378,6 @@ syncName2(name2);
 export let chat = [];
 syncChat(chat);
 let chatSaveTimeout;
-let importFlashTimeout;
 export let isChatSaving = false;
 syncIsChatSaving(isChatSaving);
 let chat_create_date = '';
@@ -490,31 +489,37 @@ bindChatCore({
 });
 bindSessionCore({
     cancelTtsPlay,
+    checkEmbeddedWorld,
     createNewGroupChat,
     createOrEditCharacter,
     deleteCharacterChatByName,
     deleteGroupChat,
     delChat,
     doNavbarIconClick,
+    formatCreatorNotes,
     getContinueOnSend: () => power_user.continue_on_send,
     getEntitiesList,
+    getCharactersPerPageDefault: () => per_page_default,
     getSelectedGroup: () => selected_group,
+    getSelectedButton: () => selected_button,
     getSystemMessageByType,
     hasPendingFileAttachment,
+    isExternalMediaAllowed,
     isExecutingCommandsFromChatInput: () => isExecutingCommandsFromChatInput,
     openPermanentAssistantChat,
+    printCharacters,
+    readAvatarLoad: read_avatar_load,
     renameGroupChat,
     selectCharacterById,
-    selectRightMenuWithAnimation,
-    select_rm_info,
-    select_selected_character,
     sendSystemMessage,
+    setWorldInfoButtonClass,
     setActiveCharacter,
     setActiveGroup,
     setCharacterId,
     setCharacterName,
     setScenarioOverride,
     unshallowCharacter,
+    updateFavButtonState,
 });
 bindGenerationCore({
     adjustHordeGenerationParams,
@@ -5769,127 +5774,11 @@ export async function displayPastChats() {
 }
 
 export function selectRightMenuWithAnimation(selectedMenuId) {
-    const displayModes = {
-        'rm_group_chats_block': 'flex',
-        'rm_api_block': 'grid',
-        'rm_characters_block': 'flex',
-    };
-    $('#result_info').toggle(selectedMenuId === 'rm_ch_create_block');
-    document.querySelectorAll('#right-nav-panel .right_menu').forEach((menu) => {
-        $(menu).css('display', 'none');
-
-        if (selectedMenuId && selectedMenuId.replace('#', '') === menu.id) {
-            const mode = displayModes[menu.id] ?? 'block';
-            $(menu).css('display', mode);
-            $(menu).css('opacity', 0.0);
-            $(menu).transition({
-                opacity: 1.0,
-                duration: animation_duration,
-                easing: animation_easing,
-                complete: function () { },
-            });
-        }
-    });
+    return selectRightMenuWithAnimationCore(selectedMenuId);
 }
 
 export function select_rm_info(type, charId, previousCharId = null) {
-    if (!type) {
-        toastr.error(t`Invalid process (no 'type')`);
-        return;
-    }
-    if (type !== 'group_create') {
-        var displayName = String(charId).replace('.png', '');
-    }
-
-    if (type === 'char_delete') {
-        toastr.warning(t`Character Deleted: ${displayName}`);
-    }
-    if (type === 'char_create') {
-        toastr.success(t`Character Created: ${displayName}`);
-    }
-    if (type === 'group_create') {
-        toastr.success(t`Group Created`);
-    }
-    if (type === 'group_delete') {
-        toastr.warning(t`Group Deleted`);
-    }
-
-    if (type === 'char_import') {
-        toastr.success(t`Character Imported: ${displayName}`);
-    }
-
-    selectRightMenuWithAnimation('rm_characters_block');
-
-    // Set a timeout so multiple flashes don't overlap
-    clearTimeout(importFlashTimeout);
-    importFlashTimeout = setTimeout(function () {
-        if (type === 'char_import' || type === 'char_create' || type === 'char_import_no_toast') {
-            // Find the page at which the character is located
-            const avatarFileName = charId;
-            const charData = getEntitiesList({ doFilter: true });
-            const charIndex = charData.findIndex((x) => x?.item?.avatar?.startsWith(avatarFileName));
-
-            if (charIndex === -1) {
-                console.log(`Could not find character ${charId} in the list`);
-                return;
-            }
-
-            try {
-                const perPage = Number(accountStorage.getItem('Characters_PerPage')) || per_page_default;
-                const page = Math.floor(charIndex / perPage) + 1;
-                const selector = `#rm_print_characters_block [title*="${avatarFileName}"]`;
-                $('#rm_print_characters_pagination').pagination('go', page);
-
-                waitUntilCondition(() => document.querySelector(selector) !== null).then(() => {
-                    const element = $(selector).parent();
-
-                    if (element.length === 0) {
-                        console.log(`Could not find element for character ${charId}`);
-                        return;
-                    }
-
-                    const scrollOffset = element.offset().top - element.parent().offset().top;
-                    element.parent().scrollTop(scrollOffset);
-                    flashHighlight(element, 5000);
-                });
-            } catch (e) {
-                console.error(e);
-            }
-        }
-
-        if (type === 'group_create') {
-            // Find the page at which the character is located
-            const charData = getEntitiesList({ doFilter: true });
-            const charIndex = charData.findIndex((x) => String(x?.item?.id) === String(charId));
-
-            if (charIndex === -1) {
-                console.log(`Could not find group ${charId} in the list`);
-                return;
-            }
-
-            const perPage = Number(accountStorage.getItem('Characters_PerPage')) || per_page_default;
-            const page = Math.floor(charIndex / perPage) + 1;
-            $('#rm_print_characters_pagination').pagination('go', page);
-            const selector = `#rm_print_characters_block [grid="${charId}"]`;
-            try {
-                waitUntilCondition(() => document.querySelector(selector) !== null).then(() => {
-                    const element = $(selector);
-                    const scrollOffset = element.offset().top - element.parent().offset().top;
-                    element.parent().scrollTop(scrollOffset);
-                    flashHighlight(element, 5000);
-                });
-            } catch (e) {
-                console.error(e);
-            }
-        }
-    }, 250);
-
-    if (previousCharId) {
-        const newId = characters.findIndex((x) => x.avatar == previousCharId);
-        if (newId >= 0) {
-            setCharacterId(newId);
-        }
-    }
+    return selectRmInfoCore(type, charId, previousCharId);
 }
 
 /**
@@ -5899,80 +5788,7 @@ export function select_rm_info(type, charId, previousCharId = null) {
  * @param {boolean} [param1.switchMenu=true] Whether to switch the menu
  */
 export function select_selected_character(chid, { switchMenu = true } = {}) {
-    //character select
-    //console.log('select_selected_character() -- starting with input of -- ' + chid + ' (name:' + characters[chid].name + ')');
-    select_rm_create({ switchMenu });
-    switchMenu && setMenuType('character_edit');
-    $('#delete_button').css('display', 'flex');
-    $('#export_button').css('display', 'flex');
-
-    //create text poles
-    $('#rm_button_back').css('display', 'none');
-    //$("#character_import_button").css("display", "none");
-    $('#create_button').attr('value', 'Save');              // what is the use case for this?
-    $('#dupe_button').show();
-    $('#create_button_label').css('display', 'none');
-    $('#char_connections_button').show();
-
-    // Hide the chat scenario button if we're peeking the group member defs
-    $('#set_chat_scenario').toggle(!selected_group);
-
-    // Don't update the navbar name if we're peeking the group member defs
-    if (!selected_group) {
-        $('#rm_button_selected_ch').children('h2').text(characters[chid].name);
-    }
-
-    $('#add_avatar_button').val('');
-
-    $('#character_popup-button-h3').text(characters[chid].name);
-    $('#character_name_pole').val(characters[chid].name);
-    $('#description_textarea').val(characters[chid].description);
-    $('#character_world').val(characters[chid].data?.extensions?.world || '');
-    $('#creator_notes_textarea').val(characters[chid].data?.creator_notes || characters[chid].creatorcomment);
-    $('#creator_notes_spoiler').html(formatCreatorNotes(characters[chid].data?.creator_notes || characters[chid].creatorcomment, characters[chid].avatar));
-    $('#character_version_textarea').val(characters[chid].data?.character_version || '');
-    $('#system_prompt_textarea').val(characters[chid].data?.system_prompt || '');
-    $('#post_history_instructions_textarea').val(characters[chid].data?.post_history_instructions || '');
-    $('#tags_textarea').val(Array.isArray(characters[chid].data?.tags) ? characters[chid].data.tags.join(', ') : '');
-    $('#creator_textarea').val(characters[chid].data?.creator);
-    $('#character_version_textarea').val(characters[chid].data?.character_version || '');
-    $('#personality_textarea').val(characters[chid].personality);
-    $('#firstmessage_textarea').val(characters[chid].first_mes);
-    $('#scenario_pole').val(characters[chid].scenario);
-    $('#depth_prompt_prompt').val(characters[chid].data?.extensions?.depth_prompt?.prompt ?? '');
-    $('#depth_prompt_depth').val(characters[chid].data?.extensions?.depth_prompt?.depth ?? depth_prompt_depth_default);
-    $('#depth_prompt_role').val(characters[chid].data?.extensions?.depth_prompt?.role ?? depth_prompt_role_default);
-    $('#talkativeness_slider').val(characters[chid].talkativeness || talkativeness_default);
-    $('#mes_example_textarea').val(characters[chid].mes_example);
-    $('#selected_chat_pole').val(characters[chid].chat);
-    $('#create_date_pole').val(characters[chid].create_date);
-    $('#avatar_url_pole').val(characters[chid].avatar);
-    $('#chat_import_avatar_url').val(characters[chid].avatar);
-    $('#chat_import_character_name').val(characters[chid].name);
-    $('#character_json_data').val(characters[chid].json_data);
-
-    updateFavButtonState(characters[chid].fav || characters[chid].fav == 'true');
-
-    const avatarUrl = characters[chid].avatar != 'none' ? getThumbnailUrl('avatar', characters[chid].avatar) : default_avatar;
-    $('#avatar_load_preview').attr('src', avatarUrl);
-    $('.open_alternate_greetings').data('chid', chid);
-    $('#set_character_world').data('chid', chid);
-    setWorldInfoButtonClass(chid);
-    checkEmbeddedWorld(chid);
-
-    $('#name_div').removeClass('displayBlock');
-    $('#name_div').addClass('displayNone');
-    $('#renameCharButton').css('display', '');
-
-    $('#form_create').attr('actiontype', 'editcharacter');
-    $('.form_create_bottom_buttons_block .chat_lorebook_button').show();
-
-    const externalMediaState = isExternalMediaAllowed();
-    $('#character_open_media_overrides').toggle(!selected_group);
-    $('#character_media_allowed_icon').toggle(externalMediaState);
-    $('#character_media_forbidden_icon').toggle(!externalMediaState);
-
-    saveSettingsDebounced();
+    return selectSelectedCharacterCore(chid, { switchMenu });
 }
 
 /**
@@ -5981,70 +5797,11 @@ export function select_selected_character(chid, { switchMenu = true } = {}) {
  * @param {boolean} [options.switchMenu=true] Whether to switch the menu
  */
 function select_rm_create({ switchMenu = true } = {}) {
-    switchMenu && setMenuType('create');
-
-    //console.log('select_rm_Create() -- selected button: '+selected_button);
-    if (selected_button == 'create' && create_save.avatar) {
-        const addAvatarInput = /** @type {HTMLInputElement} */ ($('#add_avatar_button').get(0));
-        addAvatarInput.files = create_save.avatar;
-        read_avatar_load(addAvatarInput);
-    }
-
-    switchMenu && selectRightMenuWithAnimation('rm_ch_create_block');
-
-    $('#set_chat_scenario').hide();
-    $('#delete_button_div').css('display', 'none');
-    $('#delete_button').css('display', 'none');
-    $('#export_button').css('display', 'none');
-    $('#create_button_label').css('display', '');
-    $('#create_button').attr('value', 'Create');
-    $('#dupe_button').hide();
-    $('#char_connections_button').hide();
-
-    //create text poles
-    $('#rm_button_back').css('display', '');
-    $('#character_import_button').css('display', '');
-    $('#character_popup-button-h3').text('Create character');
-    $('#character_name_pole').val(create_save.name);
-    $('#description_textarea').val(create_save.description);
-    $('#character_world').val(create_save.world);
-    $('#creator_notes_textarea').val(create_save.creator_notes);
-    $('#creator_notes_spoiler').html(formatCreatorNotes(create_save.creator_notes, ''));
-    $('#post_history_instructions_textarea').val(create_save.post_history_instructions);
-    $('#system_prompt_textarea').val(create_save.system_prompt);
-    $('#tags_textarea').val(create_save.tags);
-    $('#creator_textarea').val(create_save.creator);
-    $('#character_version_textarea').val(create_save.character_version);
-    $('#personality_textarea').val(create_save.personality);
-    $('#firstmessage_textarea').val(create_save.first_message);
-    $('#talkativeness_slider').val(create_save.talkativeness);
-    $('#scenario_pole').val(create_save.scenario);
-    $('#depth_prompt_prompt').val(create_save.depth_prompt_prompt);
-    $('#depth_prompt_depth').val(create_save.depth_prompt_depth);
-    $('#depth_prompt_role').val(create_save.depth_prompt_role);
-    $('#mes_example_textarea').val(create_save.mes_example);
-    $('#character_json_data').val('');
-    $('#avatar_div').css('display', 'flex');
-    $('#avatar_load_preview').attr('src', default_avatar);
-    $('#renameCharButton').css('display', 'none');
-    $('#name_div').removeClass('displayNone');
-    $('#name_div').addClass('displayBlock');
-    $('.open_alternate_greetings').data('chid', -1);
-    $('#set_character_world').data('chid', -1);
-    setWorldInfoButtonClass(undefined, !!create_save.world);
-    updateFavButtonState(false);
-    checkEmbeddedWorld();
-
-    $('#form_create').attr('actiontype', 'createcharacter');
-    $('.form_create_bottom_buttons_block .chat_lorebook_button').hide();
-    $('#character_open_media_overrides').hide();
+    return selectRmCreateCore({ switchMenu });
 }
 
 function select_rm_characters() {
-    const doFullRefresh = menu_type === 'characters';
-    setMenuType('characters');
-    selectRightMenuWithAnimation('rm_characters_block');
-    printCharacters(doFullRefresh);
+    return selectRmCharactersCore();
 }
 
 /**

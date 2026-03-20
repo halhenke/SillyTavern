@@ -8,6 +8,7 @@ import { event_types, eventSource } from './events.js';
 import { getRegexedString, regex_placement } from './extensions/regex/engine.js';
 import { groups, selected_group } from './group-chats.js';
 import { getRequestHeaders, getThumbnailUrl } from './network-core.js';
+import { saveTokenCache } from './tokenizers.js';
 import { debounce, humanFileSize, sortMoments, timestampToMoment, waitUntilCondition, uuidv4 } from './utils.js';
 import { humanizedDateTime } from './RossAscends-mods.js';
 
@@ -40,10 +41,12 @@ let restoreNeutralChatImpl = null;
 let resetExtensionPromptsImpl = null;
 let resetItemizedPromptsImpl = null;
 let saveChatImpl = null;
-let saveChatConditionalImpl = null;
+let saveCharacterDebouncedImpl = null;
 let saveItemizedPromptsImpl = null;
 let saveReplyImpl = null;
 let sendMessageAsUserImpl = null;
+let setChatMetadataImpl = null;
+let setIsChatSavingImpl = null;
 let selectSelectedCharacterImpl = null;
 let showSwipeButtonsImpl = null;
 let showMoreMessagesImpl = null;
@@ -51,6 +54,7 @@ let shouldShowTimestampModelIconImpl = null;
 let swipeLeftImpl = null;
 let swipeRightImpl = null;
 let unshallowCharacterImpl = null;
+let updateRemoteChatNameImpl = null;
 let updateBookmarkDisplayImpl = null;
 let getItemizedPromptsImpl = null;
 let messageFormattingImpl = null;
@@ -100,15 +104,17 @@ function throwUnbound(name) {
   *   renameChat: (...args: any[]) => Promise<any>,
   *   resetChatState: (...args: any[]) => any,
   *   resetExtensionPrompts: () => any,
-  *   resetItemizedPrompts: () => any,
-  *   restoreNeutralChat: (...args: any[]) => any,
+ *   resetItemizedPrompts: () => any,
+ *   restoreNeutralChat: (...args: any[]) => any,
  *   scrollChatToBottom: () => any,
   *   loadItemizedPrompts: (...args: any[]) => Promise<any>,
   *   saveChat: (...args: any[]) => Promise<any>,
-  *   saveChatConditional: (...args: any[]) => Promise<any>,
+  *   saveCharacterDebounced: (...args: any[]) => any,
   *   saveItemizedPrompts: (...args: any[]) => Promise<any>,
   *   saveReply: (...args: any[]) => Promise<any>,
   *   sendMessageAsUser: (...args: any[]) => Promise<any>,
+  *   setChatMetadata: (value: any) => any,
+  *   setIsChatSaving: (value: boolean) => any,
   *   select_selected_character: (...args: any[]) => Promise<any>,
   *   showSwipeButtons: (...args: any[]) => any,
   *   showMoreMessages: (...args: any[]) => Promise<any>,
@@ -116,6 +122,7 @@ function throwUnbound(name) {
   *   swipe_left: (...args: any[]) => Promise<any>,
   *   swipe_right: (...args: any[]) => Promise<any>,
   *   unshallowCharacter: (...args: any[]) => Promise<any>,
+ *   updateRemoteChatName: (...args: any[]) => Promise<any>,
  *   updateBookmarkDisplay: (...args: any[]) => any,
  *   addCopyToCodeBlocks: (...args: any[]) => any,
  *   applyStylePins: (...args: any[]) => any,
@@ -155,11 +162,13 @@ export function bindChatOperationsCore(impl) {
     loadItemizedPromptsImpl = impl?.loadItemizedPrompts ?? null;
     restoreNeutralChatImpl = impl?.restoreNeutralChat ?? null;
     saveChatImpl = impl?.saveChat ?? null;
-    saveChatConditionalImpl = impl?.saveChatConditional ?? null;
+    saveCharacterDebouncedImpl = impl?.saveCharacterDebounced ?? null;
     saveItemizedPromptsImpl = impl?.saveItemizedPrompts ?? null;
     saveReplyImpl = impl?.saveReply ?? null;
     scrollChatToBottomImpl = impl?.scrollChatToBottom ?? null;
     sendMessageAsUserImpl = impl?.sendMessageAsUser ?? null;
+    setChatMetadataImpl = impl?.setChatMetadata ?? null;
+    setIsChatSavingImpl = impl?.setIsChatSaving ?? null;
     selectSelectedCharacterImpl = impl?.select_selected_character ?? null;
     showSwipeButtonsImpl = impl?.showSwipeButtons ?? null;
     showMoreMessagesImpl = impl?.showMoreMessages ?? null;
@@ -167,6 +176,7 @@ export function bindChatOperationsCore(impl) {
     swipeLeftImpl = impl?.swipe_left ?? null;
     swipeRightImpl = impl?.swipe_right ?? null;
     unshallowCharacterImpl = impl?.unshallowCharacter ?? null;
+    updateRemoteChatNameImpl = impl?.updateRemoteChatName ?? null;
     updateBookmarkDisplayImpl = impl?.updateBookmarkDisplay ?? null;
     addCopyToCodeBlocksImpl = impl?.addCopyToCodeBlocks ?? null;
     applyStylePinsImpl = impl?.applyStylePins ?? null;
@@ -249,10 +259,73 @@ export function deleteSwipe(...args) {
     return deleteSwipeImpl(...args);
 }
 
+export async function delChat(chatfile) {
+    if (!setChatMetadataImpl) throwUnbound('setChatMetadata');
+
+    const response = await fetch('/api/chats/delete', {
+        method: 'POST',
+        headers: getRequestHeaders(),
+        body: JSON.stringify({
+            chatfile,
+            avatar_url: characters[this_chid].avatar,
+        }),
+    });
+
+    if (response.ok === true) {
+        const name = chatfile.replace('.jsonl', '');
+        if (name === characters[this_chid].chat) {
+            setChatMetadataImpl({});
+            await replaceCurrentChat();
+        }
+        await eventSource.emit(event_types.CHAT_DELETED, name);
+    }
+}
+
 export async function deleteLastMessage() {
     chat.length = chat.length - 1;
     document.querySelector('#chat .mes:last-child')?.remove();
     await eventSource.emit(event_types.MESSAGE_DELETED, chat.length);
+}
+
+export async function deleteCharacterChatByName(characterId, fileName) {
+    if (!unshallowCharacterImpl) throwUnbound('unshallowCharacter');
+    if (!updateRemoteChatNameImpl) throwUnbound('updateRemoteChatName');
+
+    await unshallowCharacterImpl(characterId);
+
+    const character = characters[characterId];
+    if (!character) {
+        console.warn(`Character with ID ${characterId} not found.`);
+        return;
+    }
+
+    const response = await fetch('/api/chats/delete', {
+        method: 'POST',
+        headers: getRequestHeaders(),
+        body: JSON.stringify({
+            chatfile: `${fileName}.jsonl`,
+            avatar_url: character.avatar,
+        }),
+    });
+
+    if (!response.ok) {
+        console.error('Failed to delete chat for character.');
+        return;
+    }
+
+    if (fileName === character.chat) {
+        const chatsResponse = await fetch('/api/characters/chats', {
+            method: 'POST',
+            headers: getRequestHeaders(),
+            body: JSON.stringify({ avatar_url: character.avatar }),
+        });
+        const chats = Object.values(await chatsResponse.json());
+        chats.sort((a, b) => sortMoments(timestampToMoment(a.last_mes), timestampToMoment(b.last_mes)));
+        const newChatName = chats.length && typeof chats[0] === 'object' ? chats[0].file_name.replace('.jsonl', '') : `${character.name} - ${humanizedDateTime()}`;
+        await updateRemoteChatNameImpl(characterId, newChatName);
+    }
+
+    await eventSource.emit(event_types.CHAT_DELETED, fileName);
 }
 
 export async function displayPastChats() {
@@ -424,8 +497,7 @@ export function saveChat(...args) {
 }
 
 export function saveChatConditional(...args) {
-    if (!saveChatConditionalImpl) throwUnbound('saveChatConditional');
-    return saveChatConditionalImpl(...args);
+    return saveChatConditionalInternal(...args);
 }
 
 export function saveItemizedPrompts(...args) {
@@ -915,6 +987,36 @@ export async function openCharacterChat(file_name) {
     return result;
 }
 
+export async function replaceCurrentChat() {
+    if (!saveCharacterDebouncedImpl) throwUnbound('saveCharacterDebounced');
+
+    await clearChat();
+    chat.length = 0;
+
+    const chatsResponse = await fetch('/api/characters/chats', {
+        method: 'POST',
+        headers: getRequestHeaders(),
+        body: JSON.stringify({ avatar_url: characters[this_chid].avatar }),
+    });
+
+    if (chatsResponse.ok) {
+        const chats = Object.values(await chatsResponse.json());
+        chats.sort((a, b) => sortMoments(timestampToMoment(a.last_mes), timestampToMoment(b.last_mes)));
+
+        if (chats.length && typeof chats[0] === 'object') {
+            characters[this_chid].chat = chats[0].file_name.replace('.jsonl', '');
+            $('#selected_chat_pole').val(characters[this_chid].chat);
+            saveCharacterDebouncedImpl();
+            await getChat();
+        } else {
+            characters[this_chid].chat = `${name2} - ${humanizedDateTime()}`;
+            $('#selected_chat_pole').val(characters[this_chid].chat);
+            saveCharacterDebouncedImpl();
+            await getChat();
+        }
+    }
+}
+
 export async function reloadCurrentChat() {
     if (!preserveNeutralChatImpl) throwUnbound('preserveNeutralChat');
     if (!getSelectedGroupImpl) throwUnbound('getSelectedGroup');
@@ -945,6 +1047,37 @@ export async function reloadCurrentChat() {
     hideSwipeButtons();
     showSwipeButtons();
     return result;
+}
+
+async function saveChatConditionalInternal() {
+    if (!cancelDebouncedChatSaveImpl) throwUnbound('cancelDebouncedChatSave');
+    if (!saveChatImpl) throwUnbound('saveChat');
+    if (!setIsChatSavingImpl) throwUnbound('setIsChatSaving');
+
+    try {
+        await waitUntilCondition(() => !isChatSaving, debounce_timeout.relaxed, 100);
+    } catch {
+        console.warn('Timeout waiting for chat to save');
+        return;
+    }
+
+    try {
+        cancelDebouncedChatSaveImpl();
+        setIsChatSavingImpl(true);
+
+        if (selected_group) {
+            await saveGroupChat(selected_group, true);
+        } else {
+            await saveChatImpl();
+        }
+
+        saveTokenCache();
+        saveItemizedPrompts(getCurrentChatId());
+    } catch (error) {
+        console.error('Error saving chat', error);
+    } finally {
+        setIsChatSavingImpl(false);
+    }
 }
 
 export function showMoreMessages(...args) {

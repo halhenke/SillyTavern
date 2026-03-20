@@ -2604,3 +2604,31 @@
 ### Next
 1. Continue with another character/session lifecycle batch, likely character selection/editor side effects or chat-file rename/delete flows.
 2. Reassess whether `script.js` is approaching a “bootstrap plus export wrappers” state after one or two more waves like this.
+
+## 2026-03-21 - Monolith Reduction Wave 39 (Chat File Lifecycle Move)
+
+### Completed
+- Moved the core chat-file lifecycle flow out of `public/script.js` into `public/scripts/chat-operations-core.js`:
+  - `delChat(...)`
+  - `deleteCharacterChatByName(...)`
+  - `replaceCurrentChat()`
+  - `saveChatConditional()`
+- Kept `public/script.js` as thin wrappers/exports for those paths so existing callers and bindings continue to work without importing the monolith directly.
+- Rewired `bindChatOperationsCore(...)` so the core now receives only the remaining runtime hooks it still needs:
+  - mirrored chat-metadata setter
+  - mirrored `isChatSaving` setter
+  - character-save debounce trigger
+  - remote chat rename hook
+- Verified syntax for the touched legacy JS files with `node --check`.
+
+### Measurable Impact
+- `public/script.js` no longer owns the main character-chat delete/replace/save orchestration path.
+- `chat-operations-core` now owns a more coherent slice of chat session file lifecycle behavior instead of only message rendering and wrappers.
+
+### Insights
+- The mirrored state still present between `script.js` and the extracted cores means some moves need explicit setter hooks rather than direct core-only mutation.
+- Even with that constraint, cohesive lifecycle batches are still moving cleanly if the bindings are narrowed to just the few state-bridge hooks that remain.
+
+### Next
+1. Continue draining `public/script.js` with another chat/session orchestration batch, most likely chat rename flows or character selection side effects.
+2. Reassess whether the remaining monolith ownership is now mostly bootstrap/event wiring plus a shrinking set of UI-side orchestration paths.

@@ -2764,3 +2764,27 @@
 ### Next
 1. Continue with the remaining message-edit cluster in `public/script.js`, especially `openMessageDelete(...)`, `messageEditAuto(...)`, and `messageEditDone(...)`.
 2. After that, reassess whether the next best reduction is deeper message-edit ownership or a separate startup/event-wiring cleanup pass.
+
+## 2026-03-24 - Monolith Reduction Wave 45 (Message Edit Lifecycle Move)
+
+### Completed
+- Moved the main message edit/update helpers out of `public/script.js` into `public/scripts/message-core.js`:
+  - the shared edited-message update path
+  - `messageEditAuto(...)`
+  - `messageEditDone(...)`
+- Shifted the regex cleanup, bias extraction, macro cleanup, metadata tainting, message re-render, and message-updated event flow for edits into `message-core`.
+- Reduced the remaining `public/script.js` edit handlers to thin wrappers that pass the current edited message name/id into the extracted core helpers.
+- Kept the monolith-local `this_edit_mes_chname` for now, but used the already-synced `editedMessageId` state in `message-core` to keep edit completion behavior coherent.
+- Verified syntax for the touched legacy JS files with `node --check` via `mise`.
+
+### Measurable Impact
+- `message-core` now owns not only message swipe/view helpers, but also a substantial piece of the message edit lifecycle itself.
+- The message-edit region in `public/script.js` is shrinking from “real implementation” toward “legacy event wiring plus compatibility wrappers.”
+
+### Insights
+- The edit lifecycle could move cleanly once the edited message id was synchronized into `message-core`; the remaining local coupling is mostly around delete-mode state and edit-name setup rather than the actual edit/save behavior.
+- This reduces the risk of future React or modular message tooling accidentally depending on monolith-only edit internals, because the core now contains the normalization and rerender path.
+
+### Next
+1. Continue with the remaining delete-mode helper in `public/script.js`, especially `openMessageDelete(...)` and the local delete-state ownership around `this_del_mes` / `is_delete_mode`.
+2. Reassess whether the next best reduction is finishing the rest of the message-edit/delete cluster or switching to startup/event-wiring cleanup once that slice is mostly hollowed out.

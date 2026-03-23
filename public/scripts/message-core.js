@@ -1,6 +1,12 @@
-import { appendMediaToMessage, chat, formatSwipeCounter, reloadCurrentChat, saveChatConditional } from './chat-operations-core.js';
+import { appendMediaToMessage, chat, extractMessageBias, formatSwipeCounter, reloadCurrentChat, saveChatConditional } from './chat-operations-core.js';
+import { chat_metadata } from './chat-core.js';
+import { event_types, eventSource } from './events.js';
+import { getRegexedString, regex_placement } from './extensions/regex/engine.js';
 import { is_group_generating, selected_group } from './group-chats.js';
 import { t } from './i18n.js';
+import { removeMacros, substituteParams } from './parser-core.js';
+import { power_user } from './power-user.js';
+import { system_message_types } from './system-messages.js';
 import { is_send_press } from './ui-core.js';
 
 let cleanUpMessageImpl = null;
@@ -309,6 +315,115 @@ export function closeMessageEditor(what = 'all') {
             }
         });
     }
+}
+
+function updateEditedMessage(div) {
+    const mesBlock = div.closest('.mes_block');
+    let text = mesBlock.find('.edit_textarea').val()
+        ?? mesBlock.find('.mes_text').text();
+    const mesElement = div.closest('.mes');
+    const mes = chat[mesElement.attr('mesid')];
+
+    let regexPlacement;
+    if (mes.is_user) {
+        regexPlacement = regex_placement.USER_INPUT;
+    } else if (mes.extra?.type === 'narrator') {
+        regexPlacement = regex_placement.SLASH_COMMAND;
+    } else {
+        regexPlacement = regex_placement.AI_OUTPUT;
+    }
+
+    text = getRegexedString(
+        text,
+        regexPlacement,
+        {
+            characterOverride: mes.extra?.type === 'narrator' ? undefined : mes.name,
+            isEdit: true,
+        },
+    );
+
+    if (power_user.trim_spaces) {
+        text = text.trim();
+    }
+
+    const bias = substituteParams(extractMessageBias(text));
+    text = substituteParams(text);
+    if (bias) {
+        text = removeMacros(text);
+    }
+    mes.mes = text;
+    if (mes.swipe_id !== undefined) {
+        mes.swipes[mes.swipe_id] = text;
+    }
+
+    if (!mes.extra) {
+        mes.extra = {};
+    }
+
+    if (mes.is_system || mes.is_user || mes.extra.type === system_message_types.NARRATOR) {
+        mes.extra.bias = bias ?? null;
+    } else {
+        mes.extra.bias = null;
+    }
+
+    chat_metadata.tainted = true;
+
+    return { mesBlock, text, mes, bias };
+}
+
+export function messageEditAuto(div, editedMessageName, currentEditedMessageId = editedMessageId) {
+    const { mesBlock, text, mes, bias } = updateEditedMessage(div);
+
+    mesBlock.find('.mes_text').val('');
+    mesBlock.find('.mes_text').val(messageFormatting(
+        text,
+        editedMessageName,
+        mes.is_system,
+        mes.is_user,
+        currentEditedMessageId,
+        {},
+        false,
+    ));
+    mesBlock.find('.mes_bias').empty();
+    mesBlock.find('.mes_bias').append(messageFormatting(bias, '', false, false, -1, {}, false));
+    saveChatDebounced();
+}
+
+export async function messageEditDone(div, editedMessageName, currentEditedMessageId = editedMessageId) {
+    let { mesBlock, text, mes, bias } = updateEditedMessage(div);
+    if (currentEditedMessageId == 0) {
+        text = substituteParams(text);
+    }
+
+    await eventSource.emit(event_types.MESSAGE_EDITED, currentEditedMessageId);
+    text = chat[currentEditedMessageId]?.mes ?? text;
+    mesBlock.find('.mes_text').empty();
+    mesBlock.find('.mes_edit_buttons').css('display', 'none');
+    mesBlock.find('.mes_buttons').css('display', '');
+    mesBlock.find('.mes_text').append(
+        messageFormatting(
+            text,
+            editedMessageName,
+            mes.is_system,
+            mes.is_user,
+            currentEditedMessageId,
+            {},
+            false,
+        ),
+    );
+    mesBlock.find('.mes_bias').empty();
+    mesBlock.find('.mes_bias').append(messageFormatting(bias, '', false, false, -1, {}, false));
+    appendMediaToMessage(mes, div.closest('.mes'));
+    addCopyToCodeBlocksImpl(div.closest('.mes'));
+
+    const reasoningEditDone = mesBlock.find('.mes_reasoning_edit_done:visible');
+    if (reasoningEditDone.length > 0) {
+        reasoningEditDone.trigger('click');
+    }
+
+    await eventSource.emit(event_types.MESSAGE_UPDATED, currentEditedMessageId);
+    setEditedMessageId(undefined);
+    await saveChatConditional();
 }
 
 export function updateMessageBlock(...args) {

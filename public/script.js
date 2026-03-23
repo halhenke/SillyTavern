@@ -264,7 +264,7 @@ import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId 
 import { addOneMessage as addOneMessageCore, bindChatOperationsCore, clearChat as clearChatCore, delChat as delChatCore, deleteCharacterChatByName as deleteCharacterChatByNameCore, displayPastChats as displayPastChatsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, getCurrentChatDetails as getCurrentChatDetailsCore, getFirstMessage as getFirstMessageCore, getPastCharacterChats as getPastCharacterChatsCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, replaceCurrentChat as replaceCurrentChatCore, saveChatConditional as saveChatConditionalCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
 import { TempResponseLength, bindGenerationCore, buildCombinedPrompt as buildCombinedPromptCore, executeGenerationRequestFlow as executeGenerationRequestFlowCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, handleGenerationError as handleGenerationErrorCore, prepareContextPackingState as prepareContextPackingStateCore, prepareCoreChatState as prepareCoreChatStateCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationData as prepareGenerationDataCore, prepareGenerationEntryState as prepareGenerationEntryStateCore, prepareGenerationMessages as prepareGenerationMessagesCore, prepareMessageHistoryState as prepareMessageHistoryStateCore, preparePromptAssemblyState as preparePromptAssemblyStateCore, preparePromptAugmentationState as preparePromptAugmentationStateCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
-import { bindMessageCore, setEditedMessageId as setEditedMessageIdCore, updateMessageBlock as updateMessageBlockCore } from './scripts/message-core.js';
+import { bindMessageCore, closeMessageEditor as closeMessageEditorCore, deleteSwipe as deleteSwipeCore, getFirstDisplayedMessageId as getFirstDisplayedMessageIdCore, hideSwipeButtons as hideSwipeButtonsCore, setEditedMessageId as setEditedMessageIdCore, showSwipeButtons as showSwipeButtonsCore, syncMesToSwipe as syncMesToSwipeCore, syncSwipeToMes as syncSwipeToMesCore, updateEditArrowClasses as updateEditArrowClassesCore, updateMessageBlock as updateMessageBlockCore, updateViewMessageIds as updateViewMessageIdsCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
 import { bindSessionCore, doNewChat as doNewChatCore, handleDeleteChat as handleDeleteChatCore, newAssistantChat as newAssistantChatCore, renameGroupOrCharacterChat as renameGroupOrCharacterChatCore, resetChatState as resetChatStateCore, selectRightMenuWithAnimation as selectRightMenuWithAnimationCore, select_rm_characters as selectRmCharactersCore, select_rm_create as selectRmCreateCore, select_rm_info as selectRmInfoCore, select_selected_character as selectSelectedCharacterCore, sendTextareaMessage as sendTextareaMessageCore, setExternalAbortController as setExternalAbortControllerCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes, updateRemoteChatName as updateRemoteChatNameCore } from './scripts/session-core.js';
@@ -445,11 +445,8 @@ bindParserCore({
 bindMessageCore({
     addCopyToCodeBlocks,
     cleanUpMessage,
-    closeMessageEditor,
-    getFirstDisplayedMessageId,
     messageFormatting,
     saveChatDebounced,
-    syncMesToSwipe,
     updateReasoningUI,
 });
 bindExtensionsCore({
@@ -1150,7 +1147,7 @@ export async function selectCharacterById(id, { switchMenu = true } = {}) {
             await clearChat();
             cancelTtsPlay();
             resetSelectedGroup();
-            this_edit_mes_id = undefined;
+            this_edit_mes_id = setEditedMessageIdCore(undefined);
             selected_button = 'character_edit';
             setCharacterId(id);
             chat.length = 0;
@@ -4182,47 +4179,7 @@ export async function saveReply({ type, getMessage, fromStreaming = false, title
  * @returns {boolean} Whether the message was successfully synced
  */
 export function syncMesToSwipe(messageId = null) {
-    if (!chat.length) {
-        return false;
-    }
-
-    const targetMessageId = messageId ?? chat.length - 1;
-    if (targetMessageId >= chat.length || targetMessageId < 0) {
-        console.warn(`[syncMesToSwipe] Invalid message ID: ${messageId}`);
-        return false;
-    }
-
-    const targetMessage = chat[targetMessageId];
-    if (!targetMessage) {
-        return false;
-    }
-
-    // No swipe data there yet, exit out
-    if (typeof targetMessage.swipe_id !== 'number') {
-        return false;
-    }
-    // If swipes structure is invalid, exit out (for now?)
-    if (!Array.isArray(targetMessage.swipe_info) || !Array.isArray(targetMessage.swipes)) {
-        return false;
-    }
-    // If the swipe is not present yet, exit out (will likely be copied later)
-    if (!targetMessage.swipes[targetMessage.swipe_id] || !targetMessage.swipe_info[targetMessage.swipe_id]) {
-        return false;
-    }
-
-    const targetSwipeInfo = targetMessage.swipe_info[targetMessage.swipe_id];
-    if (typeof targetSwipeInfo !== 'object') {
-        return false;
-    }
-
-    targetMessage.swipes[targetMessage.swipe_id] = targetMessage.mes;
-
-    targetSwipeInfo.send_date = targetMessage.send_date;
-    targetSwipeInfo.gen_started = targetMessage.gen_started;
-    targetSwipeInfo.gen_finished = targetMessage.gen_finished;
-    targetSwipeInfo.extra = structuredClone(targetMessage.extra);
-
-    return true;
+    return syncMesToSwipeCore(messageId);
 }
 
 /**
@@ -4235,56 +4192,7 @@ export function syncMesToSwipe(messageId = null) {
  * @returns {boolean} Whether the swipe data was successfully synced to the message
  */
 export function syncSwipeToMes(messageId = null, swipeId = null) {
-    if (!chat.length) {
-        return false;
-    }
-
-    const targetMessageId = messageId ?? chat.length - 1;
-    if (targetMessageId >= chat.length || targetMessageId < 0) {
-        console.warn(`[syncSwipeToMes] Invalid message ID: ${messageId}`);
-        return false;
-    }
-
-    const targetMessage = chat[targetMessageId];
-    if (!targetMessage) {
-        return false;
-    }
-
-    if (swipeId !== null) {
-        if (isNaN(swipeId) || swipeId < 0) {
-            console.warn(`[syncSwipeToMes] Invalid swipe ID: ${swipeId}`);
-            return false;
-        }
-        targetMessage.swipe_id = swipeId;
-    }
-
-    // No swipe data there yet, exit out
-    if (typeof targetMessage.swipe_id !== 'number') {
-        return false;
-    }
-    // If swipes structure is invalid, exit out
-    if (!Array.isArray(targetMessage.swipe_info) || !Array.isArray(targetMessage.swipes)) {
-        return false;
-    }
-
-    const targetSwipeId = targetMessage.swipe_id;
-    if (!targetMessage.swipes[targetSwipeId] || !targetMessage.swipe_info[targetSwipeId]) {
-        console.warn(`[syncSwipeToMes] Invalid swipe ID: ${targetSwipeId}`);
-        return false;
-    }
-
-    const targetSwipeInfo = targetMessage.swipe_info[targetSwipeId];
-    if (typeof targetSwipeInfo !== 'object') {
-        return false;
-    }
-
-    targetMessage.mes = targetMessage.swipes[targetSwipeId];
-    targetMessage.send_date = targetSwipeInfo.send_date;
-    targetMessage.gen_started = targetSwipeInfo.gen_started;
-    targetMessage.gen_finished = targetSwipeInfo.gen_finished;
-    targetMessage.extra = structuredClone(targetSwipeInfo.extra);
-
-    return true;
+    return syncSwipeToMesCore(messageId, swipeId);
 }
 
 /**
@@ -5428,7 +5336,7 @@ async function messageEditDone(div) {
     }
 
     await eventSource.emit(event_types.MESSAGE_UPDATED, this_edit_mes_id);
-    this_edit_mes_id = undefined;
+    this_edit_mes_id = setEditedMessageIdCore(undefined);
     await saveChatConditional();
 }
 
@@ -5716,70 +5624,11 @@ export function callPopup(text, type, inputValue = '', { okButton, rows, wide, w
 }
 
 export function showSwipeButtons() {
-    if (chat.length === 0) {
-        return;
-    }
-
-    if (
-        chat[chat.length - 1].is_system ||
-        !swipes ||
-        Number($('.mes:last').attr('mesid')) < 0 ||
-        chat[chat.length - 1].is_user ||
-        (selected_group && is_group_generating)
-    ) { return; }
-
-    // swipe_id should be set if alternate greetings are added
-    if (chat.length == 1 && chat[0].swipe_id === undefined) {
-        return;
-    }
-
-    //had to add this to make the swipe counter work
-    //(copied from the onclick functions for swipe buttons..
-    //don't know why the array isn't set for non-swipe messages in Generate or addOneMessage..)
-    if (chat[chat.length - 1]['swipe_id'] === undefined) {              // if there is no swipe-message in the last spot of the chat array
-        chat[chat.length - 1]['swipe_id'] = 0;                        // set it to id 0
-        chat[chat.length - 1]['swipes'] = [];                         // empty the array
-        chat[chat.length - 1]['swipes'][0] = chat[chat.length - 1]['mes'];  //assign swipe array with last message from chat
-        chat[chat.length - 1]['swipe_info'] = [];
-        chat[chat.length - 1]['swipe_info'][0] = {
-            'send_date': chat[chat.length - 1]['send_date'],
-            'gen_started': chat[chat.length - 1]['gen_started'],
-            'gen_finished': chat[chat.length - 1]['gen_finished'],
-            'extra': structuredClone(chat[chat.length - 1]['extra']),
-        };
-    }
-
-    const currentMessage = $('#chat').children().filter(`[mesid="${chat.length - 1}"]`);
-    const swipeId = chat[chat.length - 1].swipe_id;
-    const swipeCounterText = formatSwipeCounter((swipeId + 1), chat[chat.length - 1].swipes.length);
-    const swipeRight = currentMessage.find('.swipe_right');
-    const swipeLeft = currentMessage.find('.swipe_left');
-    const swipeCounter = currentMessage.find('.swipes-counter');
-
-    if (swipeId !== undefined && (chat[chat.length - 1].swipes.length > 1 || swipeId > 0)) {
-        swipeLeft.css('display', 'flex');
-    }
-    //only show right when generate is off, or when next right swipe would not make a generate happen
-    if (is_send_press === false || chat[chat.length - 1].swipes.length >= swipeId) {
-        swipeRight.css('display', 'flex').css('opacity', '0.3');
-        swipeCounter.css('opacity', '0.3');
-    }
-    if ((chat[chat.length - 1].swipes.length - swipeId) === 1) {
-        //chevron was moved out of hardcode in HTML to class toggle dependent on last_mes or not
-        //necessary for 'swipe_right' div in past messages to have no chevron if 'show swipes for all messages' is turned on
-        swipeRight.css('opacity', '0.7');
-        swipeCounter.css('opacity', '0.7');
-    }
-
-    //allows for writing individual swipe counters for past messages
-    const lastSwipeCounter = $('.last_mes .swipes-counter');
-    lastSwipeCounter.text(swipeCounterText).show();
+    return showSwipeButtonsCore();
 }
 
 export function hideSwipeButtons() {
-    chatElement.find('.swipe_right').hide();
-    chatElement.find('.last_mes .swipes-counter').hide();
-    chatElement.find('.swipe_left').hide();
+    return hideSwipeButtonsCore();
 }
 
 /**
@@ -5789,43 +5638,7 @@ export function hideSwipeButtons() {
  * @returns {Promise<number>|undefined} - The ID of the new swipe after deletion.
  */
 export async function deleteSwipe(swipeId = null) {
-    if (swipeId && (isNaN(swipeId) || swipeId < 0)) {
-        toastr.warning(t`Invalid swipe ID: ${swipeId + 1}`);
-        return;
-    }
-
-    const lastMessage = chat[chat.length - 1];
-    if (!lastMessage || !Array.isArray(lastMessage.swipes) || !lastMessage.swipes.length) {
-        toastr.warning(t`No messages to delete swipes from.`);
-        return;
-    }
-
-    if (lastMessage.swipes.length <= 1) {
-        toastr.warning(t`Can't delete the last swipe.`);
-        return;
-    }
-
-    swipeId = swipeId ?? lastMessage.swipe_id;
-
-    if (swipeId < 0 || swipeId >= lastMessage.swipes.length) {
-        toastr.warning(t`Invalid swipe ID: ${swipeId + 1}`);
-        return;
-    }
-
-    lastMessage.swipes.splice(swipeId, 1);
-
-    if (Array.isArray(lastMessage.swipe_info) && lastMessage.swipe_info.length) {
-        lastMessage.swipe_info.splice(swipeId, 1);
-    }
-
-    // Select the next swipe, or the one before if it was the last one
-    const newSwipeId = Math.min(swipeId, lastMessage.swipes.length - 1);
-    syncSwipeToMes(null, newSwipeId);
-
-    await saveChatConditional();
-    await reloadCurrentChat();
-
-    return newSwipeId;
+    return deleteSwipeCore(swipeId);
 }
 
 export async function saveMetadata() {
@@ -5867,43 +5680,15 @@ async function importCharacterChat(formData, eventTarget) {
 }
 
 function updateViewMessageIds(startFromZero = false) {
-    const minId = startFromZero ? 0 : getFirstDisplayedMessageId();
-
-    $('#chat').find('.mes').each(function (index, element) {
-        $(element).attr('mesid', minId + index);
-        $(element).find('.mesIDDisplay').text(`#${minId + index}`);
-    });
-
-    $('#chat .mes').removeClass('last_mes');
-    $('#chat .mes').last().addClass('last_mes');
-
-    updateEditArrowClasses();
+    return updateViewMessageIdsCore(startFromZero);
 }
 
 export function getFirstDisplayedMessageId() {
-    const allIds = Array.from(document.querySelectorAll('#chat .mes')).map(el => Number(el.getAttribute('mesid'))).filter(x => !isNaN(x));
-    const minId = Math.min(...allIds);
-    return minId;
+    return getFirstDisplayedMessageIdCore();
 }
 
 function updateEditArrowClasses() {
-    $('#chat .mes .mes_edit_up').removeClass('disabled');
-    $('#chat .mes .mes_edit_down').removeClass('disabled');
-
-    if (this_edit_mes_id !== undefined) {
-        const down = $(`#chat .mes[mesid="${this_edit_mes_id}"] .mes_edit_down`);
-        const up = $(`#chat .mes[mesid="${this_edit_mes_id}"] .mes_edit_up`);
-        const lastId = Number($('#chat .mes').last().attr('mesid'));
-        const firstId = Number($('#chat .mes').first().attr('mesid'));
-
-        if (lastId == Number(this_edit_mes_id)) {
-            down.addClass('disabled');
-        }
-
-        if (firstId == Number(this_edit_mes_id)) {
-            up.addClass('disabled');
-        }
-    }
+    return updateEditArrowClassesCore();
 }
 
 /**
@@ -5911,19 +5696,7 @@ function updateEditArrowClasses() {
  * @param {'message'|'reasoning'|'all'} what What to close. Default is 'all'.
  */
 export function closeMessageEditor(what = 'all') {
-    if (what === 'message' || what === 'all') {
-        if (this_edit_mes_id) {
-            $(`#chat .mes[mesid="${this_edit_mes_id}"] .mes_edit_cancel`).trigger('click');
-        }
-    }
-    if (what === 'reasoning' || what === 'all') {
-        document.querySelectorAll('.reasoning_edit_textarea').forEach((el) => {
-            const cancelButton = el.closest('.mes')?.querySelector('.mes_reasoning_edit_cancel');
-            if (cancelButton instanceof HTMLElement) {
-                cancelButton.click();
-            }
-        });
-    }
+    return closeMessageEditorCore(what);
 }
 
 export function setGenerationProgress(progress) {
@@ -7466,7 +7239,7 @@ jQuery(async function () {
                 setCharacterName('');
                 setActiveCharacter(null);
                 setActiveGroup(null);
-                this_edit_mes_id = undefined;
+                this_edit_mes_id = setEditedMessageIdCore(undefined);
                 chat_metadata = {};
                 syncChatMetadata(chat_metadata);
                 selected_button = 'characters';
@@ -7678,7 +7451,7 @@ jQuery(async function () {
             $(this).closest('.mes_block').find('.mes_buttons').css('display', 'none');
             $(this).closest('.mes_block').find('.mes_edit_buttons').css('display', 'inline-flex');
             var edit_mes_id = $(this).closest('.mes').attr('mesid');
-            this_edit_mes_id = edit_mes_id;
+            this_edit_mes_id = setEditedMessageIdCore(edit_mes_id);
 
             // Also edit reasoning, if it exists
             const reasoningEdit = $(this).closest('.mes_block').find('.mes_reasoning_edit:visible');
@@ -7827,7 +7600,7 @@ jQuery(async function () {
         }
 
         await eventSource.emit(event_types.MESSAGE_UPDATED, this_edit_mes_id);
-        this_edit_mes_id = undefined;
+        this_edit_mes_id = setEditedMessageIdCore(undefined);
     });
 
     $(document).on('click', '.mes_edit_up', async function () {
@@ -7853,7 +7626,7 @@ jQuery(async function () {
         chat[targetId] = chat[this_edit_mes_id];
         chat[this_edit_mes_id] = temp;
 
-        this_edit_mes_id = targetId;
+        this_edit_mes_id = setEditedMessageIdCore(targetId);
         updateViewMessageIds();
         await saveChatConditional();
         showSwipeButtons();
@@ -7882,7 +7655,7 @@ jQuery(async function () {
         chat[targetId] = chat[this_edit_mes_id];
         chat[this_edit_mes_id] = temp;
 
-        this_edit_mes_id = targetId;
+        this_edit_mes_id = setEditedMessageIdCore(targetId);
         updateViewMessageIds();
         await saveChatConditional();
         showSwipeButtons();
@@ -7947,7 +7720,7 @@ jQuery(async function () {
 
         let startFromZero = Number(this_edit_mes_id) === 0;
 
-        this_edit_mes_id = undefined;
+        this_edit_mes_id = setEditedMessageIdCore(undefined);
         chat_metadata['tainted'] = true;
 
         updateViewMessageIds(startFromZero);

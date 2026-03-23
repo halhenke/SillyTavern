@@ -2734,3 +2734,33 @@
 ### Next
 1. Reassess the next largest ownership cluster still in `public/script.js`, likely in generation/chat-editing flows rather than character/session selection now.
 2. Continue removing any remaining duplicated bootstrap-local state that was only supporting these extracted list/editor flows.
+
+## 2026-03-24 - Monolith Reduction Wave 44 (Message Swipe/View Helper Move)
+
+### Completed
+- Moved the message swipe/view helper cluster out of `public/script.js` into `public/scripts/message-core.js`:
+  - `syncMesToSwipe(...)`
+  - `syncSwipeToMes(...)`
+  - `showSwipeButtons()`
+  - `hideSwipeButtons()`
+  - `deleteSwipe(...)`
+  - `updateViewMessageIds(...)`
+  - `getFirstDisplayedMessageId()`
+  - `updateEditArrowClasses()`
+  - `closeMessageEditor(...)`
+- Reduced the corresponding `public/script.js` exports/helpers to thin delegates into `message-core`.
+- Removed the now-stale `bindMessageCore(...)` bootstrap bindings for `closeMessageEditor`, `getFirstDisplayedMessageId`, and `syncMesToSwipe`.
+- Updated the remaining `this_edit_mes_id` write sites in `public/script.js` to also sync `message-core`'s `editedMessageId` state, so the extracted editor helpers keep using the real active edit target.
+- Verified syntax for the touched legacy JS files with `node --check` via `mise`.
+
+### Measurable Impact
+- `message-core` now owns a real behavior slice instead of being mostly a wrapper surface around monolith message helpers.
+- The chat-editing/view layer in `public/script.js` lost another cohesive pocket of DOM/state behavior, leaving more of the remaining monolith weight concentrated in message edit flows and startup/event wiring.
+
+### Insights
+- The main risk in this batch was not the helper logic itself; it was the split ownership of `this_edit_mes_id`. Promoting `message-core`'s `editedMessageId` to stay in sync with the remaining monolith writes was the key step that made the extraction safe.
+- This confirms the message-edit/swipe area can keep moving incrementally into `message-core` without having to migrate the whole edit lifecycle in one shot.
+
+### Next
+1. Continue with the remaining message-edit cluster in `public/script.js`, especially `openMessageDelete(...)`, `messageEditAuto(...)`, and `messageEditDone(...)`.
+2. After that, reassess whether the next best reduction is deeper message-edit ownership or a separate startup/event-wiring cleanup pass.

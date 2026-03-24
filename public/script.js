@@ -751,7 +751,7 @@ bindChatOperationsCore({
     },
     restoreNeutralChat,
     saveChat,
-    saveCharacterDebounced,
+    saveCharacterDebounced: (...args) => saveCharacterDebounced(...args),
     saveItemizedPrompts,
     scrollChatToBottom,
     saveReply,

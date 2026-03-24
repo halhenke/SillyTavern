@@ -474,7 +474,7 @@ bindCharacterCore({
     resetChatState,
     restoreNeutralChat,
     saveChatConditional,
-    saveSettingsDebounced,
+    saveSettingsDebounced: (...args) => saveSettingsDebounced(...args),
     select_rm_info,
 });
 bindChatCore({

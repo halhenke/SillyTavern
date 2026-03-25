@@ -1,5 +1,5 @@
 import { appendMediaToMessage, chat, extractMessageBias, formatSwipeCounter, reloadCurrentChat, saveChatConditional } from './chat-operations-core.js';
-import { chat_metadata } from './chat-core.js';
+import { chat_metadata, this_chid } from './chat-core.js';
 import { event_types, eventSource } from './events.js';
 import { getRegexedString, regex_placement } from './extensions/regex/engine.js';
 import { is_group_generating, selected_group } from './group-chats.js';
@@ -16,6 +16,8 @@ let addCopyToCodeBlocksImpl = null;
 let updateReasoningUIImpl = null;
 
 export let editedMessageId = undefined;
+export let deleteModeMessageId = -1;
+export let isDeleteMode = false;
 
 function throwUnbound(name) {
     throw new Error(`[message-core] ${name} was called before bindings were initialized`);
@@ -66,6 +68,11 @@ export function saveChatDebounced(...args) {
 export function setEditedMessageId(value) {
     editedMessageId = value;
     return editedMessageId;
+}
+
+function resetDeleteModeState() {
+    deleteModeMessageId = -1;
+    isDeleteMode = false;
 }
 
 export function syncMesToSwipe(messageId = null) {
@@ -315,6 +322,89 @@ export function closeMessageEditor(what = 'all') {
             }
         });
     }
+}
+
+function resetDeleteModeUi(cssSendFormDisplay) {
+    $('#dialogue_del_mes').css('display', 'none');
+    $('#send_form').css('display', cssSendFormDisplay);
+    $('.del_checkbox').each(function () {
+        $(this).css('display', 'none');
+        $(this).parent().children('.for_checkbox').css('display', 'block');
+        $(this).parent().removeClass('selected');
+        $(this).prop('checked', false);
+    });
+}
+
+export function openMessageDelete(fromSlashCommand) {
+    closeMessageEditor();
+    hideSwipeButtons();
+    if (fromSlashCommand || (!is_send_press) || (selected_group && !is_group_generating)) {
+        $('#dialogue_del_mes').css('display', 'block');
+        $('#send_form').css('display', 'none');
+        $('.del_checkbox').each(function () {
+            $(this).css('display', 'grid');
+            $(this).parent().children('.for_checkbox').css('display', 'none');
+        });
+    } else {
+        console.debug(`
+            ERR -- could not enter del mode
+            this_chid: ${this_chid}
+            is_send_press: ${is_send_press}
+            selected_group: ${selected_group}
+            is_group_generating: ${is_group_generating}`);
+    }
+    deleteModeMessageId = -1;
+    isDeleteMode = true;
+    return isDeleteMode;
+}
+
+export function selectMessageDeleteTarget(messageId) {
+    $('.mes').children('.del_checkbox').each(function () {
+        $(this).prop('checked', false);
+        $(this).parent().removeClass('selected');
+    });
+
+    let currentMessageId = Number(messageId);
+    $(`.mes[mesid="${currentMessageId}"]`).addClass('selected');
+    deleteModeMessageId = currentMessageId;
+
+    while (currentMessageId < chat.length) {
+        $(`.mes[mesid="${currentMessageId}"]`).addClass('selected');
+        $(`.mes[mesid="${currentMessageId}"]`).children('.del_checkbox').prop('checked', true);
+        currentMessageId++;
+    }
+
+    return deleteModeMessageId;
+}
+
+export function cancelDeleteMode(cssSendFormDisplay) {
+    resetDeleteModeUi(cssSendFormDisplay);
+    showSwipeButtons();
+    resetDeleteModeState();
+    return isDeleteMode;
+}
+
+export async function confirmDeleteMode(cssSendFormDisplay) {
+    resetDeleteModeUi(cssSendFormDisplay);
+
+    if (deleteModeMessageId >= 0) {
+        $(`.mes[mesid="${deleteModeMessageId}"]`).nextAll('div').remove();
+        $(`.mes[mesid="${deleteModeMessageId}"]`).remove();
+        chat.length = deleteModeMessageId;
+        chat_metadata.tainted = true;
+        await saveChatConditional();
+        const chatElement = $('#chat');
+        chatElement.scrollTop(chatElement[0].scrollHeight);
+        await eventSource.emit(event_types.MESSAGE_DELETED, chat.length);
+        $('#chat .mes').removeClass('last_mes');
+        $('#chat .mes').last().addClass('last_mes');
+    } else {
+        console.log('deleteModeMessageId is not >= 0, not deleting');
+    }
+
+    showSwipeButtons();
+    resetDeleteModeState();
+    return chat.length;
 }
 
 function updateEditedMessage(div) {

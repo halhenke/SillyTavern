@@ -2788,3 +2788,34 @@
 ### Next
 1. Continue with the remaining delete-mode helper in `public/script.js`, especially `openMessageDelete(...)` and the local delete-state ownership around `this_del_mes` / `is_delete_mode`.
 2. Reassess whether the next best reduction is finishing the rest of the message-edit/delete cluster or switching to startup/event-wiring cleanup once that slice is mostly hollowed out.
+
+## 2026-03-25 - Monolith Reduction Wave 46 (Message Delete Mode Move)
+
+### Completed
+- Moved the remaining message delete-mode lifecycle out of `public/script.js` into `public/scripts/message-core.js`:
+  - `openMessageDelete(...)`
+  - delete target selection/range highlighting
+  - cancel delete mode
+  - confirm delete mode
+  - delete-mode state ownership
+- Added core-owned delete-mode state in `message-core` and removed the monolith-local `is_delete_mode` / `this_del_mes` variables from `public/script.js`.
+- Reduced the `public/script.js` click handlers for:
+  - message-row delete selection
+  - delete cancel
+  - delete confirm
+  - edit-button guard while in delete mode
+  to thin delegates into `message-core`.
+- Updated the `bindChatOperationsCore(...)` bootstrap seam to read delete-mode state from `message-core` instead of monolith-local state.
+- Verified syntax for the touched legacy JS files with `node --check` via `mise`.
+
+### Measurable Impact
+- The remaining message delete-mode behavior no longer lives in `public/script.js`; the monolith now mostly wires DOM events into core-owned message edit/delete helpers.
+- `message-core` now owns the full local message edit/delete surface except for some event registration glue in the bootstrap layer.
+
+### Insights
+- Once the edited-message lifecycle had already moved, the delete-mode flow could follow cleanly because it depended on the same DOM neighborhood and message-core state rather than broader app bootstrap concerns.
+- This noticeably improves the shape of `public/script.js`: the message area is increasingly “legacy event hookup” rather than “message behavior implementation.”
+
+### Next
+1. Reassess the next largest real-ownership cluster still left in `public/script.js`, likely message editor UI entry/cancel handlers or a different startup/event-wiring pocket.
+2. Continue collapsing wrapper-only or state-only monolith remnants when the extracted cores already own the behavior.

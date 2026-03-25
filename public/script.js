@@ -264,7 +264,7 @@ import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId 
 import { addOneMessage as addOneMessageCore, bindChatOperationsCore, clearChat as clearChatCore, delChat as delChatCore, deleteCharacterChatByName as deleteCharacterChatByNameCore, displayPastChats as displayPastChatsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, getCurrentChatDetails as getCurrentChatDetailsCore, getFirstMessage as getFirstMessageCore, getPastCharacterChats as getPastCharacterChatsCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, replaceCurrentChat as replaceCurrentChatCore, saveChatConditional as saveChatConditionalCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
 import { TempResponseLength, bindGenerationCore, buildCombinedPrompt as buildCombinedPromptCore, executeGenerationRequestFlow as executeGenerationRequestFlowCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, handleGenerationError as handleGenerationErrorCore, prepareContextPackingState as prepareContextPackingStateCore, prepareCoreChatState as prepareCoreChatStateCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationData as prepareGenerationDataCore, prepareGenerationEntryState as prepareGenerationEntryStateCore, prepareGenerationMessages as prepareGenerationMessagesCore, prepareMessageHistoryState as prepareMessageHistoryStateCore, preparePromptAssemblyState as preparePromptAssemblyStateCore, preparePromptAugmentationState as preparePromptAugmentationStateCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
-import { bindMessageCore, closeMessageEditor as closeMessageEditorCore, deleteSwipe as deleteSwipeCore, editedMessageId as editedMessageIdCore, getFirstDisplayedMessageId as getFirstDisplayedMessageIdCore, hideSwipeButtons as hideSwipeButtonsCore, messageEditAuto as messageEditAutoCore, messageEditDone as messageEditDoneCore, setEditedMessageId as setEditedMessageIdCore, showSwipeButtons as showSwipeButtonsCore, syncMesToSwipe as syncMesToSwipeCore, syncSwipeToMes as syncSwipeToMesCore, updateEditArrowClasses as updateEditArrowClassesCore, updateMessageBlock as updateMessageBlockCore, updateViewMessageIds as updateViewMessageIdsCore } from './scripts/message-core.js';
+import { bindMessageCore, cancelDeleteMode as cancelDeleteModeCore, closeMessageEditor as closeMessageEditorCore, confirmDeleteMode as confirmDeleteModeCore, deleteSwipe as deleteSwipeCore, editedMessageId as editedMessageIdCore, getFirstDisplayedMessageId as getFirstDisplayedMessageIdCore, hideSwipeButtons as hideSwipeButtonsCore, isDeleteMode as isDeleteModeCore, messageEditAuto as messageEditAutoCore, messageEditDone as messageEditDoneCore, openMessageDelete as openMessageDeleteCore, selectMessageDeleteTarget as selectMessageDeleteTargetCore, setEditedMessageId as setEditedMessageIdCore, showSwipeButtons as showSwipeButtonsCore, syncMesToSwipe as syncMesToSwipeCore, syncSwipeToMes as syncSwipeToMesCore, updateEditArrowClasses as updateEditArrowClassesCore, updateMessageBlock as updateMessageBlockCore, updateViewMessageIds as updateViewMessageIdsCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
 import { bindSessionCore, doNewChat as doNewChatCore, handleDeleteChat as handleDeleteChatCore, newAssistantChat as newAssistantChatCore, renameGroupOrCharacterChat as renameGroupOrCharacterChatCore, resetChatState as resetChatStateCore, selectRightMenuWithAnimation as selectRightMenuWithAnimationCore, select_rm_characters as selectRmCharactersCore, select_rm_create as selectRmCreateCore, select_rm_info as selectRmInfoCore, select_selected_character as selectSelectedCharacterCore, sendTextareaMessage as sendTextareaMessageCore, setExternalAbortController as setExternalAbortControllerCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes, updateRemoteChatName as updateRemoteChatNameCore } from './scripts/session-core.js';
@@ -427,7 +427,6 @@ export let streamingProcessor = null;
 syncStreamingProcessor(streamingProcessor);
 let crop_data = undefined;
 syncCropData(crop_data);
-let is_delete_mode = false;
 let scrollLock = false;
 export let abortStatusCheck = new AbortController();
 setAbortStatusCheck(abortStatusCheck);
@@ -717,7 +716,7 @@ bindChatOperationsCore({
     applyStylePins,
     cancelDebouncedChatSave,
     cancelDebouncedMetadataSave,
-    cancelDeleteMode: () => $('#dialogue_del_mes_cancel').trigger('click'),
+    cancelDeleteMode: () => cancelDeleteModeCore(css_send_form_display),
     closeMessageEditor,
     createOrEditCharacter,
     deactivateSendButtons,
@@ -733,7 +732,7 @@ bindChatOperationsCore({
     getMaxContextSize,
     getSelectedGroup: () => selected_group,
     hideSwipeButtons,
-    isDeleteMode: () => is_delete_mode,
+    isDeleteMode: () => isDeleteModeCore,
     loadItemizedPrompts,
     messageFormatting,
     preserveNeutralChat,
@@ -916,8 +915,6 @@ syncOnlineStatus(online_status);
 
 export let is_send_press = false; //Send generation
 syncIsSendPress(is_send_press);
-
-let this_del_mes = -1;
 
 //message editing
 var this_edit_mes_chname = '';
@@ -5206,25 +5203,7 @@ export function setGenerationParamsFromPreset(preset) {
 }
 
 function openMessageDelete(fromSlashCommand) {
-    closeMessageEditor();
-    hideSwipeButtons();
-    if (fromSlashCommand || (!is_send_press) || (selected_group && !is_group_generating)) {
-        $('#dialogue_del_mes').css('display', 'block');
-        $('#send_form').css('display', 'none');
-        $('.del_checkbox').each(function () {
-            $(this).css('display', 'grid');
-            $(this).parent().children('.for_checkbox').css('display', 'none');
-        });
-    } else {
-        console.debug(`
-            ERR -- could not enter del mode
-            this_chid: ${this_chid}
-            is_send_press: ${is_send_press}
-            selected_group: ${selected_group}
-            is_group_generating: ${is_group_generating}`);
-    }
-    this_del_mes = -1;
-    is_delete_mode = true;
+    return openMessageDeleteCore(fromSlashCommand);
 }
 
 function messageEditAuto(div) {
@@ -6737,23 +6716,10 @@ jQuery(async function () {
     $(document).on('click', '.mes', function () {
         //when a 'delete message' parent div is clicked
         // and we are in delete mode and del_checkbox is visible
-        if (!is_delete_mode || !$(this).children('.del_checkbox').is(':visible')) {
+        if (!isDeleteModeCore || !$(this).children('.del_checkbox').is(':visible')) {
             return;
         }
-        $('.mes').children('.del_checkbox').each(function () {
-            $(this).prop('checked', false);
-            $(this).parent().removeClass('selected');
-        });
-        $(this).addClass('selected'); //sets the bg of the mes selected for deletion
-        var i = Number($(this).attr('mesid')); //checks the message ID in the chat
-        this_del_mes = i;
-        //as long as the current message ID is less than the total chat length
-        while (i < chat.length) {
-            //sets the bg of the all msgs BELOW the selected .mes
-            $(`.mes[mesid="${i}"]`).addClass('selected');
-            $(`.mes[mesid="${i}"]`).children('.del_checkbox').prop('checked', true);
-            i++;
-        }
+        selectMessageDeleteTargetCore(Number($(this).attr('mesid')));
     });
 
     /**
@@ -7183,47 +7149,12 @@ jQuery(async function () {
 
     //functionality for the cancel delete messages button, reverts to normal display of input form
     $('#dialogue_del_mes_cancel').on('click', function () {
-        $('#dialogue_del_mes').css('display', 'none');
-        $('#send_form').css('display', css_send_form_display);
-        $('.del_checkbox').each(function () {
-            $(this).css('display', 'none');
-            $(this).parent().children('.for_checkbox').css('display', 'block');
-            $(this).parent().removeClass('selected');
-            $(this).prop('checked', false);
-        });
-        showSwipeButtons();
-        this_del_mes = -1;
-        is_delete_mode = false;
+        cancelDeleteModeCore(css_send_form_display);
     });
 
     //confirms message deletion with the "ok" button
     $('#dialogue_del_mes_ok').on('click', async function () {
-        $('#dialogue_del_mes').css('display', 'none');
-        $('#send_form').css('display', css_send_form_display);
-        $('.del_checkbox').each(function () {
-            $(this).css('display', 'none');
-            $(this).parent().children('.for_checkbox').css('display', 'block');
-            $(this).parent().removeClass('selected');
-            $(this).prop('checked', false);
-        });
-
-        if (this_del_mes >= 0) {
-            $(`.mes[mesid="${this_del_mes}"]`).nextAll('div').remove();
-            $(`.mes[mesid="${this_del_mes}"]`).remove();
-            chat.length = this_del_mes;
-            chat_metadata['tainted'] = true;
-            await saveChatConditional();
-            chatElement.scrollTop(chatElement[0].scrollHeight);
-            await eventSource.emit(event_types.MESSAGE_DELETED, chat.length);
-            $('#chat .mes').removeClass('last_mes');
-            $('#chat .mes').last().addClass('last_mes');
-        } else {
-            console.log('this_del_mes is not >= 0, not deleting');
-        }
-
-        showSwipeButtons();
-        this_del_mes = -1;
-        is_delete_mode = false;
+        await confirmDeleteModeCore(css_send_form_display);
     });
 
     $('#main_api').on('change', async function () {
@@ -7316,7 +7247,7 @@ jQuery(async function () {
     //********************
     //***Message Editor***
     $(document).on('click', '.mes_edit', async function () {
-        if (is_delete_mode) {
+        if (isDeleteModeCore) {
             return;
         }
         if (this_chid !== undefined || selected_group || name2 === neutralCharacterName) {

@@ -3041,3 +3041,28 @@
 ### Next
 1. Keep an eye on startup/runtime regressions immediately after future `script.js` extractions, especially when moved code depends on utilities that were previously imported only by the monolith.
 2. Resume monolith reduction with the user’s stated constraint in mind: prefer relocations and compatibility-preserving fixes over internal rewrites that make upstream equivalence harder to demonstrate.
+
+## 2026-03-26 - Monolith Reduction Wave 55 (Drawer UI Helper Move)
+
+### Completed
+- Moved the drawer-open helper pair out of `public/script.js` into `public/scripts/ui-core.js`:
+  - `doDrawerOpenClick()`
+  - `doNavbarIconClick()`
+- Kept `public/script.js` compatibility wrappers in place so existing event registration and `session-core` bindings still call the same exported function names.
+- Extended `bindUiCore(...)` just enough for the moved implementation to keep using existing legacy helpers without re-importing broader modules:
+  - `delay(...)`
+  - `favsToHotswap(...)`
+  - `resetScrollHeight(...)`
+- Verified syntax for the touched files with `node --check` via `mise`.
+
+### Measurable Impact
+- `public/script.js` lost another self-contained DOM/UI behavior block and is slightly closer to bootstrap/event wiring in the navigation area.
+- Drawer behavior now lives with the rest of the standalone UI helpers instead of staying mixed into the monolith.
+
+### Insights
+- This was a lower-risk extraction than another character or slash-command seam because the behavior is mostly DOM class toggling plus a few well-defined helper calls.
+- Keeping the `script.js` wrappers preserves current call paths for `session-core` and legacy modules, which keeps the equivalence story simpler for future upstream comparison.
+
+### Next
+1. Reassess whether the next low-risk extraction should stay in startup/UI bootstrap territory or move back to a larger feature seam.
+2. Keep preferring batches where `script.js` can retain only wrappers and event hookup after the move.

@@ -8,6 +8,9 @@ import { showdown } from '../lib.js';
 
 let addCopyToCodeBlocksImpl = null;
 let callPopupImpl = null;
+let delayImpl = null;
+let favsToHotswapImpl = null;
+let resetScrollHeightImpl = null;
 let scrollChatToBottomImpl = null;
 
 export let ANIMATION_DURATION_DEFAULT = 0;
@@ -25,12 +28,18 @@ function throwUnbound(name) {
  * @param {{
  *   addCopyToCodeBlocks: (...args: any[]) => any,
  *   callPopup: (...args: any[]) => any,
+ *   delay: (...args: any[]) => Promise<any>,
+ *   favsToHotswap: (...args: any[]) => any,
+ *   resetScrollHeight: (...args: any[]) => Promise<any>,
  *   scrollChatToBottom: (...args: any[]) => any,
  * }} impl Implementations to bind
  */
 export function bindUiCore(impl) {
     addCopyToCodeBlocksImpl = impl?.addCopyToCodeBlocks ?? null;
     callPopupImpl = impl?.callPopup ?? null;
+    delayImpl = impl?.delay ?? null;
+    favsToHotswapImpl = impl?.favsToHotswap ?? null;
+    resetScrollHeightImpl = impl?.resetScrollHeight ?? null;
     scrollChatToBottomImpl = impl?.scrollChatToBottom ?? null;
 }
 
@@ -68,6 +77,30 @@ export function callPopup(...args) {
     }
 
     return callPopupImpl(...args);
+}
+
+function delayBound(...args) {
+    if (!delayImpl) {
+        throwUnbound('delay');
+    }
+
+    return delayImpl(...args);
+}
+
+function favsToHotswapBound(...args) {
+    if (!favsToHotswapImpl) {
+        throwUnbound('favsToHotswap');
+    }
+
+    return favsToHotswapImpl(...args);
+}
+
+function resetScrollHeightBound(...args) {
+    if (!resetScrollHeightImpl) {
+        throwUnbound('resetScrollHeight');
+    }
+
+    return resetScrollHeightImpl(...args);
 }
 
 export function reloadMarkdownProcessor(...args) {
@@ -110,6 +143,55 @@ export function setAnimationDuration(ms = null) {
     animation_duration = ms ?? ANIMATION_DURATION_DEFAULT;
     document.documentElement.style.setProperty('--animation-duration', `${animation_duration}ms`);
     return animation_duration;
+}
+
+export function doDrawerOpenClick() {
+    const targetDrawerID = $(this).attr('data-target');
+    const drawer = $(`#${targetDrawerID}`);
+    const drawerToggle = drawer.find('.drawer-toggle');
+    const drawerWasOpenAlready = drawerToggle.parent().find('.drawer-content').hasClass('openDrawer');
+    if (drawerWasOpenAlready || drawer.hasClass('resizing')) {
+        return;
+    }
+    doNavbarIconClick.call(drawerToggle);
+}
+
+export async function doNavbarIconClick() {
+    const icon = $(this).find('.drawer-icon');
+    const drawer = $(this).parent().find('.drawer-content');
+    const drawerWasOpenAlready = $(this).parent().find('.drawer-content').hasClass('openDrawer');
+    const targetDrawerID = $(this).parent().find('.drawer-content').attr('id');
+
+    if (!drawerWasOpenAlready) {
+        const $openDrawers = $('.openDrawer:not(.pinnedOpen)');
+        const $openIcons = $('.openIcon:not(.drawerPinnedOpen)');
+        for (const iconEl of $openIcons) {
+            $(iconEl).toggleClass('closedIcon openIcon');
+        }
+        for (const el of $openDrawers) {
+            $(el).toggleClass('closedDrawer openDrawer');
+        }
+        if ($openDrawers.length && animation_duration) {
+            await delayBound(animation_duration);
+        }
+        icon.toggleClass('openIcon closedIcon');
+        drawer.toggleClass('openDrawer closedDrawer');
+
+        if (targetDrawerID === 'right-nav-panel') {
+            favsToHotswapBound();
+            $('#rm_print_characters_block').trigger('scroll');
+        }
+
+        if (!CSS.supports('field-sizing', 'content')) {
+            const textareas = $(this).closest('.drawer').find('.drawer-content textarea.autoSetHeight');
+            for (const textarea of textareas) {
+                await resetScrollHeightBound($(textarea));
+            }
+        }
+    } else if (drawerWasOpenAlready) {
+        icon.toggleClass('closedIcon openIcon');
+        drawer.toggleClass('closedDrawer openDrawer');
+    }
 }
 
 export function showStopButton() {

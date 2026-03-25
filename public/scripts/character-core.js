@@ -12,7 +12,7 @@ import { power_user, sortEntitiesList } from './power-user.js';
 import { favsToHotswap, isMobile } from './RossAscends-mods.js';
 import { renderTemplateAsync } from './templates.js';
 import { applyTagsOnCharacterSelect, applyTagsOnGroupSelect, compareTagsForSort, filterByTagState, getTagBlock, isBogusFolder, isBogusFolderOpen, printTagFilters, printTagList, tag_filter_type, tag_map, tags } from './tags.js';
-import { is_send_press } from './ui-core.js';
+import { animation_duration, animation_easing, is_send_press } from './ui-core.js';
 import { delay, ensureImageFormatSupported, flashHighlight, getCharaFilename, localizePagination, PAGINATION_TEMPLATE, paginationDropdownChangeHandler, renderPaginationDropdown } from './utils.js';
 import { accountStorage } from './util/AccountStorage.js';
 import { getPermanentAssistantAvatar } from './welcome-screen.js';
@@ -50,6 +50,7 @@ export let talkativeness_default = 0.5;
 
 let saveCharactersPage = 0;
 const CHARACTER_LIST_PAGE_DEFAULT = 50;
+let isAdvancedCharOpen = false;
 
 function throwUnbound(name) {
     throw new Error(`[character-core] ${name} was called before bindings were initialized`);
@@ -394,6 +395,38 @@ export function initCharacterSearch() {
         searchForm.toggle(isVisible);
         searchButton.toggleClass('active', isVisible);
     });
+}
+
+export function toggleAdvancedCharacterPopup() {
+    if (!isAdvancedCharOpen) {
+        isAdvancedCharOpen = true;
+        $('#character_popup').css({ display: 'flex', opacity: 0.0 }).addClass('open');
+        $('#character_popup').transition({
+            opacity: 1.0,
+            duration: animation_duration,
+            easing: animation_easing,
+        });
+    } else {
+        closeAdvancedCharacterPopup({ animate: false });
+    }
+}
+
+export function closeAdvancedCharacterPopup({ animate = true } = {}) {
+    isAdvancedCharOpen = false;
+
+    if (!animate) {
+        $('#character_popup').css('display', 'none').removeClass('open');
+        return;
+    }
+
+    $('#character_popup').transition({
+        opacity: 0,
+        duration: animation_duration,
+        easing: animation_easing,
+    });
+    setTimeout(() => {
+        $('#character_popup').css('display', 'none').removeClass('open');
+    }, animation_duration);
 }
 
 export function groupToEntity(...args) {

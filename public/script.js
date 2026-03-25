@@ -259,7 +259,7 @@ import { extractReasoningFromData, initReasoning, parseReasoningInSwipes, Prompt
 import { bindAppStateCore, setMenuType as setMenuTypeCore, syncDefaultPrintTimeout, syncEntitiesFilter, syncIsChatSaving, syncMenuType } from './scripts/app-state-core.js';
 import { getClientVersion as getClientVersionCore, syncClientVersion, syncConnectApiMap, syncMainApi, syncNaiSettings } from './scripts/api-core.js';
 import { bindBackendStatusCore, cancelStatusCheck as cancelStatusCheckCore, displayOnlineStatus as displayOnlineStatusCore, resultCheckStatus as resultCheckStatusCore, setAbortStatusCheck, setOnlineStatus as setOnlineStatusCore, startStatusLoading as startStatusLoadingCore, stopStatusLoading as stopStatusLoadingCore } from './scripts/backend-status-core.js';
-import { bindCharacterCore, characterToEntity as characterToEntityCore, createOrEditCharacter as createOrEditCharacterCore, deleteCharacter as deleteCharacterCore, doCharListDisplaySwitch as doCharListDisplaySwitchCore, fav_ch_checked as favChCheckedCore, getEntitiesList as getEntitiesListCore, getOneCharacter as getOneCharacterCore, groupToEntity as groupToEntityCore, importCharacter as importCharacterCore, importCharactersTags as importCharactersTagsCore, initCharacterSearch as initCharacterSearchCore, openAlternateGreetings as openAlternateGreetingsCore, openCharacterWorldPopup as openCharacterWorldPopupCore, printCharacters as printCharactersCore, processDroppedFiles as processDroppedFilesCore, selectImportedChar as selectImportedCharCore, syncCharacterGroupOverlay, syncCharacters, syncCreateSave as syncCharacterCreateSave, syncCropData, syncDepthPromptDepthDefault as syncCharacterDepthPromptDepthDefault, syncDepthPromptRoleDefault as syncCharacterDepthPromptRoleDefault, syncPrintCharactersDebounced, syncTalkativenessDefault as syncCharacterTalkativenessDefault, tagToEntity as tagToEntityCore, updateFavButtonState as updateFavButtonStateCore } from './scripts/character-core.js';
+import { bindCharacterCore, characterToEntity as characterToEntityCore, closeAdvancedCharacterPopup as closeAdvancedCharacterPopupCore, createOrEditCharacter as createOrEditCharacterCore, deleteCharacter as deleteCharacterCore, doCharListDisplaySwitch as doCharListDisplaySwitchCore, fav_ch_checked as favChCheckedCore, getEntitiesList as getEntitiesListCore, getOneCharacter as getOneCharacterCore, groupToEntity as groupToEntityCore, importCharacter as importCharacterCore, importCharactersTags as importCharactersTagsCore, initCharacterSearch as initCharacterSearchCore, openAlternateGreetings as openAlternateGreetingsCore, openCharacterWorldPopup as openCharacterWorldPopupCore, printCharacters as printCharactersCore, processDroppedFiles as processDroppedFilesCore, selectImportedChar as selectImportedCharCore, syncCharacterGroupOverlay, syncCharacters, syncCreateSave as syncCharacterCreateSave, syncCropData, syncDepthPromptDepthDefault as syncCharacterDepthPromptDepthDefault, syncDepthPromptRoleDefault as syncCharacterDepthPromptRoleDefault, syncPrintCharactersDebounced, syncTalkativenessDefault as syncCharacterTalkativenessDefault, tagToEntity as tagToEntityCore, toggleAdvancedCharacterPopup as toggleAdvancedCharacterPopupCore, updateFavButtonState as updateFavButtonStateCore } from './scripts/character-core.js';
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
 import { addOneMessage as addOneMessageCore, bindChatOperationsCore, clearChat as clearChatCore, delChat as delChatCore, deleteCharacterChatByName as deleteCharacterChatByNameCore, displayPastChats as displayPastChatsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, getCurrentChatDetails as getCurrentChatDetailsCore, getFirstMessage as getFirstMessageCore, getPastCharacterChats as getPastCharacterChatsCore, importCharacterChat as importCharacterChatCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, replaceCurrentChat as replaceCurrentChatCore, saveChatConditional as saveChatConditionalCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { importExternalContent as importExternalContentCore, importFromURL as importFromURLCore } from './scripts/content-import-core.js';
@@ -858,8 +858,6 @@ export const depth_prompt_role_default = 'system';
 syncDepthPromptRoleDefault(depth_prompt_role_default);
 syncCharacterDepthPromptRoleDefault(depth_prompt_role_default);
 const per_page_default = 50;
-
-var is_advanced_char_open = false;
 
 /**
  * The type of the right menu
@@ -6408,33 +6406,15 @@ jQuery(async function () {
     });
 
     $('#advanced_div').on('click', function () {
-        if (!is_advanced_char_open) {
-            is_advanced_char_open = true;
-            $('#character_popup').css({ 'display': 'flex', 'opacity': 0.0 }).addClass('open');
-            $('#character_popup').transition({
-                opacity: 1.0,
-                duration: animation_duration,
-                easing: animation_easing,
-            });
-        } else {
-            is_advanced_char_open = false;
-            $('#character_popup').css('display', 'none').removeClass('open');
-        }
+        toggleAdvancedCharacterPopupCore();
     });
 
     $('#character_cross').on('click', function () {
-        is_advanced_char_open = false;
-        $('#character_popup').transition({
-            opacity: 0,
-            duration: animation_duration,
-            easing: animation_easing,
-        });
-        setTimeout(function () { $('#character_popup').css('display', 'none'); }, animation_duration);
+        closeAdvancedCharacterPopupCore();
     });
 
     $('#character_popup_ok').on('click', function () {
-        is_advanced_char_open = false;
-        $('#character_popup').css('display', 'none');
+        closeAdvancedCharacterPopupCore({ animate: false });
     });
 
     $('#dialogue_popup_ok').on('click', async function (_e, customData) {

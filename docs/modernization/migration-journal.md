@@ -2964,3 +2964,26 @@
 ### Next
 1. Reassess whether the next best target is another mixed bootstrap helper cluster or a bigger feature seam such as character rename.
 2. Keep preferring extractions that clarify ownership, even if that means introducing a new focused module instead of stuffing unrelated behavior into an existing core.
+
+## 2026-03-26 - Monolith Reduction Wave 53 (Advanced Character Popup Move)
+
+### Completed
+- Moved the advanced character popup lifecycle out of `public/script.js` into `public/scripts/character-core.js`:
+  - `toggleAdvancedCharacterPopup()`
+  - `closeAdvancedCharacterPopup(...)`
+- Reduced the `#advanced_div`, `#character_cross`, and `#character_popup_ok` handlers in `public/script.js` to thin delegates into `character-core`.
+- Removed the monolith-local `is_advanced_char_open` state and let `character-core` own that popup-open lifecycle state instead.
+- Reused the shared animation values from `ui-core` rather than introducing another one-off binding just for this popup behavior.
+- Verified syntax for the touched legacy JS files with `node --check` via `mise`.
+
+### Measurable Impact
+- `public/script.js` lost another self-contained popup behavior island and is a bit closer to pure event wiring in the character editor area.
+- Character editor popup behavior is now more centralized in `character-core`, alongside the rest of the character editing helpers.
+
+### Insights
+- This was a cleaner follow-up than forcing the larger rename seam immediately, because the dependencies were limited to jQuery selectors and shared UI animation state.
+- Pulling in `animation_duration` and `animation_easing` from `ui-core` avoided creating another fragile hand-rolled bridge in `script.js`.
+
+### Next
+1. Reassess the next cohesive character-editor or bootstrap helper cluster before taking on a larger stateful seam like character rename.
+2. Keep preferring moves where `script.js` only needs to keep DOM event registration after extraction.

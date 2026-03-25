@@ -3095,3 +3095,25 @@
 ### Next
 1. Reassess whether to keep working through startup/bootstrap helpers or switch back to a denser feature seam.
 2. Continue preferring focused modules for mixed-but-cohesive helper clusters instead of expanding unrelated existing cores.
+
+## 2026-03-26 - Monolith Reduction Wave 57 (Startup UI Helper Follow-up)
+
+### Completed
+- Moved two tiny startup/UI helpers out of `public/script.js` into `public/scripts/ui-core.js`:
+  - `fixViewport()`
+  - `initStandaloneMode()`
+- Kept the `public/script.js` wrappers so `firstLoadInit()` still reads the same way and call flow remains easy to compare against earlier revisions.
+- Reused the `delay(...)` binding already added for the drawer extraction, so this follow-up did not need another seam or new startup-specific wiring.
+- Verified syntax for the touched files with `node --check` via `mise`.
+
+### Measurable Impact
+- `public/script.js` dropped a little more startup/UI implementation detail and is incrementally closer to orchestration rather than direct DOM helper ownership.
+- `ui-core.js` now owns a slightly more complete set of generic UI lifecycle helpers instead of leaving one-off viewport/PWA behavior in the monolith.
+
+### Insights
+- This was a small move, but it fit naturally after the drawer extraction because the helpers depend on the same UI-level concerns and no app-domain state.
+- Keeping these tiny wrappers in `script.js` maintains traceability while still shrinking the monolith body.
+
+### Next
+1. Decide whether the next pass should stay in startup/bootstrap cleanup or return to a larger domain seam now that the low-risk UI helper pocket is thinner.
+2. Keep bundling obviously-related helper moves together when they share the same destination module and risk profile.

@@ -194,6 +194,19 @@ export async function doNavbarIconClick() {
     }
 }
 
+export async function fixViewport() {
+    document.body.style.position = 'absolute';
+    await delayBound(1);
+    document.body.style.position = '';
+}
+
+export function initStandaloneMode() {
+    const isPwaMode = window.matchMedia('(display-mode: standalone)').matches;
+    if (isPwaMode) {
+        $('body').addClass('PWA');
+    }
+}
+
 export function showStopButton() {
     document.getElementById('mes_stop')?.style.setProperty('display', 'flex');
 }

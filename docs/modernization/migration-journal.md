@@ -3066,3 +3066,32 @@
 ### Next
 1. Reassess whether the next low-risk extraction should stay in startup/UI bootstrap territory or move back to a larger feature seam.
 2. Keep preferring batches where `script.js` can retain only wrappers and event hookup after the move.
+
+## 2026-03-26 - Monolith Reduction Wave 56 (Debug Registration Move)
+
+### Completed
+- Moved the local debug-menu registration cluster out of `public/script.js` into a new focused module: `public/scripts/debug-core.js`.
+- Relocated the `addDebugFunctions()` implementation intact, including:
+  - force-onboarding reset
+  - token-count backfill
+  - generation test helper
+  - event-tracing toggle
+  - regenerate-warning toggle
+  - setup-copy helper
+- Kept `public/script.js` as a thin wrapper and bound only the small pieces of legacy-local state the moved logic still needed:
+  - `getContext()`
+  - `settings`
+  - the first-run/save-settings onboarding reset path
+- Verified syntax for the touched files with `node --check` via `mise`.
+
+### Measurable Impact
+- `public/script.js` lost another self-contained initialization block instead of continuing to accumulate app-level debug/setup helpers.
+- Debug-menu registrations now have an explicit home outside the monolith, which should make future cleanup of `firstLoadInit()` easier to reason about.
+
+### Insights
+- A small dedicated module was cleaner here than forcing the debug registrations into `power-user.js`, because the behavior depends on several app features but is not itself a power-user setting.
+- Keeping the wrapper in `script.js` avoids changing the startup call path while still removing the implementation body from the monolith.
+
+### Next
+1. Reassess whether to keep working through startup/bootstrap helpers or switch back to a denser feature seam.
+2. Continue preferring focused modules for mixed-but-cohesive helper clusters instead of expanding unrelated existing cores.

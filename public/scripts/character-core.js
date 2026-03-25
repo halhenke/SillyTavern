@@ -921,16 +921,6 @@ export async function getOneCharacter(avatarUrl) {
 }
 
 export async function createOrEditCharacter(e) {
-    const isNewChat = e instanceof CustomEvent && e.type === 'newChat';
-
-    if ($('#form_create').attr('actiontype') == 'createcharacter') {
-        return createCharacterFromForm();
-    }
-
-    return saveCharacterEdits({ isNewChat });
-}
-
-async function createCharacterFromForm() {
     if (!getCharactersImpl) {
         throwUnbound('getCharacters');
     }
@@ -955,140 +945,12 @@ async function createCharacterFromForm() {
     if (!saveChatConditionalImpl) {
         throwUnbound('saveChatConditional');
     }
-
-    $('#rm_info_avatar').html('');
-    const formData = new FormData(/** @type {HTMLFormElement} */($('#form_create').get(0)));
-    formData.set('fav', String(fav_ch_checked));
-
-    const rawFile = formData.get('avatar');
-    if (rawFile instanceof File) {
-        const convertedFile = await ensureImageFormatSupported(rawFile);
-        formData.set('avatar', convertedFile);
-    }
-
-    const headers = getRequestHeaders({ omitContentType: true });
-
-    if (String($('#character_name_pole').val()).length === 0) {
-        toastr.error(t`Name is required`);
-        return;
-    }
-    if (is_group_generating || is_send_press) {
-        toastr.error(t`Cannot create characters while generating. Stop the request and try again.`, t`Creation aborted`);
-        return;
-    }
-    try {
-        let url = '/api/characters/create';
-
-        if (crop_data != undefined) {
-            url += `?crop=${encodeURIComponent(JSON.stringify(crop_data))}`;
-        }
-
-        formData.delete('alternate_greetings');
-        for (const value of create_save.alternate_greetings) {
-            formData.append('alternate_greetings', value);
-        }
-
-        formData.append('extensions', JSON.stringify(create_save.extensions));
-
-        const fetchResult = await fetch(url, {
-            method: 'POST',
-            headers,
-            body: formData,
-            cache: 'no-cache',
-        });
-
-        if (!fetchResult.ok) {
-            throw new Error('Fetch result is not ok');
-        }
-
-        const avatarId = await fetchResult.text();
-
-        $('#character_cross').trigger('click');
-        const fields = [
-            { id: '#character_name_pole', callback: value => create_save.name = value },
-            { id: '#description_textarea', callback: value => create_save.description = value },
-            { id: '#creator_notes_textarea', callback: value => create_save.creator_notes = value },
-            { id: '#character_version_textarea', callback: value => create_save.character_version = value },
-            { id: '#post_history_instructions_textarea', callback: value => create_save.post_history_instructions = value },
-            { id: '#system_prompt_textarea', callback: value => create_save.system_prompt = value },
-            { id: '#tags_textarea', callback: value => create_save.tags = value },
-            { id: '#creator_textarea', callback: value => create_save.creator = value },
-            { id: '#personality_textarea', callback: value => create_save.personality = value },
-            { id: '#firstmessage_textarea', callback: value => create_save.first_message = value },
-            { id: '#talkativeness_slider', callback: value => create_save.talkativeness = value, defaultValue: talkativeness_default },
-            { id: '#scenario_pole', callback: value => create_save.scenario = value },
-            { id: '#depth_prompt_prompt', callback: value => create_save.depth_prompt_prompt = value },
-            { id: '#depth_prompt_depth', callback: value => create_save.depth_prompt_depth = value, defaultValue: depth_prompt_depth_default },
-            { id: '#depth_prompt_role', callback: value => create_save.depth_prompt_role = value, defaultValue: depth_prompt_role_default },
-            { id: '#mes_example_textarea', callback: value => create_save.mes_example = value },
-            { id: '#character_json_data', callback: () => { } },
-            { id: '#alternate_greetings_template', callback: value => create_save.alternate_greetings = value, defaultValue: [] },
-            { id: '#character_world', callback: value => create_save.world = value },
-            { id: '#_character_extensions_fake', callback: value => create_save.extensions = {} },
-        ];
-
-        fields.forEach(field => {
-            const fieldValue = field.defaultValue !== undefined ? field.defaultValue : '';
-            $(field.id).val(fieldValue);
-            field.callback && field.callback(fieldValue);
-        });
-
-        if (Array.isArray(create_save.extra_books) && create_save.extra_books.length > 0) {
-            const fileName = getCharaFilename(null, { manualAvatarKey: avatarId });
-            const charLore = world_info.charLore ?? [];
-            charLore.push({ name: fileName, extraBooks: create_save.extra_books });
-            Object.assign(world_info, { charLore });
-            saveSettingsDebounced();
-        }
-        create_save.extra_books = [];
-
-        $('#character_popup-button-h3').text('Create character');
-
-        create_save.avatar = null;
-
-        $('#add_avatar_button').replaceWith(
-            $('#add_avatar_button').val('').clone(true),
-        );
-
-        let oldSelectedChar = null;
-        if (this_chid !== undefined) {
-            oldSelectedChar = characters[this_chid].avatar;
-        }
-
-        console.log(`new avatar id: ${avatarId}`);
-        createTagMapFromListImpl('#tagList', avatarId);
-        await getCharactersImpl();
-
-        selectRmInfoImpl('char_create', avatarId, oldSelectedChar);
-
-        crop_data = undefined;
-    } catch (error) {
-        console.error('Error creating character', error);
-        toastr.error(t`Failed to create character`);
-    }
-}
-
-export async function saveCharacterEdits({ isNewChat = false } = {}) {
-    if (!getFirstMessageImpl) {
-        throwUnbound('getFirstMessage');
-    }
-    if (!getChatImpl) {
-        throwUnbound('getChat');
-    }
-    if (!clearChatImpl) {
-        throwUnbound('clearChat');
-    }
-    if (!printMessagesImpl) {
-        throwUnbound('printMessages');
-    }
-    if (!saveChatConditionalImpl) {
-        throwUnbound('saveChatConditional');
-    }
-
     const currentChat = getChatImpl();
+
     $('#rm_info_avatar').html('');
     const formData = new FormData(/** @type {HTMLFormElement} */($('#form_create').get(0)));
     formData.set('fav', String(fav_ch_checked));
+    const isNewChat = e instanceof CustomEvent && e.type === 'newChat';
 
     const rawFile = formData.get('avatar');
     if (rawFile instanceof File) {
@@ -1097,6 +959,108 @@ export async function saveCharacterEdits({ isNewChat = false } = {}) {
     }
 
     const headers = getRequestHeaders({ omitContentType: true });
+
+    if ($('#form_create').attr('actiontype') == 'createcharacter') {
+        if (String($('#character_name_pole').val()).length === 0) {
+            toastr.error(t`Name is required`);
+            return;
+        }
+        if (is_group_generating || is_send_press) {
+            toastr.error(t`Cannot create characters while generating. Stop the request and try again.`, t`Creation aborted`);
+            return;
+        }
+        try {
+            let url = '/api/characters/create';
+
+            if (crop_data != undefined) {
+                url += `?crop=${encodeURIComponent(JSON.stringify(crop_data))}`;
+            }
+
+            formData.delete('alternate_greetings');
+            for (const value of create_save.alternate_greetings) {
+                formData.append('alternate_greetings', value);
+            }
+
+            formData.append('extensions', JSON.stringify(create_save.extensions));
+
+            const fetchResult = await fetch(url, {
+                method: 'POST',
+                headers,
+                body: formData,
+                cache: 'no-cache',
+            });
+
+            if (!fetchResult.ok) {
+                throw new Error('Fetch result is not ok');
+            }
+
+            const avatarId = await fetchResult.text();
+
+            $('#character_cross').trigger('click');
+            const fields = [
+                { id: '#character_name_pole', callback: value => create_save.name = value },
+                { id: '#description_textarea', callback: value => create_save.description = value },
+                { id: '#creator_notes_textarea', callback: value => create_save.creator_notes = value },
+                { id: '#character_version_textarea', callback: value => create_save.character_version = value },
+                { id: '#post_history_instructions_textarea', callback: value => create_save.post_history_instructions = value },
+                { id: '#system_prompt_textarea', callback: value => create_save.system_prompt = value },
+                { id: '#tags_textarea', callback: value => create_save.tags = value },
+                { id: '#creator_textarea', callback: value => create_save.creator = value },
+                { id: '#personality_textarea', callback: value => create_save.personality = value },
+                { id: '#firstmessage_textarea', callback: value => create_save.first_message = value },
+                { id: '#talkativeness_slider', callback: value => create_save.talkativeness = value, defaultValue: talkativeness_default },
+                { id: '#scenario_pole', callback: value => create_save.scenario = value },
+                { id: '#depth_prompt_prompt', callback: value => create_save.depth_prompt_prompt = value },
+                { id: '#depth_prompt_depth', callback: value => create_save.depth_prompt_depth = value, defaultValue: depth_prompt_depth_default },
+                { id: '#depth_prompt_role', callback: value => create_save.depth_prompt_role = value, defaultValue: depth_prompt_role_default },
+                { id: '#mes_example_textarea', callback: value => create_save.mes_example = value },
+                { id: '#character_json_data', callback: () => { } },
+                { id: '#alternate_greetings_template', callback: value => create_save.alternate_greetings = value, defaultValue: [] },
+                { id: '#character_world', callback: value => create_save.world = value },
+                { id: '#_character_extensions_fake', callback: value => create_save.extensions = {} },
+            ];
+
+            fields.forEach(field => {
+                const fieldValue = field.defaultValue !== undefined ? field.defaultValue : '';
+                $(field.id).val(fieldValue);
+                field.callback && field.callback(fieldValue);
+            });
+
+            if (Array.isArray(create_save.extra_books) && create_save.extra_books.length > 0) {
+                const fileName = getCharaFilename(null, { manualAvatarKey: avatarId });
+                const charLore = world_info.charLore ?? [];
+                charLore.push({ name: fileName, extraBooks: create_save.extra_books });
+                Object.assign(world_info, { charLore });
+                saveSettingsDebounced();
+            }
+            create_save.extra_books = [];
+
+            $('#character_popup-button-h3').text('Create character');
+
+            create_save.avatar = null;
+
+            $('#add_avatar_button').replaceWith(
+                $('#add_avatar_button').val('').clone(true),
+            );
+
+            let oldSelectedChar = null;
+            if (this_chid !== undefined) {
+                oldSelectedChar = characters[this_chid].avatar;
+            }
+
+            console.log(`new avatar id: ${avatarId}`);
+            createTagMapFromListImpl('#tagList', avatarId);
+            await getCharactersImpl();
+
+            selectRmInfoImpl('char_create', avatarId, oldSelectedChar);
+
+            crop_data = undefined;
+        } catch (error) {
+            console.error('Error creating character', error);
+            toastr.error(t`Failed to create character`);
+        }
+        return;
+    }
 
     try {
         let url = '/api/characters/edit';
@@ -1202,7 +1166,7 @@ export async function openCharacterWorldPopup() {
                 }
             }
 
-            await saveCharacterEdits();
+            await createOrEditCharacter();
         }
 
         setWorldInfoButtonClass(undefined, !!name);
@@ -1313,7 +1277,7 @@ export function openAlternateGreetings() {
         allowVerticalScrolling: true,
         onClose: async () => {
             if (menu_type !== 'create') {
-                await saveCharacterEdits();
+                await createOrEditCharacter();
             }
         },
     });

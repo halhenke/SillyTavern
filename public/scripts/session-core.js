@@ -19,6 +19,7 @@ import { debounce_timeout } from './constants.js';
 let cancelTtsPlayImpl = null;
 let checkEmbeddedWorldImpl = null;
 let createNewGroupChatImpl = null;
+let createOrEditCharacterImpl = null;
 let deleteCharacterChatByNameImpl = null;
 let deleteGroupChatImpl = null;
 let delChatImpl = null;
@@ -37,7 +38,6 @@ let openPermanentAssistantChatImpl = null;
 let printCharactersImpl = null;
 let readAvatarLoadImpl = null;
 let renameGroupChatImpl = null;
-let saveCharacterEditsImpl = null;
 let selectCharacterByIdImpl = null;
 let sendSystemMessageImpl = null;
 let setWorldInfoButtonClassImpl = null;
@@ -66,6 +66,7 @@ function throwUnbound(name) {
  *   cancelTtsPlay: (...args: any[]) => any,
  *   checkEmbeddedWorld: (...args: any[]) => any,
  *   createNewGroupChat: (...args: any[]) => Promise<any>,
+ *   createOrEditCharacter: (...args: any[]) => Promise<any>,
  *   deleteCharacterChatByName: (...args: any[]) => Promise<any>,
  *   deleteGroupChat: (...args: any[]) => Promise<any>,
  *   delChat: (...args: any[]) => Promise<any>,
@@ -84,7 +85,6 @@ function throwUnbound(name) {
  *   printCharacters: (...args: any[]) => any,
  *   readAvatarLoad: (...args: any[]) => Promise<any>,
  *   renameGroupChat: (...args: any[]) => Promise<any>,
- *   saveCharacterEdits: (...args: any[]) => Promise<any>,
  *   selectCharacterById: (...args: any[]) => Promise<any>,
  *   sendSystemMessage: (...args: any[]) => any,
  *   setWorldInfoButtonClass: (...args: any[]) => any,
@@ -100,6 +100,7 @@ export function bindSessionCore(impl) {
     cancelTtsPlayImpl = impl?.cancelTtsPlay ?? null;
     checkEmbeddedWorldImpl = impl?.checkEmbeddedWorld ?? null;
     createNewGroupChatImpl = impl?.createNewGroupChat ?? null;
+    createOrEditCharacterImpl = impl?.createOrEditCharacter ?? null;
     deleteCharacterChatByNameImpl = impl?.deleteCharacterChatByName ?? null;
     deleteGroupChatImpl = impl?.deleteGroupChat ?? null;
     delChatImpl = impl?.delChat ?? null;
@@ -118,7 +119,6 @@ export function bindSessionCore(impl) {
     printCharactersImpl = impl?.printCharacters ?? null;
     readAvatarLoadImpl = impl?.readAvatarLoad ?? null;
     renameGroupChatImpl = impl?.renameGroupChat ?? null;
-    saveCharacterEditsImpl = impl?.saveCharacterEdits ?? null;
     selectCharacterByIdImpl = impl?.selectCharacterById ?? null;
     sendSystemMessageImpl = impl?.sendSystemMessage ?? null;
     setWorldInfoButtonClassImpl = impl?.setWorldInfoButtonClass ?? null;
@@ -180,8 +180,8 @@ export async function doNewChat({ deleteCurrentChat = false } = {}) {
     if (!deleteGroupChatImpl) {
         throwUnbound('deleteGroupChat');
     }
-    if (!saveCharacterEditsImpl) {
-        throwUnbound('saveCharacterEdits');
+    if (!createOrEditCharacterImpl) {
+        throwUnbound('createOrEditCharacter');
     }
     if (!delChatImpl) {
         throwUnbound('delChat');
@@ -214,7 +214,7 @@ export async function doNewChat({ deleteCurrentChat = false } = {}) {
     characters[this_chid].chat = `${name2} - ${humanizedDateTime()}`;
     $('#selected_chat_pole').val(characters[this_chid].chat);
     await getChat();
-    await saveCharacterEditsImpl({ isNewChat: true });
+    await createOrEditCharacterImpl(new CustomEvent('newChat'));
     if (deleteCurrentChat && chatFileForDelete) {
         await delChatImpl(`${chatFileForDelete}.jsonl`);
     }
@@ -287,8 +287,8 @@ export async function renameGroupOrCharacterChat({ characterId, groupId, oldFile
     if (!renameGroupChatImpl) {
         throwUnbound('renameGroupChat');
     }
-    if (!saveCharacterEditsImpl) {
-        throwUnbound('saveCharacterEdits');
+    if (!createOrEditCharacterImpl) {
+        throwUnbound('createOrEditCharacter');
     }
 
     const currentChatId = getCurrentChatId();
@@ -337,7 +337,7 @@ export async function renameGroupOrCharacterChat({ characterId, groupId, oldFile
         } else if (characterId !== undefined && String(characterId) === String(this_chid) && characters[characterId]?.chat === oldFileName) {
             characters[characterId].chat = newFileName;
             $('#selected_chat_pole').val(characters[characterId].chat);
-            await saveCharacterEditsImpl();
+            await createOrEditCharacterImpl();
         }
 
         if (currentChatId) {

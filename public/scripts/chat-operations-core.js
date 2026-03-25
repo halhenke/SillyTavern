@@ -18,6 +18,7 @@ let cancelDebouncedChatSaveImpl = null;
 let cancelDebouncedMetadataSaveImpl = null;
 let cancelDeleteModeImpl = null;
 let closeMessageEditorImpl = null;
+let createOrEditCharacterImpl = null;
 let deactivateSendButtonsImpl = null;
 let deleteSwipeImpl = null;
 let extractMessageBiasImpl = null;
@@ -40,7 +41,6 @@ let restoreNeutralChatImpl = null;
 let resetExtensionPromptsImpl = null;
 let resetItemizedPromptsImpl = null;
 let saveChatImpl = null;
-let saveCharacterEditsImpl = null;
 let saveCharacterDebouncedImpl = null;
 let saveItemizedPromptsImpl = null;
 let saveReplyImpl = null;
@@ -83,6 +83,7 @@ function throwUnbound(name) {
  *   cancelDebouncedMetadataSave: (...args: any[]) => any,
  *   cancelDeleteMode: (...args: any[]) => any,
  *   closeMessageEditor: (...args: any[]) => any,
+ *   createOrEditCharacter: (...args: any[]) => Promise<any>,
   *   deactivateSendButtons: (...args: any[]) => any,
   *   deleteSwipe: (...args: any[]) => Promise<any>,
   *   extractMessageBias: (...args: any[]) => any,
@@ -108,7 +109,6 @@ function throwUnbound(name) {
  *   scrollChatToBottom: () => any,
   *   loadItemizedPrompts: (...args: any[]) => Promise<any>,
   *   saveChat: (...args: any[]) => Promise<any>,
-  *   saveCharacterEdits: (...args: any[]) => Promise<any>,
   *   saveCharacterDebounced: (...args: any[]) => any,
   *   saveItemizedPrompts: (...args: any[]) => Promise<any>,
   *   saveReply: (...args: any[]) => Promise<any>,
@@ -137,6 +137,7 @@ export function bindChatOperationsCore(impl) {
     cancelDebouncedMetadataSaveImpl = impl?.cancelDebouncedMetadataSave ?? null;
     cancelDeleteModeImpl = impl?.cancelDeleteMode ?? null;
     closeMessageEditorImpl = impl?.closeMessageEditor ?? null;
+    createOrEditCharacterImpl = impl?.createOrEditCharacter ?? null;
     deactivateSendButtonsImpl = impl?.deactivateSendButtons ?? null;
     deleteSwipeImpl = impl?.deleteSwipe ?? null;
     extractMessageBiasImpl = impl?.extractMessageBias ?? null;
@@ -161,7 +162,6 @@ export function bindChatOperationsCore(impl) {
     loadItemizedPromptsImpl = impl?.loadItemizedPrompts ?? null;
     restoreNeutralChatImpl = impl?.restoreNeutralChat ?? null;
     saveChatImpl = impl?.saveChat ?? null;
-    saveCharacterEditsImpl = impl?.saveCharacterEdits ?? null;
     saveCharacterDebouncedImpl = impl?.saveCharacterDebounced ?? null;
     saveItemizedPromptsImpl = impl?.saveItemizedPrompts ?? null;
     saveReplyImpl = impl?.saveReply ?? null;
@@ -997,7 +997,7 @@ export async function getChat() {
 
 export async function openCharacterChat(file_name) {
     if (!clearChatImpl) throwUnbound('clearChat');
-    if (!saveCharacterEditsImpl) throwUnbound('saveCharacterEdits');
+    if (!createOrEditCharacterImpl) throwUnbound('createOrEditCharacter');
 
     await waitUntilCondition(() => !isChatSaving, debounce_timeout.extended, 10);
     await clearChatImpl();
@@ -1007,7 +1007,7 @@ export async function openCharacterChat(file_name) {
 
     const result = await getChat();
     $('#selected_chat_pole').val(file_name);
-    await saveCharacterEditsImpl({ isNewChat: true });
+    await createOrEditCharacterImpl(new CustomEvent('newChat'));
 
     return result;
 }

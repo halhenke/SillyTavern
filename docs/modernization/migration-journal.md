@@ -3016,3 +3016,29 @@
 ### Next
 1. Reassess whether the next best target is another substantial character-management seam or a broader startup/bootstrap cluster.
 2. Keep using explicit bindings for session-owned side effects when a feature naturally belongs in `character-core` but still needs to coordinate with selection state.
+
+## 2026-03-26 - Monolith Reduction Wave 55 (Character Workflow Seam Cleanup)
+
+### Completed
+- Split the oversized `createOrEditCharacter(...)` workflow in `public/scripts/character-core.js` into narrower operations:
+  - `createCharacterFromForm()` for creation
+  - `saveCharacterEdits(...)` for the existing-character persist path
+- Kept `createOrEditCharacter(...)` as the UI-facing compatibility entrypoint, but reduced it to a dispatcher that chooses the create or edit-persist path.
+- Rewired `public/scripts/session-core.js` and `public/scripts/chat-operations-core.js` to depend on `saveCharacterEdits(...)` instead of the full `createOrEditCharacter(...)` entrypoint:
+  - new chat flow
+  - open existing chat flow
+  - rename chat persistence flow
+- Updated internal `character-core` call sites that only need edit persistence, such as world selection and alternate greetings popup close, to call `saveCharacterEdits()` directly.
+- Verified syntax for the touched legacy JS files with `node --check` via `mise`.
+
+### Measurable Impact
+- This reduces the transitional seam boilerplate around one of the most central character workflows without changing the external UI behavior.
+- `session-core` and `chat-operations-core` now depend on a narrower character-edit persistence contract instead of the broad “create or edit” UI entrypoint.
+
+### Insights
+- The right next step here was not moving another isolated helper; it was reducing the width of the seam after enough character behavior had already moved into `character-core`.
+- Keeping `createOrEditCharacter(...)` as the compatibility entrypoint avoids architectural inconsistency while still shrinking the cross-core dependency surface.
+
+### Next
+1. Continue collapsing character-management seams where other cores still depend on broader entrypoints than they really need.
+2. Reassess whether the next best cleanup is more seam-width reduction in the character domain or a return to another concentrated bootstrap cluster in `script.js`.

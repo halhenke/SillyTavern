@@ -353,6 +353,31 @@ export async function displayPastChats() {
     }, 200);
 }
 
+/**
+ * Imports a chat session for the active character and refreshes the chat list.
+ * @param {FormData} formData Form data to send to the server.
+ * @param {EventTarget} eventTarget Event target whose value should be cleared after import.
+ */
+export async function importCharacterChat(formData, eventTarget) {
+    const fetchResult = await fetch('/api/chats/import', {
+        method: 'POST',
+        body: formData,
+        headers: getRequestHeaders({ omitContentType: true }),
+        cache: 'no-cache',
+    });
+
+    if (fetchResult.ok) {
+        const data = await fetchResult.json();
+        if (data.res) {
+            await displayPastChats();
+        }
+    }
+
+    if (eventTarget instanceof HTMLInputElement) {
+        eventTarget.value = '';
+    }
+}
+
 export function extractMessageBias(...args) {
     if (!extractMessageBiasImpl) throwUnbound('extractMessageBias');
     return extractMessageBiasImpl(...args);

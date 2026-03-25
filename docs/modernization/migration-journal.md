@@ -2891,3 +2891,29 @@
 ### Next
 1. Continue with another dense character-editor/import cluster or switch to a larger runtime seam like swipe/generation if the dependency surface looks acceptable.
 2. Keep preferring clusters that already have a natural home in an extracted core rather than forcing larger cross-core moves too early.
+
+## 2026-03-25 - Monolith Reduction Wave 50 (Character/Chat Import Move)
+
+### Completed
+- Moved the character import flow out of `public/script.js` into `public/scripts/character-core.js`:
+  - `importCharacter(...)`
+  - `importCharactersTags(...)`
+  - `selectImportedChar(...)`
+  - `processDroppedFiles(...)`
+- Moved the character chat import POST/refresh helper out of `public/script.js` into `public/scripts/chat-operations-core.js`:
+  - `importCharacterChat(...)`
+- Reduced the remaining `public/script.js` import helpers to thin forwarding wrappers, so the monolith now mainly owns the DOM event registration for those flows rather than the behavior itself.
+- Kept the existing runtime contracts intact by reusing the already-bound `getCharacters(...)` and `select_rm_info(...)` seams in `character-core` instead of introducing new cross-module wiring.
+- Verified syntax for the touched legacy JS files with `node --check` via `mise`.
+
+### Measurable Impact
+- Another contiguous import/export ownership pocket is now out of `public/script.js`, which is down again and further concentrated around startup/event wiring and larger runtime seams.
+- Character import behavior now lives beside the rest of the character create/edit logic, and chat import refresh behavior now lives beside the past-chat/session operations it depends on.
+
+### Insights
+- This was a safer “larger bite” than pushing immediately into generation-coupled code: the import flows already had natural homes in extracted cores and required no new risky state synchronization.
+- Reusing the existing `select_rm_info(...)` and `getCharacters(...)` bindings kept the move simple and avoided the kind of top-level initialization regression that showed up in the earlier debounce-binding fixes.
+
+### Next
+1. Continue with the next dense import/editor cluster if it still has a clear core home, or switch to startup/event-wiring reduction once the remaining feature pockets become too cross-cutting.
+2. Reassess whether `importFromURL(...)` and adjacent drag/drop character import glue should follow the character import move, or whether the better next leverage is elsewhere in the bootstrap layer.

@@ -259,9 +259,9 @@ import { extractReasoningFromData, initReasoning, parseReasoningInSwipes, Prompt
 import { bindAppStateCore, setMenuType as setMenuTypeCore, syncDefaultPrintTimeout, syncEntitiesFilter, syncIsChatSaving, syncMenuType } from './scripts/app-state-core.js';
 import { getClientVersion as getClientVersionCore, syncClientVersion, syncConnectApiMap, syncMainApi, syncNaiSettings } from './scripts/api-core.js';
 import { bindBackendStatusCore, cancelStatusCheck as cancelStatusCheckCore, displayOnlineStatus as displayOnlineStatusCore, resultCheckStatus as resultCheckStatusCore, setAbortStatusCheck, setOnlineStatus as setOnlineStatusCore, startStatusLoading as startStatusLoadingCore, stopStatusLoading as stopStatusLoadingCore } from './scripts/backend-status-core.js';
-import { bindCharacterCore, characterToEntity as characterToEntityCore, createOrEditCharacter as createOrEditCharacterCore, deleteCharacter as deleteCharacterCore, fav_ch_checked as favChCheckedCore, getEntitiesList as getEntitiesListCore, getOneCharacter as getOneCharacterCore, groupToEntity as groupToEntityCore, openAlternateGreetings as openAlternateGreetingsCore, openCharacterWorldPopup as openCharacterWorldPopupCore, printCharacters as printCharactersCore, syncCharacterGroupOverlay, syncCharacters, syncCreateSave as syncCharacterCreateSave, syncCropData, syncDepthPromptDepthDefault as syncCharacterDepthPromptDepthDefault, syncDepthPromptRoleDefault as syncCharacterDepthPromptRoleDefault, syncPrintCharactersDebounced, syncTalkativenessDefault as syncCharacterTalkativenessDefault, tagToEntity as tagToEntityCore, updateFavButtonState as updateFavButtonStateCore } from './scripts/character-core.js';
+import { bindCharacterCore, characterToEntity as characterToEntityCore, createOrEditCharacter as createOrEditCharacterCore, deleteCharacter as deleteCharacterCore, fav_ch_checked as favChCheckedCore, getEntitiesList as getEntitiesListCore, getOneCharacter as getOneCharacterCore, groupToEntity as groupToEntityCore, importCharacter as importCharacterCore, importCharactersTags as importCharactersTagsCore, openAlternateGreetings as openAlternateGreetingsCore, openCharacterWorldPopup as openCharacterWorldPopupCore, printCharacters as printCharactersCore, processDroppedFiles as processDroppedFilesCore, selectImportedChar as selectImportedCharCore, syncCharacterGroupOverlay, syncCharacters, syncCreateSave as syncCharacterCreateSave, syncCropData, syncDepthPromptDepthDefault as syncCharacterDepthPromptDepthDefault, syncDepthPromptRoleDefault as syncCharacterDepthPromptRoleDefault, syncPrintCharactersDebounced, syncTalkativenessDefault as syncCharacterTalkativenessDefault, tagToEntity as tagToEntityCore, updateFavButtonState as updateFavButtonStateCore } from './scripts/character-core.js';
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
-import { addOneMessage as addOneMessageCore, bindChatOperationsCore, clearChat as clearChatCore, delChat as delChatCore, deleteCharacterChatByName as deleteCharacterChatByNameCore, displayPastChats as displayPastChatsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, getCurrentChatDetails as getCurrentChatDetailsCore, getFirstMessage as getFirstMessageCore, getPastCharacterChats as getPastCharacterChatsCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, replaceCurrentChat as replaceCurrentChatCore, saveChatConditional as saveChatConditionalCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
+import { addOneMessage as addOneMessageCore, bindChatOperationsCore, clearChat as clearChatCore, delChat as delChatCore, deleteCharacterChatByName as deleteCharacterChatByNameCore, displayPastChats as displayPastChatsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, getCurrentChatDetails as getCurrentChatDetailsCore, getFirstMessage as getFirstMessageCore, getPastCharacterChats as getPastCharacterChatsCore, importCharacterChat as importCharacterChatCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, replaceCurrentChat as replaceCurrentChatCore, saveChatConditional as saveChatConditionalCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
 import { TempResponseLength, bindGenerationCore, buildCombinedPrompt as buildCombinedPromptCore, executeGenerationRequestFlow as executeGenerationRequestFlowCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, handleGenerationError as handleGenerationErrorCore, prepareContextPackingState as prepareContextPackingStateCore, prepareCoreChatState as prepareCoreChatStateCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationData as prepareGenerationDataCore, prepareGenerationEntryState as prepareGenerationEntryStateCore, prepareGenerationMessages as prepareGenerationMessagesCore, prepareMessageHistoryState as prepareMessageHistoryStateCore, preparePromptAssemblyState as preparePromptAssemblyStateCore, preparePromptAugmentationState as preparePromptAugmentationStateCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
 import { beginMessageEdit as beginMessageEditCore, bindMessageCore, cancelDeleteMode as cancelDeleteModeCore, cancelMessageEdit as cancelMessageEditCore, closeMessageEditor as closeMessageEditorCore, confirmDeleteMode as confirmDeleteModeCore, copyEditedMessage as copyEditedMessageCore, deleteEditedMessage as deleteEditedMessageCore, deleteSwipe as deleteSwipeCore, editedMessageId as editedMessageIdCore, getFirstDisplayedMessageId as getFirstDisplayedMessageIdCore, hideSwipeButtons as hideSwipeButtonsCore, isDeleteMode as isDeleteModeCore, messageEditAuto as messageEditAutoCore, messageEditDone as messageEditDoneCore, moveEditedMessageDown as moveEditedMessageDownCore, moveEditedMessageUp as moveEditedMessageUpCore, openMessageDelete as openMessageDeleteCore, selectMessageDeleteTarget as selectMessageDeleteTargetCore, setEditedMessageId as setEditedMessageIdCore, showSwipeButtons as showSwipeButtonsCore, syncMesToSwipe as syncMesToSwipeCore, syncSwipeToMes as syncSwipeToMesCore, updateEditArrowClasses as updateEditArrowClassesCore, updateMessageBlock as updateMessageBlockCore, updateViewMessageIds as updateViewMessageIdsCore } from './scripts/message-core.js';
@@ -5534,23 +5534,7 @@ export async function saveChatConditional() {
  * @param {EventTarget} eventTarget Event target to trigger the event on.
  */
 async function importCharacterChat(formData, eventTarget) {
-    const fetchResult = await fetch('/api/chats/import', {
-        method: 'POST',
-        body: formData,
-        headers: getRequestHeaders({ omitContentType: true }),
-        cache: 'no-cache',
-    });
-
-    if (fetchResult.ok) {
-        const data = await fetchResult.json();
-        if (data.res) {
-            await displayPastChats();
-        }
-    }
-
-    if (eventTarget instanceof HTMLInputElement) {
-        eventTarget.value = '';
-    }
+    return importCharacterChatCore(formData, eventTarget);
 }
 
 function updateViewMessageIds(startFromZero = false) {
@@ -5977,38 +5961,7 @@ export function swipe_right(_event = null, { source, repeated } = {}) {
  * @returns {Promise<void>}
  */
 export async function processDroppedFiles(files, data = new Map()) {
-    const allowedMimeTypes = [
-        'application/json',
-        'image/png',
-        'application/yaml',
-        'application/x-yaml',
-        'text/yaml',
-        'text/x-yaml',
-    ];
-
-    const allowedExtensions = [
-        'charx',
-        'byaf',
-    ];
-
-    const avatarFileNames = [];
-    for (const file of files) {
-        const extension = file.name.split('.').pop().toLowerCase();
-        if (allowedMimeTypes.some(x => file.type.startsWith(x)) || allowedExtensions.includes(extension)) {
-            const preservedName = data instanceof Map && data.get(file);
-            const avatarFileName = await importCharacter(file, { preserveFileName: preservedName });
-            if (avatarFileName !== undefined) {
-                avatarFileNames.push(avatarFileName);
-            }
-        } else {
-            toastr.warning(t`Unsupported file type: ` + file.name);
-        }
-    }
-
-    if (avatarFileNames.length > 0) {
-        await importCharactersTags(avatarFileNames);
-        selectImportedChar(avatarFileNames[avatarFileNames.length - 1]);
-    }
+    return processDroppedFilesCore(files, data);
 }
 
 /**
@@ -6016,13 +5969,7 @@ export async function processDroppedFiles(files, data = new Map()) {
  * @param {string[]} avatarFileNames character avatar filenames whose tags are to import
  */
 async function importCharactersTags(avatarFileNames) {
-    await getCharacters();
-    for (let i = 0; i < avatarFileNames.length; i++) {
-        if (power_user.tag_import_setting !== tag_import_setting.NONE) {
-            const importedCharacter = characters.find(character => character.avatar === avatarFileNames[i]);
-            await importTags(importedCharacter);
-        }
-    }
+    return importCharactersTagsCore(avatarFileNames);
 }
 
 /**
@@ -6030,11 +5977,7 @@ async function importCharactersTags(avatarFileNames) {
  * @param {string} charId char to select
  */
 function selectImportedChar(charId) {
-    let oldSelectedChar = null;
-    if (this_chid !== undefined) {
-        oldSelectedChar = characters[this_chid].avatar;
-    }
-    select_rm_info('char_import_no_toast', charId, oldSelectedChar);
+    return selectImportedCharCore(charId);
 }
 
 /**
@@ -6046,56 +5989,7 @@ function selectImportedChar(charId) {
  * @returns {Promise<string>}
  */
 async function importCharacter(file, { preserveFileName = '', importTags = false } = {}) {
-    if (is_group_generating || is_send_press) {
-        toastr.error(t`Cannot import characters while generating. Stop the request and try again.`, t`Import aborted`);
-        throw new Error('Cannot import character while generating');
-    }
-
-    const ext = file.name.match(/\.(\w+)$/);
-    if (!ext || !(['json', 'png', 'yaml', 'yml', 'charx', 'byaf'].includes(ext[1].toLowerCase()))) {
-        return;
-    }
-
-    const format = ext[1].toLowerCase();
-    $('#character_import_file_type').val(format);
-    const formData = new FormData();
-    formData.append('avatar', file);
-    formData.append('file_type', format);
-    if (preserveFileName) formData.append('preserved_name', preserveFileName);
-
-    try {
-        const result = await fetch('/api/characters/import', {
-            method: 'POST',
-            body: formData,
-            headers: getRequestHeaders({ omitContentType: true }),
-            cache: 'no-cache',
-        });
-
-        if (!result.ok) {
-            throw new Error(`Failed to import character: ${result.statusText}`);
-        }
-
-        const data = await result.json();
-
-        if (data.error) {
-            throw new Error(`Server returned an error: ${data.error}`);
-        }
-
-        if (data.file_name !== undefined) {
-            $('#character_search_bar').val('').trigger('input');
-
-            toastr.success(t`Character Created: ${String(data.file_name).replace('.png', '')}`);
-            let avatarFileName = `${data.file_name}.png`;
-            if (importTags) {
-                await importCharactersTags([avatarFileName]);
-                selectImportedChar(data.file_name);
-            }
-            return avatarFileName;
-        }
-    } catch (error) {
-        console.error('Error importing character', error);
-        toastr.error(t`The file is likely invalid or corrupted.`, t`Could not import character`);
-    }
+    return importCharacterCore(file, { preserveFileName, importTags });
 }
 
 async function importFromURL(items, files) {

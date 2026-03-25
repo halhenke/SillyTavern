@@ -219,6 +219,144 @@ export function getCharacters(...args) {
     return getCharactersImpl(...args);
 }
 
+/**
+ * Imports tags for the given characters.
+ * @param {string[]} avatarFileNames Character avatar filenames whose tags are to import
+ */
+export async function importCharactersTags(avatarFileNames) {
+    if (!getCharactersImpl) {
+        throwUnbound('getCharacters');
+    }
+
+    await getCharactersImpl();
+    for (let i = 0; i < avatarFileNames.length; i++) {
+        if (power_user.tag_import_setting !== tag_import_setting.NONE) {
+            const importedCharacter = characters.find(character => character.avatar === avatarFileNames[i]);
+            await importTags(importedCharacter);
+        }
+    }
+}
+
+/**
+ * Selects the given imported character in the right menu.
+ * @param {string} charId Character avatar key to select
+ */
+export function selectImportedChar(charId) {
+    if (!selectRmInfoImpl) {
+        throwUnbound('select_rm_info');
+    }
+
+    let oldSelectedChar = null;
+    if (this_chid !== undefined) {
+        oldSelectedChar = characters[this_chid].avatar;
+    }
+
+    selectRmInfoImpl('char_import_no_toast', charId, oldSelectedChar);
+}
+
+/**
+ * Imports a character from a file.
+ * @param {File} file File to import
+ * @param {object} [options] Options
+ * @param {string} [options.preserveFileName] Whether to preserve original file name
+ * @param {boolean} [options.importTags=false] Whether to import tags for the new character
+ * @returns {Promise<string|undefined>}
+ */
+export async function importCharacter(file, { preserveFileName = '', importTags = false } = {}) {
+    if (is_group_generating || is_send_press) {
+        toastr.error(t`Cannot import characters while generating. Stop the request and try again.`, t`Import aborted`);
+        throw new Error('Cannot import character while generating');
+    }
+
+    const ext = file.name.match(/\.(\w+)$/);
+    if (!ext || !(['json', 'png', 'yaml', 'yml', 'charx', 'byaf'].includes(ext[1].toLowerCase()))) {
+        return;
+    }
+
+    const format = ext[1].toLowerCase();
+    $('#character_import_file_type').val(format);
+    const formData = new FormData();
+    formData.append('avatar', file);
+    formData.append('file_type', format);
+    if (preserveFileName) {
+        formData.append('preserved_name', preserveFileName);
+    }
+
+    try {
+        const result = await fetch('/api/characters/import', {
+            method: 'POST',
+            body: formData,
+            headers: getRequestHeaders({ omitContentType: true }),
+            cache: 'no-cache',
+        });
+
+        if (!result.ok) {
+            throw new Error(`Failed to import character: ${result.statusText}`);
+        }
+
+        const data = await result.json();
+        if (data.error) {
+            throw new Error(`Server returned an error: ${data.error}`);
+        }
+
+        if (data.file_name !== undefined) {
+            $('#character_search_bar').val('').trigger('input');
+
+            toastr.success(t`Character Created: ${String(data.file_name).replace('.png', '')}`);
+            const avatarFileName = `${data.file_name}.png`;
+            if (importTags) {
+                await importCharactersTags([avatarFileName]);
+                selectImportedChar(data.file_name);
+            }
+            return avatarFileName;
+        }
+    } catch (error) {
+        console.error('Error importing character', error);
+        toastr.error(t`The file is likely invalid or corrupted.`, t`Could not import character`);
+    }
+}
+
+/**
+ * Imports supported character files dropped into the app window.
+ * @param {File[]} files Array of files to process
+ * @param {Map<File, string>} [data] Extra data to pass to the import function
+ * @returns {Promise<void>}
+ */
+export async function processDroppedFiles(files, data = new Map()) {
+    const allowedMimeTypes = [
+        'application/json',
+        'image/png',
+        'application/yaml',
+        'application/x-yaml',
+        'text/yaml',
+        'text/x-yaml',
+    ];
+
+    const allowedExtensions = [
+        'charx',
+        'byaf',
+    ];
+
+    const avatarFileNames = [];
+    for (const file of files) {
+        const extension = file.name.split('.').pop().toLowerCase();
+        if (allowedMimeTypes.some(x => file.type.startsWith(x)) || allowedExtensions.includes(extension)) {
+            const preservedName = data instanceof Map && data.get(file);
+            const avatarFileName = await importCharacter(file, { preserveFileName: preservedName });
+            if (avatarFileName !== undefined) {
+                avatarFileNames.push(avatarFileName);
+            }
+        } else {
+            toastr.warning(t`Unsupported file type: ` + file.name);
+        }
+    }
+
+    if (avatarFileNames.length > 0) {
+        await importCharactersTags(avatarFileNames);
+        selectImportedChar(avatarFileNames[avatarFileNames.length - 1]);
+    }
+}
+
 export function groupToEntity(...args) {
     return groupToEntityInternal(...args);
 }

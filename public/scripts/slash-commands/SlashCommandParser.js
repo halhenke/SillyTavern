@@ -1,5 +1,4 @@
 import { hljs } from '../../lib.js';
-import { power_user } from '../power-user.js';
 import { isFalseBoolean, isTrueBoolean, uuidv4 } from '../utils.js';
 import { SlashCommand } from './SlashCommand.js';
 import { ARGUMENT_TYPE, SlashCommandArgument } from './SlashCommandArgument.js';
@@ -35,6 +34,10 @@ export const PARSER_FLAG = {
     'STRICT_ESCAPING': 1,
     'REPLACE_GETVAR': 2,
 };
+
+function getDefaultParserFlags() {
+    return globalThis.power_user?.stscript?.parser?.flags ?? {};
+}
 
 export class SlashCommandParser {
     /** @type {Object.<string, SlashCommand>} */ static commands = {};
@@ -693,8 +696,9 @@ export class SlashCommandParser {
 
     parse(text, verifyCommandNames = true, flags = null, abortController = null, debugController = null) {
         this.verifyCommandNames = verifyCommandNames;
+        const defaultFlags = getDefaultParserFlags();
         for (const key of Object.keys(PARSER_FLAG)) {
-            this.flags[PARSER_FLAG[key]] = flags?.[PARSER_FLAG[key]] ?? power_user.stscript.parser.flags[PARSER_FLAG[key]] ?? false;
+            this.flags[PARSER_FLAG[key]] = flags?.[PARSER_FLAG[key]] ?? defaultFlags[PARSER_FLAG[key]] ?? false;
         }
         this.abortController = abortController;
         this.debugController = debugController;

@@ -320,6 +320,8 @@ export const power_user = {
     click_to_edit: false,
 };
 
+globalThis.power_user = power_user;
+
 let themes = [];
 let movingUIPresets = [];
 export let context_presets = [];

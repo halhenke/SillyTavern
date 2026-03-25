@@ -2843,3 +2843,27 @@
 ### Next
 1. Reassess whether the next best reduction is message reorder/copy/delete handlers or a different concentrated ownership pocket elsewhere in `public/script.js`.
 2. Continue trimming wrapper-only message helpers now that `message-core` owns essentially all edit state.
+
+## 2026-03-25 - Monolith Reduction Wave 48 (Message Reorder/Copy/Delete Move)
+
+### Completed
+- Moved the remaining message editor action handlers out of `public/script.js` into `public/scripts/message-core.js`:
+  - move edited message up
+  - move edited message down
+  - copy edited message
+  - delete edited message
+- Shifted the confirmation popup, reorder DOM swaps, copy insertion, swipe-delete fallback, delete rerender/update flow, and edited-message state cleanup into `message-core`.
+- Reduced the `.mes_edit_up`, `.mes_edit_down`, `.mes_edit_copy`, and `.mes_edit_delete` handlers in `public/script.js` to thin delegates into `message-core`.
+- Verified syntax for the touched legacy JS files with `node --check` via `mise`.
+
+### Measurable Impact
+- The message editing/deletion area in `public/script.js` is now almost entirely event registration and tiny delegate wrappers.
+- `message-core` now owns nearly the full local message action surface, including edit lifecycle, delete mode, reorder, copy, and delete behaviors.
+
+### Insights
+- This batch effectively finishes the high-value message extraction work: the remaining message code in `script.js` is much closer to bootstrap glue than true implementation.
+- The remaining cleanup in this slice is mostly wrapper collapse and deciding whether those last tiny delegates should stay for compatibility or be folded into direct event-to-core calls later.
+
+### Next
+1. Reassess whether to finish the last small message wrappers in `public/script.js` or switch to another dense ownership cluster with higher leverage.
+2. If staying in the message slice, consider collapsing the remaining `messageEditAuto(...)` / `messageEditDone(...)` delegates once compatibility requirements are clear.

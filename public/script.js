@@ -264,7 +264,7 @@ import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId 
 import { addOneMessage as addOneMessageCore, bindChatOperationsCore, clearChat as clearChatCore, delChat as delChatCore, deleteCharacterChatByName as deleteCharacterChatByNameCore, displayPastChats as displayPastChatsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, getCurrentChatDetails as getCurrentChatDetailsCore, getFirstMessage as getFirstMessageCore, getPastCharacterChats as getPastCharacterChatsCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, replaceCurrentChat as replaceCurrentChatCore, saveChatConditional as saveChatConditionalCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
 import { TempResponseLength, bindGenerationCore, buildCombinedPrompt as buildCombinedPromptCore, executeGenerationRequestFlow as executeGenerationRequestFlowCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, handleGenerationError as handleGenerationErrorCore, prepareContextPackingState as prepareContextPackingStateCore, prepareCoreChatState as prepareCoreChatStateCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationData as prepareGenerationDataCore, prepareGenerationEntryState as prepareGenerationEntryStateCore, prepareGenerationMessages as prepareGenerationMessagesCore, prepareMessageHistoryState as prepareMessageHistoryStateCore, preparePromptAssemblyState as preparePromptAssemblyStateCore, preparePromptAugmentationState as preparePromptAugmentationStateCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
-import { beginMessageEdit as beginMessageEditCore, bindMessageCore, cancelDeleteMode as cancelDeleteModeCore, cancelMessageEdit as cancelMessageEditCore, closeMessageEditor as closeMessageEditorCore, confirmDeleteMode as confirmDeleteModeCore, deleteSwipe as deleteSwipeCore, editedMessageId as editedMessageIdCore, getFirstDisplayedMessageId as getFirstDisplayedMessageIdCore, hideSwipeButtons as hideSwipeButtonsCore, isDeleteMode as isDeleteModeCore, messageEditAuto as messageEditAutoCore, messageEditDone as messageEditDoneCore, openMessageDelete as openMessageDeleteCore, selectMessageDeleteTarget as selectMessageDeleteTargetCore, setEditedMessageId as setEditedMessageIdCore, showSwipeButtons as showSwipeButtonsCore, syncMesToSwipe as syncMesToSwipeCore, syncSwipeToMes as syncSwipeToMesCore, updateEditArrowClasses as updateEditArrowClassesCore, updateMessageBlock as updateMessageBlockCore, updateViewMessageIds as updateViewMessageIdsCore } from './scripts/message-core.js';
+import { beginMessageEdit as beginMessageEditCore, bindMessageCore, cancelDeleteMode as cancelDeleteModeCore, cancelMessageEdit as cancelMessageEditCore, closeMessageEditor as closeMessageEditorCore, confirmDeleteMode as confirmDeleteModeCore, copyEditedMessage as copyEditedMessageCore, deleteEditedMessage as deleteEditedMessageCore, deleteSwipe as deleteSwipeCore, editedMessageId as editedMessageIdCore, getFirstDisplayedMessageId as getFirstDisplayedMessageIdCore, hideSwipeButtons as hideSwipeButtonsCore, isDeleteMode as isDeleteModeCore, messageEditAuto as messageEditAutoCore, messageEditDone as messageEditDoneCore, moveEditedMessageDown as moveEditedMessageDownCore, moveEditedMessageUp as moveEditedMessageUpCore, openMessageDelete as openMessageDeleteCore, selectMessageDeleteTarget as selectMessageDeleteTargetCore, setEditedMessageId as setEditedMessageIdCore, showSwipeButtons as showSwipeButtonsCore, syncMesToSwipe as syncMesToSwipeCore, syncSwipeToMes as syncSwipeToMesCore, updateEditArrowClasses as updateEditArrowClassesCore, updateMessageBlock as updateMessageBlockCore, updateViewMessageIds as updateViewMessageIdsCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
 import { bindSessionCore, doNewChat as doNewChatCore, handleDeleteChat as handleDeleteChatCore, newAssistantChat as newAssistantChatCore, renameGroupOrCharacterChat as renameGroupOrCharacterChatCore, resetChatState as resetChatStateCore, selectRightMenuWithAnimation as selectRightMenuWithAnimationCore, select_rm_characters as selectRmCharactersCore, select_rm_create as selectRmCreateCore, select_rm_info as selectRmInfoCore, select_selected_character as selectSelectedCharacterCore, sendTextareaMessage as sendTextareaMessageCore, setExternalAbortController as setExternalAbortControllerCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes, updateRemoteChatName as updateRemoteChatNameCore } from './scripts/session-core.js';
@@ -7334,132 +7334,20 @@ jQuery(async function () {
     });
 
     $(document).on('click', '.mes_edit_up', async function () {
-        if (is_send_press || this_edit_mes_id <= 0) {
-            return;
-        }
-
-        hideSwipeButtons();
-        const targetId = Number(this_edit_mes_id) - 1;
-        const target = $(`#chat .mes[mesid="${targetId}"]`);
-        const root = $(this).closest('.mes');
-
-        if (root.length === 0 || target.length === 0) {
-            return;
-        }
-
-        root.insertBefore(target);
-
-        target.attr('mesid', this_edit_mes_id);
-        root.attr('mesid', targetId);
-
-        const temp = chat[targetId];
-        chat[targetId] = chat[this_edit_mes_id];
-        chat[this_edit_mes_id] = temp;
-
-        this_edit_mes_id = setEditedMessageIdCore(targetId);
-        updateViewMessageIds();
-        await saveChatConditional();
-        showSwipeButtons();
+        this_edit_mes_id = await moveEditedMessageUpCore($(this));
     });
 
     $(document).on('click', '.mes_edit_down', async function () {
-        if (is_send_press || this_edit_mes_id >= chat.length - 1) {
-            return;
-        }
-
-        hideSwipeButtons();
-        const targetId = Number(this_edit_mes_id) + 1;
-        const target = $(`#chat .mes[mesid="${targetId}"]`);
-        const root = $(this).closest('.mes');
-
-        if (root.length === 0 || target.length === 0) {
-            return;
-        }
-
-        root.insertAfter(target);
-
-        target.attr('mesid', this_edit_mes_id);
-        root.attr('mesid', targetId);
-
-        const temp = chat[targetId];
-        chat[targetId] = chat[this_edit_mes_id];
-        chat[this_edit_mes_id] = temp;
-
-        this_edit_mes_id = setEditedMessageIdCore(targetId);
-        updateViewMessageIds();
-        await saveChatConditional();
-        showSwipeButtons();
+        this_edit_mes_id = await moveEditedMessageDownCore($(this));
     });
 
     $(document).on('click', '.mes_edit_copy', async function () {
-        const confirmation = await callGenericPopup(t`Create a copy of this message?`, POPUP_TYPE.CONFIRM);
-        if (!confirmation) {
-            return;
-        }
-
-        hideSwipeButtons();
-        const oldScroll = chatElement[0].scrollTop;
-        const clone = structuredClone(chat[this_edit_mes_id]);
-        clone.send_date = Date.now();
-        clone.mes = $(this).closest('.mes').find('.edit_textarea').val();
-
-        if (power_user.trim_spaces) {
-            clone.mes = clone.mes.trim();
-        }
-
-        chat.splice(Number(this_edit_mes_id) + 1, 0, clone);
-        addOneMessage(clone, { insertAfter: this_edit_mes_id });
-
-        updateViewMessageIds();
-        await saveChatConditional();
-        chatElement[0].scrollTop = oldScroll;
-        showSwipeButtons();
+        await copyEditedMessageCore($(this));
     });
 
     $(document).on('click', '.mes_edit_delete', async function (event, customData) {
-        const fromSlashCommand = customData?.fromSlashCommand || false;
-        const canDeleteSwipe = (Array.isArray(chat[this_edit_mes_id].swipes) && chat[this_edit_mes_id].swipes.length > 1 && !chat[this_edit_mes_id].is_user && parseInt(this_edit_mes_id) === chat.length - 1);
-
-        let deleteOnlySwipe = false;
-        if (power_user.confirm_message_delete && fromSlashCommand !== true) {
-            const result = await callGenericPopup(t`Are you sure you want to delete this message?`, POPUP_TYPE.CONFIRM, null, {
-                okButton: canDeleteSwipe ? t`Delete Swipe` : t`Delete Message`,
-                cancelButton: 'Cancel',
-                customButtons: canDeleteSwipe ? [t`Delete Message`] : null,
-            });
-            if (!result) {
-                return;
-            }
-            deleteOnlySwipe = canDeleteSwipe && result === 1; // Default button, not the custom one
-        }
-
-        const messageElement = $(this).closest('.mes');
-        if (!messageElement) {
-            return;
-        }
-
-        if (deleteOnlySwipe) {
-            const message = chat[this_edit_mes_id];
-            const swipe_id = message.swipe_id;
-            await deleteSwipe(swipe_id);
-            return;
-        }
-
-        chat.splice(this_edit_mes_id, 1);
-        messageElement.remove();
-
-        let startFromZero = Number(this_edit_mes_id) === 0;
-
-        this_edit_mes_id = setEditedMessageIdCore(undefined);
-        chat_metadata['tainted'] = true;
-
-        updateViewMessageIds(startFromZero);
-        saveChatDebounced();
-
-        hideSwipeButtons();
-        showSwipeButtons();
-
-        await eventSource.emit(event_types.MESSAGE_DELETED, chat.length);
+        await deleteEditedMessageCore($(this), customData);
+        this_edit_mes_id = editedMessageIdCore;
     });
 
     $(document).on('click', '.mes_edit_done', async function () {

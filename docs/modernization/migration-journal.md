@@ -2987,3 +2987,32 @@
 ### Next
 1. Reassess the next cohesive character-editor or bootstrap helper cluster before taking on a larger stateful seam like character rename.
 2. Keep preferring moves where `script.js` only needs to keep DOM event registration after extraction.
+
+## 2026-03-26 - Monolith Reduction Wave 54 (Character Rename Move)
+
+### Completed
+- Moved the full character rename lifecycle out of `public/script.js` into `public/scripts/character-core.js`:
+  - `renameCharacter(...)`
+  - the internal past-chat rename/update flow
+- Extended `bindCharacterCore(...)` with the session-facing hooks the rename flow actually needs:
+  - current active character lookup
+  - active character update
+  - character id reset
+  - character reselection
+  - current chat reload
+  - group-member rename propagation
+- Reduced `public/script.js` to a thin `renameCharacter(...)` forwarding wrapper and removed the redundant monolith-local `renamePastChats(...)` implementation.
+- Preserved the existing safety behavior where the current character id is cleared before `getCharacters()` reloads, so the old avatar is not treated as a missing active selection and forced into the reload/error path.
+- Verified syntax for the touched legacy JS files with `node --check` via `mise`.
+
+### Measurable Impact
+- `public/script.js` dropped by roughly 170 lines in a single extraction and no longer owns one of the bigger remaining character-management behaviors.
+- `character-core` now owns not just character creation/import/editor helpers, but also the rename lifecycle and its past-chat update behavior.
+
+### Insights
+- The important detail in this move was not the fetch call itself; it was preserving the existing selection/reset choreography around `getCharacters()` so rename does not trip the “active character disappeared” reload guard.
+- Passing a few session hooks through `bindCharacterCore(...)` was cleaner than importing `session-core` directly and risking a circular dependency in a high-traffic path.
+
+### Next
+1. Reassess whether the next best target is another substantial character-management seam or a broader startup/bootstrap cluster.
+2. Keep using explicit bindings for session-owned side effects when a feature naturally belongs in `character-core` but still needs to coordinate with selection state.

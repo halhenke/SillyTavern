@@ -1,15 +1,17 @@
 import { DOMPurify } from '../lib.js';
 import { entitiesFilter, menu_type } from './app-state-core.js';
 import { event_types, eventSource } from './events.js';
+import { extension_settings } from './extensions.js';
 import { default_avatar } from './chat-core.js';
 import { FILTER_STATES, FILTER_TYPES, isFilterState } from './filters.js';
 import { is_group_generating, selected_group, groups, getGroupBlock } from './group-chats.js';
 import { t } from './i18n.js';
 import { getThumbnailUrl, getRequestHeaders } from './network-core.js';
 import { updatePersonaConnectionsAvatarList } from './personas.js';
-import { POPUP_RESULT, POPUP_TYPE, Popup } from './popup.js';
+import { POPUP_RESULT, POPUP_TYPE, Popup, callGenericPopup } from './popup.js';
 import { power_user, sortEntitiesList } from './power-user.js';
 import { favsToHotswap, isMobile } from './RossAscends-mods.js';
+import { system_message_types } from './system-messages.js';
 import { renderTemplateAsync } from './templates.js';
 import { applyTagsOnCharacterSelect, applyTagsOnGroupSelect, compareTagsForSort, filterByTagState, getTagBlock, isBogusFolder, isBogusFolderOpen, printTagFilters, printTagList, tag_filter_type, tag_map, tags } from './tags.js';
 import { animation_duration, animation_easing, is_send_press } from './ui-core.js';
@@ -24,6 +26,7 @@ let buildAvatarListImpl = null;
 let clearChatImpl = null;
 let createTagMapFromListImpl = null;
 let duplicateCharacterImpl = null;
+let getActiveCharacterImpl = null;
 let getChatImpl = null;
 let getCurrentChatIdImpl = null;
 let getFirstMessageImpl = null;
@@ -31,11 +34,15 @@ let getCharactersImpl = null;
 let getPastCharacterChatsImpl = null;
 let preserveNeutralChatImpl = null;
 let printMessagesImpl = null;
-let renameCharacterImpl = null;
 let resetChatStateImpl = null;
+let reloadCurrentChatImpl = null;
+let renameGroupMemberImpl = null;
 let restoreNeutralChatImpl = null;
 let saveChatConditionalImpl = null;
 let saveSettingsDebouncedImpl = null;
+let selectCharacterByIdImpl = null;
+let setActiveCharacterImpl = null;
+let setCharacterIdImpl = null;
 let selectRmInfoImpl = null;
 
 export let characterGroupOverlay = null;
@@ -63,6 +70,7 @@ function throwUnbound(name) {
  *   clearChat: (...args: any[]) => Promise<any>,
  *   createTagMapFromList: (...args: any[]) => any,
  *   duplicateCharacter: (...args: any[]) => Promise<any>,
+ *   getActiveCharacter: () => string|null|undefined,
  *   getChat: () => any[],
  *   getCurrentChatId: () => string|undefined,
  *   getFirstMessage: (...args: any[]) => any,
@@ -70,11 +78,15 @@ function throwUnbound(name) {
  *   getPastCharacterChats: (...args: any[]) => Promise<any>,
  *   preserveNeutralChat: (...args: any[]) => any,
  *   printMessages: (...args: any[]) => Promise<any>,
- *   renameCharacter: (...args: any[]) => Promise<any>,
+ *   reloadCurrentChat: (...args: any[]) => Promise<any>,
+ *   renameGroupMember: (...args: any[]) => Promise<any>,
  *   resetChatState: (...args: any[]) => any,
  *   restoreNeutralChat: (...args: any[]) => any,
  *   saveChatConditional: (...args: any[]) => Promise<any>,
  *   saveSettingsDebounced: (...args: any[]) => any,
+ *   selectCharacterById: (...args: any[]) => Promise<any>,
+ *   setActiveCharacter: (...args: any[]) => any,
+ *   setCharacterId: (...args: any[]) => any,
  *   select_rm_info: (...args: any[]) => any,
  * }} impl Implementations to bind
  */
@@ -83,6 +95,7 @@ export function bindCharacterCore(impl) {
     clearChatImpl = impl?.clearChat ?? null;
     createTagMapFromListImpl = impl?.createTagMapFromList ?? null;
     duplicateCharacterImpl = impl?.duplicateCharacter ?? null;
+    getActiveCharacterImpl = impl?.getActiveCharacter ?? null;
     getChatImpl = impl?.getChat ?? null;
     getCurrentChatIdImpl = impl?.getCurrentChatId ?? null;
     getFirstMessageImpl = impl?.getFirstMessage ?? null;
@@ -90,11 +103,15 @@ export function bindCharacterCore(impl) {
     getPastCharacterChatsImpl = impl?.getPastCharacterChats ?? null;
     preserveNeutralChatImpl = impl?.preserveNeutralChat ?? null;
     printMessagesImpl = impl?.printMessages ?? null;
-    renameCharacterImpl = impl?.renameCharacter ?? null;
     resetChatStateImpl = impl?.resetChatState ?? null;
+    reloadCurrentChatImpl = impl?.reloadCurrentChat ?? null;
+    renameGroupMemberImpl = impl?.renameGroupMember ?? null;
     restoreNeutralChatImpl = impl?.restoreNeutralChat ?? null;
     saveChatConditionalImpl = impl?.saveChatConditional ?? null;
     saveSettingsDebouncedImpl = impl?.saveSettingsDebounced ?? null;
+    selectCharacterByIdImpl = impl?.selectCharacterById ?? null;
+    setActiveCharacterImpl = impl?.setActiveCharacter ?? null;
+    setCharacterIdImpl = impl?.setCharacterId ?? null;
     selectRmInfoImpl = impl?.select_rm_info ?? null;
 }
 
@@ -498,12 +515,186 @@ export function getEntitiesList({ doFilter = false, doSort = true } = {}) {
     return entities;
 }
 
-export function renameCharacter(...args) {
-    if (!renameCharacterImpl) {
-        throwUnbound('renameCharacter');
+export async function renameCharacter(name = null, { silent = false, renameChats = null } = {}) {
+    if (!name && silent) {
+        toastr.warning(t`No character name provided.`, t`Rename Character`);
+        return false;
+    }
+    if (this_chid === undefined) {
+        toastr.warning(t`No character selected.`, t`Rename Character`);
+        return false;
+    }
+    if (!getCharactersImpl) {
+        throwUnbound('getCharacters');
+    }
+    if (!getPastCharacterChatsImpl) {
+        throwUnbound('getPastCharacterChats');
+    }
+    if (!selectCharacterByIdImpl) {
+        throwUnbound('selectCharacterById');
+    }
+    if (!reloadCurrentChatImpl) {
+        throwUnbound('reloadCurrentChat');
+    }
+    if (!renameGroupMemberImpl) {
+        throwUnbound('renameGroupMember');
+    }
+    if (!setCharacterIdImpl) {
+        throwUnbound('setCharacterId');
     }
 
-    return renameCharacterImpl(...args);
+    const oldAvatar = characters[this_chid].avatar;
+    const newValue = name || await callGenericPopup('<h3>' + t`New name:` + '</h3>', POPUP_TYPE.INPUT, characters[this_chid].name);
+
+    if (!newValue) {
+        toastr.warning(t`No character name provided.`, t`Rename Character`);
+        return false;
+    }
+    if (newValue === characters[this_chid].name) {
+        toastr.info(t`Same character name provided, so name did not change.`, t`Rename Character`);
+        return false;
+    }
+
+    const body = JSON.stringify({ avatar_url: oldAvatar, new_name: newValue });
+    const response = await fetch('/api/characters/rename', {
+        method: 'POST',
+        headers: getRequestHeaders(),
+        body,
+    });
+
+    try {
+        if (!response.ok) {
+            throw new Error('Could not rename the character');
+        }
+
+        const data = await response.json();
+        const newAvatar = data.avatar;
+        const oldName = getCharaFilename(null, { manualAvatarKey: oldAvatar });
+        const newName = getCharaFilename(null, { manualAvatarKey: newAvatar });
+
+        renameTagKey(oldAvatar, newAvatar);
+
+        const charLore = world_info.charLore?.find(x => x.name == oldName);
+        if (charLore) {
+            charLore.name = newName;
+            saveSettingsDebounced();
+        }
+
+        const charNote = extension_settings.note.chara?.find(x => x.name == oldName);
+        if (charNote) {
+            charNote.name = newName;
+            saveSettingsDebounced();
+        }
+
+        if (getActiveCharacterImpl?.() === oldAvatar) {
+            setActiveCharacterImpl?.(newAvatar);
+            saveSettingsDebounced();
+        }
+
+        await eventSource.emit(event_types.CHARACTER_RENAMED, oldAvatar, newAvatar);
+
+        setCharacterIdImpl(undefined);
+        await getCharactersImpl();
+
+        const newChId = characters.findIndex(c => c.avatar == data.avatar);
+        if (newChId === -1) {
+            throw new Error('Newly renamed character was lost?');
+        }
+
+        await selectCharacterByIdImpl(newChId);
+        await delay(1);
+
+        if (this_chid === undefined) {
+            throw new Error('New character not selected');
+        }
+
+        await renameGroupMemberImpl(oldAvatar, newAvatar, newValue);
+
+        const renamePastChatsConfirm = renameChats !== null
+            ? renameChats
+            : silent
+                ? false
+                : await Popup.show.confirm(
+                    t`Character renamed!`,
+                    `<p>${t`Past chats will still contain the old character name. Would you like to update the character name in previous chats as well?`}</p>
+                    <i><b>${t`Sprites folder (if any) should be renamed manually.`}</b></i>`,
+                ) == POPUP_RESULT.AFFIRMATIVE;
+
+        if (renamePastChatsConfirm) {
+            await renamePastChats(oldAvatar, newAvatar, newValue);
+            await reloadCurrentChatImpl();
+            toastr.success(t`Character renamed and past chats updated!`, t`Rename Character`);
+        } else {
+            toastr.success(t`Character renamed!`, t`Rename Character`);
+        }
+    } catch (error) {
+        if (!silent) {
+            await Popup.show.text(t`Rename Character`, t`Something went wrong. The page will be reloaded.`);
+        } else {
+            toastr.error(t`Something went wrong. The page will be reloaded.`, t`Rename Character`);
+        }
+
+        console.log('Renaming character error:', error);
+        location.reload();
+        return false;
+    }
+
+    return true;
+}
+
+async function renamePastChats(oldAvatar, newAvatar, newName) {
+    const pastChats = await getPastCharacterChatsImpl();
+
+    for (const { file_name } of pastChats) {
+        try {
+            const fileNameWithoutExtension = file_name.replace('.jsonl', '');
+            const getChatResponse = await fetch('/api/chats/get', {
+                method: 'POST',
+                headers: getRequestHeaders(),
+                body: JSON.stringify({
+                    ch_name: newName,
+                    file_name: fileNameWithoutExtension,
+                    avatar_url: newAvatar,
+                }),
+                cache: 'no-cache',
+            });
+
+            if (getChatResponse.ok) {
+                const currentChat = await getChatResponse.json();
+
+                for (const message of currentChat) {
+                    if (message.is_user || message.is_system || message.extra?.type == system_message_types.NARRATOR) {
+                        continue;
+                    }
+
+                    if (message.name !== undefined) {
+                        message.name = newName;
+                    }
+                }
+
+                await eventSource.emit(event_types.CHARACTER_RENAMED_IN_PAST_CHAT, currentChat, oldAvatar, newAvatar);
+
+                const saveChatResponse = await fetch('/api/chats/save', {
+                    method: 'POST',
+                    headers: getRequestHeaders(),
+                    body: JSON.stringify({
+                        ch_name: newName,
+                        file_name: fileNameWithoutExtension,
+                        chat: currentChat,
+                        avatar_url: newAvatar,
+                    }),
+                    cache: 'no-cache',
+                });
+
+                if (!saveChatResponse.ok) {
+                    throw new Error('Could not save chat');
+                }
+            }
+        } catch (error) {
+            toastr.error(t`Past chat could not be updated: ${file_name}`);
+            console.error(error);
+        }
+    }
 }
 
 async function removeCharacterFromUI() {

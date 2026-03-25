@@ -259,7 +259,7 @@ import { extractReasoningFromData, initReasoning, parseReasoningInSwipes, Prompt
 import { bindAppStateCore, setMenuType as setMenuTypeCore, syncDefaultPrintTimeout, syncEntitiesFilter, syncIsChatSaving, syncMenuType } from './scripts/app-state-core.js';
 import { getClientVersion as getClientVersionCore, syncClientVersion, syncConnectApiMap, syncMainApi, syncNaiSettings } from './scripts/api-core.js';
 import { bindBackendStatusCore, cancelStatusCheck as cancelStatusCheckCore, displayOnlineStatus as displayOnlineStatusCore, resultCheckStatus as resultCheckStatusCore, setAbortStatusCheck, setOnlineStatus as setOnlineStatusCore, startStatusLoading as startStatusLoadingCore, stopStatusLoading as stopStatusLoadingCore } from './scripts/backend-status-core.js';
-import { bindCharacterCore, characterToEntity as characterToEntityCore, closeAdvancedCharacterPopup as closeAdvancedCharacterPopupCore, createOrEditCharacter as createOrEditCharacterCore, deleteCharacter as deleteCharacterCore, doCharListDisplaySwitch as doCharListDisplaySwitchCore, fav_ch_checked as favChCheckedCore, getEntitiesList as getEntitiesListCore, getOneCharacter as getOneCharacterCore, groupToEntity as groupToEntityCore, importCharacter as importCharacterCore, importCharactersTags as importCharactersTagsCore, initCharacterSearch as initCharacterSearchCore, openAlternateGreetings as openAlternateGreetingsCore, openCharacterWorldPopup as openCharacterWorldPopupCore, printCharacters as printCharactersCore, processDroppedFiles as processDroppedFilesCore, selectImportedChar as selectImportedCharCore, syncCharacterGroupOverlay, syncCharacters, syncCreateSave as syncCharacterCreateSave, syncCropData, syncDepthPromptDepthDefault as syncCharacterDepthPromptDepthDefault, syncDepthPromptRoleDefault as syncCharacterDepthPromptRoleDefault, syncPrintCharactersDebounced, syncTalkativenessDefault as syncCharacterTalkativenessDefault, tagToEntity as tagToEntityCore, toggleAdvancedCharacterPopup as toggleAdvancedCharacterPopupCore, updateFavButtonState as updateFavButtonStateCore } from './scripts/character-core.js';
+import { bindCharacterCore, characterToEntity as characterToEntityCore, closeAdvancedCharacterPopup as closeAdvancedCharacterPopupCore, createOrEditCharacter as createOrEditCharacterCore, deleteCharacter as deleteCharacterCore, doCharListDisplaySwitch as doCharListDisplaySwitchCore, fav_ch_checked as favChCheckedCore, getEntitiesList as getEntitiesListCore, getOneCharacter as getOneCharacterCore, groupToEntity as groupToEntityCore, importCharacter as importCharacterCore, importCharactersTags as importCharactersTagsCore, initCharacterSearch as initCharacterSearchCore, openAlternateGreetings as openAlternateGreetingsCore, openCharacterWorldPopup as openCharacterWorldPopupCore, printCharacters as printCharactersCore, processDroppedFiles as processDroppedFilesCore, renameCharacter as characterCoreRename, selectImportedChar as selectImportedCharCore, syncCharacterGroupOverlay, syncCharacters, syncCreateSave as syncCharacterCreateSave, syncCropData, syncDepthPromptDepthDefault as syncCharacterDepthPromptDepthDefault, syncDepthPromptRoleDefault as syncCharacterDepthPromptRoleDefault, syncPrintCharactersDebounced, syncTalkativenessDefault as syncCharacterTalkativenessDefault, tagToEntity as tagToEntityCore, toggleAdvancedCharacterPopup as toggleAdvancedCharacterPopupCore, updateFavButtonState as updateFavButtonStateCore } from './scripts/character-core.js';
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
 import { addOneMessage as addOneMessageCore, bindChatOperationsCore, clearChat as clearChatCore, delChat as delChatCore, deleteCharacterChatByName as deleteCharacterChatByNameCore, displayPastChats as displayPastChatsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, getCurrentChatDetails as getCurrentChatDetailsCore, getFirstMessage as getFirstMessageCore, getPastCharacterChats as getPastCharacterChatsCore, importCharacterChat as importCharacterChatCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, replaceCurrentChat as replaceCurrentChatCore, saveChatConditional as saveChatConditionalCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { importExternalContent as importExternalContentCore, importFromURL as importFromURLCore } from './scripts/content-import-core.js';
@@ -461,6 +461,7 @@ bindCharacterCore({
     clearChat,
     createTagMapFromList,
     duplicateCharacter,
+    getActiveCharacter: () => active_character,
     getChat: () => chat,
     getCurrentChatId,
     getFirstMessage: getFirstMessageCore,
@@ -470,11 +471,15 @@ bindCharacterCore({
     preserveNeutralChat,
     printMessages,
     printCharacters,
-    renameCharacter,
+    reloadCurrentChat,
+    renameGroupMember,
     resetChatState,
     restoreNeutralChat,
     saveChatConditional,
     saveSettingsDebounced: (...args) => saveSettingsDebounced(...args),
+    selectCharacterById,
+    setActiveCharacter,
+    setCharacterId,
     select_rm_info,
 });
 bindChatCore({
@@ -4327,182 +4332,7 @@ export function setSendButtonState(value) {
  */
 
 export async function renameCharacter(name = null, { silent = false, renameChats = null } = {}) {
-    if (!name && silent) {
-        toastr.warning(t`No character name provided.`, t`Rename Character`);
-        return false;
-    }
-    if (this_chid === undefined) {
-        toastr.warning(t`No character selected.`, t`Rename Character`);
-        return false;
-    }
-
-    const oldAvatar = characters[this_chid].avatar;
-    const newValue = name || await callGenericPopup('<h3>' + t`New name:` + '</h3>', POPUP_TYPE.INPUT, characters[this_chid].name);
-
-    if (!newValue) {
-        toastr.warning(t`No character name provided.`, t`Rename Character`);
-        return false;
-    }
-    if (newValue === characters[this_chid].name) {
-        toastr.info(t`Same character name provided, so name did not change.`, t`Rename Character`);
-        return false;
-    }
-
-    const body = JSON.stringify({ avatar_url: oldAvatar, new_name: newValue });
-    const response = await fetch('/api/characters/rename', {
-        method: 'POST',
-        headers: getRequestHeaders(),
-        body,
-    });
-
-    try {
-        if (response.ok) {
-            const data = await response.json();
-            const newAvatar = data.avatar;
-
-            const oldName = getCharaFilename(null, { manualAvatarKey: oldAvatar });
-            const newName = getCharaFilename(null, { manualAvatarKey: newAvatar });
-
-            // Replace other auxillery fields where was referenced by avatar key
-            // Tag List
-            renameTagKey(oldAvatar, newAvatar);
-
-            // Addtional lore books
-            const charLore = world_info.charLore?.find(x => x.name == oldName);
-            if (charLore) {
-                charLore.name = newName;
-                saveSettingsDebounced();
-            }
-
-            // Char-bound Author's Notes
-            const charNote = extension_settings.note.chara?.find(x => x.name == oldName);
-            if (charNote) {
-                charNote.name = newName;
-                saveSettingsDebounced();
-            }
-
-            // Update active character, if the current one was the currently active one
-            if (active_character === oldAvatar) {
-                active_character = newAvatar;
-                syncActiveCharacter(active_character);
-                saveSettingsDebounced();
-            }
-
-            await eventSource.emit(event_types.CHARACTER_RENAMED, oldAvatar, newAvatar);
-
-            // Unload current character
-            setCharacterId(undefined);
-            // Reload characters list
-            await getCharacters();
-
-            // Find newly renamed character
-            const newChId = characters.findIndex(c => c.avatar == data.avatar);
-
-            if (newChId !== -1) {
-                // Select the character after the renaming
-                await selectCharacterById(newChId);
-
-                // Async delay to update UI
-                await delay(1);
-
-                if (this_chid === undefined) {
-                    throw new Error('New character not selected');
-                }
-
-                // Also rename as a group member
-                await renameGroupMember(oldAvatar, newAvatar, newValue);
-                const renamePastChatsConfirm = renameChats !== null
-                    ? renameChats
-                    : silent
-                        ? false
-                        : await Popup.show.confirm(
-                            t`Character renamed!`,
-                            `<p>${t`Past chats will still contain the old character name. Would you like to update the character name in previous chats as well?`}</p>
-                            <i><b>${t`Sprites folder (if any) should be renamed manually.`}</b></i>`,
-                        ) == POPUP_RESULT.AFFIRMATIVE;
-
-                if (renamePastChatsConfirm) {
-                    await renamePastChats(oldAvatar, newAvatar, newValue);
-                    await reloadCurrentChat();
-                    toastr.success(t`Character renamed and past chats updated!`, t`Rename Character`);
-                } else {
-                    toastr.success(t`Character renamed!`, t`Rename Character`);
-                }
-            }
-            else {
-                throw new Error('Newly renamed character was lost?');
-            }
-        }
-        else {
-            throw new Error('Could not rename the character');
-        }
-    }
-    catch (error) {
-        // Reloading to prevent data corruption
-        if (!silent) await Popup.show.text(t`Rename Character`, t`Something went wrong. The page will be reloaded.`);
-        else toastr.error(t`Something went wrong. The page will be reloaded.`, t`Rename Character`);
-
-        console.log('Renaming character error:', error);
-        location.reload();
-        return false;
-    }
-
-    return true;
-}
-
-async function renamePastChats(oldAvatar, newAvatar, newName) {
-    const pastChats = await getPastCharacterChats();
-
-    for (const { file_name } of pastChats) {
-        try {
-            const fileNameWithoutExtension = file_name.replace('.jsonl', '');
-            const getChatResponse = await fetch('/api/chats/get', {
-                method: 'POST',
-                headers: getRequestHeaders(),
-                body: JSON.stringify({
-                    ch_name: newName,
-                    file_name: fileNameWithoutExtension,
-                    avatar_url: newAvatar,
-                }),
-                cache: 'no-cache',
-            });
-
-            if (getChatResponse.ok) {
-                const currentChat = await getChatResponse.json();
-
-                for (const message of currentChat) {
-                    if (message.is_user || message.is_system || message.extra?.type == system_message_types.NARRATOR) {
-                        continue;
-                    }
-
-                    if (message.name !== undefined) {
-                        message.name = newName;
-                    }
-                }
-
-                await eventSource.emit(event_types.CHARACTER_RENAMED_IN_PAST_CHAT, currentChat, oldAvatar, newAvatar);
-
-                const saveChatResponse = await fetch('/api/chats/save', {
-                    method: 'POST',
-                    headers: getRequestHeaders(),
-                    body: JSON.stringify({
-                        ch_name: newName,
-                        file_name: fileNameWithoutExtension,
-                        chat: currentChat,
-                        avatar_url: newAvatar,
-                    }),
-                    cache: 'no-cache',
-                });
-
-                if (!saveChatResponse.ok) {
-                    throw new Error('Could not save chat');
-                }
-            }
-        } catch (error) {
-            toastr.error(t`Past chat could not be updated: ${file_name}`);
-            console.error(error);
-        }
-    }
+    return characterCoreRename(name, { silent, renameChats });
 }
 
 export function saveChatDebounced() {

@@ -1,5 +1,5 @@
 import { appendMediaToMessage, chat, extractMessageBias, formatSwipeCounter, reloadCurrentChat, saveChatConditional } from './chat-operations-core.js';
-import { chat_metadata, this_chid } from './chat-core.js';
+import { chat_metadata, name1, name2, this_chid } from './chat-core.js';
 import { event_types, eventSource } from './events.js';
 import { getRegexedString, regex_placement } from './extensions/regex/engine.js';
 import { is_group_generating, selected_group } from './group-chats.js';
@@ -16,6 +16,7 @@ let addCopyToCodeBlocksImpl = null;
 let updateReasoningUIImpl = null;
 
 export let editedMessageId = undefined;
+export let editedMessageName = '';
 export let deleteModeMessageId = -1;
 export let isDeleteMode = false;
 
@@ -68,6 +69,11 @@ export function saveChatDebounced(...args) {
 export function setEditedMessageId(value) {
     editedMessageId = value;
     return editedMessageId;
+}
+
+export function setEditedMessageName(value) {
+    editedMessageName = String(value ?? '');
+    return editedMessageName;
 }
 
 function resetDeleteModeState() {
@@ -324,6 +330,23 @@ export function closeMessageEditor(what = 'all') {
     }
 }
 
+function clearEditedMessageState() {
+    setEditedMessageId(undefined);
+    setEditedMessageName('');
+}
+
+function getEditedMessageName(message) {
+    if (message?.is_user) {
+        return name1;
+    }
+
+    if (message?.force_avatar) {
+        return message.name;
+    }
+
+    return name2;
+}
+
 function resetDeleteModeUi(cssSendFormDisplay) {
     $('#dialogue_del_mes').css('display', 'none');
     $('#send_form').css('display', cssSendFormDisplay);
@@ -407,6 +430,93 @@ export async function confirmDeleteMode(cssSendFormDisplay) {
     return chat.length;
 }
 
+export async function beginMessageEdit(trigger, cssAutofit) {
+    const triggerElement = $(trigger);
+    const mesRoot = triggerElement.closest('.mes');
+    const mesBlock = triggerElement.closest('.mes_block');
+    const nextEditedMessageId = String(mesRoot.attr('mesid'));
+    const chatScrollPosition = $('#chat').scrollTop();
+
+    if (editedMessageId !== undefined) {
+        const currentEditedDoneButton = $(`#chat [mesid="${editedMessageId}"]`).find('.mes_edit_done');
+        const currentEditedMessage = chat[editedMessageId];
+        if (
+            Number(editedMessageId) === chat.length - 1 &&
+            currentEditedMessage?.swipe_id !== undefined &&
+            currentEditedMessage?.swipes?.length !== currentEditedMessage?.swipe_id
+        ) {
+            hideSwipeButtons();
+        }
+        await messageEditDone(currentEditedDoneButton);
+    }
+
+    mesBlock.find('.mes_text').empty();
+    mesBlock.find('.mes_buttons').css('display', 'none');
+    mesBlock.find('.mes_edit_buttons').css('display', 'inline-flex');
+    setEditedMessageId(nextEditedMessageId);
+
+    const reasoningEdit = mesBlock.find('.mes_reasoning_edit:visible');
+    if (reasoningEdit.length > 0) {
+        reasoningEdit.trigger('click');
+    }
+
+    let text = chat[nextEditedMessageId]?.mes ?? '';
+    setEditedMessageName(getEditedMessageName(chat[nextEditedMessageId]));
+    if (power_user.trim_spaces) {
+        text = text.trim();
+    }
+
+    mesBlock.find('.mes_text').append('<textarea id=\'curEditTextarea\' class=\'edit_textarea mdHotkeys\'></textarea>');
+    $('#curEditTextarea').val(text);
+    const editTextarea = mesBlock.find('.edit_textarea');
+    if (!cssAutofit) {
+        editTextarea.height(0);
+        editTextarea.height(editTextarea[0].scrollHeight);
+    }
+    editTextarea.trigger('focus');
+    const textAreaElement = /** @type {HTMLTextAreaElement} */ (editTextarea[0]);
+    textAreaElement.setSelectionRange(
+        String(editTextarea.val()).length,
+        String(editTextarea.val()).length,
+    );
+
+    if (Number(editedMessageId) === chat.length - 1) {
+        $('#chat').scrollTop(chatScrollPosition);
+    }
+
+    updateEditArrowClasses();
+    return editedMessageId;
+}
+
+export async function cancelMessageEdit(trigger) {
+    const triggerElement = $(trigger);
+    const currentEditedMessage = chat[editedMessageId];
+    const mesBlock = triggerElement.closest('.mes_block');
+
+    mesBlock.find('.mes_text').empty();
+    triggerElement.closest('.mes_edit_buttons').css('display', 'none');
+    mesBlock.find('.mes_buttons').css('display', '');
+    mesBlock.find('.mes_text').append(messageFormatting(
+        currentEditedMessage?.mes ?? '',
+        editedMessageName,
+        currentEditedMessage?.is_system,
+        currentEditedMessage?.is_user,
+        editedMessageId,
+        {},
+        false,
+    ));
+    appendMediaToMessage(currentEditedMessage, triggerElement.closest('.mes'));
+    addCopyToCodeBlocksImpl(triggerElement.closest('.mes'));
+
+    const reasoningEditDone = mesBlock.find('.mes_reasoning_edit_cancel:visible');
+    if (reasoningEditDone.length > 0) {
+        reasoningEditDone.trigger('click');
+    }
+
+    await eventSource.emit(event_types.MESSAGE_UPDATED, editedMessageId);
+    clearEditedMessageState();
+}
+
 function updateEditedMessage(div) {
     const mesBlock = div.closest('.mes_block');
     let text = mesBlock.find('.edit_textarea').val()
@@ -461,13 +571,13 @@ function updateEditedMessage(div) {
     return { mesBlock, text, mes, bias };
 }
 
-export function messageEditAuto(div, editedMessageName, currentEditedMessageId = editedMessageId) {
+export function messageEditAuto(div, currentEditedMessageName = editedMessageName, currentEditedMessageId = editedMessageId) {
     const { mesBlock, text, mes, bias } = updateEditedMessage(div);
 
     mesBlock.find('.mes_text').val('');
     mesBlock.find('.mes_text').val(messageFormatting(
         text,
-        editedMessageName,
+        currentEditedMessageName,
         mes.is_system,
         mes.is_user,
         currentEditedMessageId,
@@ -479,7 +589,7 @@ export function messageEditAuto(div, editedMessageName, currentEditedMessageId =
     saveChatDebounced();
 }
 
-export async function messageEditDone(div, editedMessageName, currentEditedMessageId = editedMessageId) {
+export async function messageEditDone(div, currentEditedMessageName = editedMessageName, currentEditedMessageId = editedMessageId) {
     let { mesBlock, text, mes, bias } = updateEditedMessage(div);
     if (currentEditedMessageId == 0) {
         text = substituteParams(text);
@@ -493,7 +603,7 @@ export async function messageEditDone(div, editedMessageName, currentEditedMessa
     mesBlock.find('.mes_text').append(
         messageFormatting(
             text,
-            editedMessageName,
+            currentEditedMessageName,
             mes.is_system,
             mes.is_user,
             currentEditedMessageId,
@@ -512,7 +622,7 @@ export async function messageEditDone(div, editedMessageName, currentEditedMessa
     }
 
     await eventSource.emit(event_types.MESSAGE_UPDATED, currentEditedMessageId);
-    setEditedMessageId(undefined);
+    clearEditedMessageState();
     await saveChatConditional();
 }
 

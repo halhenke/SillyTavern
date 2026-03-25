@@ -2819,3 +2819,27 @@
 ### Next
 1. Reassess the next largest real-ownership cluster still left in `public/script.js`, likely message editor UI entry/cancel handlers or a different startup/event-wiring pocket.
 2. Continue collapsing wrapper-only or state-only monolith remnants when the extracted cores already own the behavior.
+
+## 2026-03-25 - Monolith Reduction Wave 47 (Message Edit Entry/Cancel Move)
+
+### Completed
+- Moved the message editor entry and cancel lifecycle out of `public/script.js` into `public/scripts/message-core.js`:
+  - begin message edit / initialize textarea UI
+  - carry edited message display-name state
+  - cancel message edit / restore rendered message
+- Added core-owned edited message name state in `message-core` and removed the monolith-local `this_edit_mes_chname` variable from `public/script.js`.
+- Reduced the `.mes_edit` and `.mes_edit_cancel` handlers in `public/script.js` to thin delegates into `message-core`, while keeping the high-level “is editing allowed here?” gate in the bootstrap layer.
+- Kept the extracted edit lifecycle internally consistent with the already moved edit/done helpers by letting `message-core` own both the edited id and edited display name.
+- Verified syntax for the touched legacy JS files with `node --check` via `mise`.
+
+### Measurable Impact
+- The message edit/delete slice in `public/script.js` is now mostly reorder/copy/delete wiring rather than edit lifecycle implementation.
+- `message-core` now owns the full message edit state surface, not just the save path.
+
+### Insights
+- Once delete mode and edit completion were already in `message-core`, moving edit entry/cancel mainly required migrating the display-name state to the same module.
+- This makes the remaining message-related monolith code much more obviously “UI hookup” code, which should make the next extractions less error-prone.
+
+### Next
+1. Reassess whether the next best reduction is message reorder/copy/delete handlers or a different concentrated ownership pocket elsewhere in `public/script.js`.
+2. Continue trimming wrapper-only message helpers now that `message-core` owns essentially all edit state.

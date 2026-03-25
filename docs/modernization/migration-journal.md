@@ -2939,3 +2939,28 @@
 ### Next
 1. Reassess the mixed external content import / drag-drop URL path separately from character list concerns.
 2. Continue targeting cohesive feature pockets with a natural core home before taking on the broader startup/event-wiring seam.
+
+## 2026-03-26 - Monolith Reduction Wave 52 (External Content Import Split)
+
+### Completed
+- Split the mixed external content import and drag/drop URL helpers out of `public/script.js` into a new focused module: `public/scripts/content-import-core.js`.
+- Moved:
+  - `importFromURL(...)`
+  - the external URL/UUID content import workflow that resolves imported content into character-card or lorebook handling
+- Reduced the remaining `public/script.js` behavior to:
+  - a thin `importFromURL(...)` forwarding wrapper
+  - the `.external_import_button` event registration that delegates into the new core
+- Kept this logic out of `character-core` on purpose, because the flow handles both character imports and lorebook imports and did not belong cleanly in a character-only module.
+- Verified syntax for the touched legacy JS files with `node --check` via `mise`.
+
+### Measurable Impact
+- `public/script.js` lost another mixed-responsibility import block instead of accumulating more unrelated helper code.
+- The external content import path now has an explicit home, which should make future React or modular import UI work easier to route without touching the monolith.
+
+### Insights
+- Creating a focused import module was cleaner than forcing this code into `character-core`, because the workflow spans multiple content types and would otherwise blur module ownership.
+- This reduces one of the more awkward “not really character, not really chat” islands in `script.js`, which helps the remaining monolith surface look more like bootstrap glue than feature logic.
+
+### Next
+1. Reassess whether the next best target is another mixed bootstrap helper cluster or a bigger feature seam such as character rename.
+2. Keep preferring extractions that clarify ownership, even if that means introducing a new focused module instead of stuffing unrelated behavior into an existing core.

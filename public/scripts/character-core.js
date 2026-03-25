@@ -1,5 +1,5 @@
 import { DOMPurify } from '../lib.js';
-import { entitiesFilter } from './app-state-core.js';
+import { entitiesFilter, menu_type } from './app-state-core.js';
 import { event_types, eventSource } from './events.js';
 import { default_avatar } from './chat-core.js';
 import { FILTER_STATES, FILTER_TYPES, isFilterState } from './filters.js';
@@ -7,15 +7,16 @@ import { is_group_generating, selected_group, groups, getGroupBlock } from './gr
 import { t } from './i18n.js';
 import { getThumbnailUrl, getRequestHeaders } from './network-core.js';
 import { updatePersonaConnectionsAvatarList } from './personas.js';
+import { POPUP_RESULT, POPUP_TYPE, Popup } from './popup.js';
 import { power_user, sortEntitiesList } from './power-user.js';
-import { favsToHotswap } from './RossAscends-mods.js';
+import { favsToHotswap, isMobile } from './RossAscends-mods.js';
 import { renderTemplateAsync } from './templates.js';
 import { applyTagsOnCharacterSelect, applyTagsOnGroupSelect, compareTagsForSort, filterByTagState, getTagBlock, isBogusFolder, isBogusFolderOpen, printTagFilters, printTagList, tag_filter_type, tag_map, tags } from './tags.js';
 import { is_send_press } from './ui-core.js';
 import { delay, ensureImageFormatSupported, flashHighlight, getCharaFilename, localizePagination, PAGINATION_TEMPLATE, paginationDropdownChangeHandler, renderPaginationDropdown } from './utils.js';
 import { accountStorage } from './util/AccountStorage.js';
 import { getPermanentAssistantAvatar } from './welcome-screen.js';
-import { world_info } from './world-info.js';
+import { setWorldInfoButtonClass, world_info, world_names } from './world-info.js';
 import { saveSettingsDebounced } from './settings-core.js';
 import { chat_metadata, this_chid } from './chat-core.js';
 
@@ -717,6 +718,183 @@ export async function createOrEditCharacter(e) {
         console.log(error);
         toastr.error(t`Something went wrong while saving the character, or the image file provided was in an invalid format. Double check that the image is not a webp.`);
     }
+}
+
+function updateAlternateGreetingsHintVisibility(root) {
+    const numberOfGreetings = root.find('.alternate_greetings_list .alternate_greeting').length;
+    $(root).find('.alternate_grettings_hint').toggle(numberOfGreetings == 0);
+}
+
+export async function openCharacterWorldPopup() {
+    const chid = $('#set_character_world').data('chid');
+    if (menu_type != 'create' && chid === undefined) {
+        toastr.error('Does not have an Id for this character in world select menu.');
+        return;
+    }
+
+    const fileName = getCharaFilename(chid);
+    const charName = (menu_type == 'create' ? create_save.name : characters[chid]?.data?.name) || 'Nameless';
+    const worldId = (menu_type == 'create' ? create_save.world : characters[chid]?.data?.extensions?.world) || '';
+    const template = $('#character_world_template .character_world').clone();
+    template.find('.character_name').text(charName);
+
+    async function handlePrimaryWorldSelect() {
+        const selectedValue = $(this).val();
+        const worldIndex = selectedValue !== '' ? Number(selectedValue) : NaN;
+        const name = !isNaN(worldIndex) ? world_names[worldIndex] : '';
+        const previousValue = $('#character_world').val();
+        $('#character_world').val(name);
+
+        console.debug('Character world selected:', name);
+
+        if (menu_type == 'create') {
+            create_save.world = name;
+        } else {
+            if (previousValue && !name) {
+                try {
+                    const data = JSON.parse(String($('#character_json_data').val()));
+
+                    if (data?.data?.character_book) {
+                        data.data.character_book = undefined;
+                    }
+
+                    $('#character_json_data').val(JSON.stringify(data));
+                    toastr.info(t`Embedded lorebook will be removed from this character.`);
+                } catch {
+                    console.error('Failed to parse character JSON data.');
+                }
+            }
+
+            await createOrEditCharacter();
+        }
+
+        setWorldInfoButtonClass(undefined, !!name);
+    }
+
+    function handleExtrasWorldSelect() {
+        const selectedValues = $(this).val();
+        const selectedWorlds = Array.isArray(selectedValues) ? selectedValues : [];
+        let charLore = world_info.charLore ?? [];
+        const tempExtraBooks = selectedWorlds.map((index) => world_names[index]).filter(Boolean);
+        const existingCharIndex = charLore.findIndex((e) => e.name === fileName);
+
+        if (menu_type == 'create') {
+            create_save.extra_books = tempExtraBooks;
+            return;
+        }
+
+        if (existingCharIndex === -1) {
+            if (tempExtraBooks.length > 0) {
+                charLore.push({ name: fileName, extraBooks: tempExtraBooks });
+            }
+        } else if (tempExtraBooks.length === 0) {
+            charLore.splice(existingCharIndex, 1);
+        } else {
+            charLore[existingCharIndex].extraBooks = tempExtraBooks;
+        }
+
+        Object.assign(world_info, { charLore });
+        saveSettingsDebounced();
+    }
+
+    const primarySelect = template.find('.character_world_info_selector');
+    world_names.forEach((item, i) => {
+        primarySelect.append(new Option(item, String(i), item === worldId, item === worldId));
+    });
+
+    const extrasSelect = template.find('.character_extra_world_info_selector');
+    const existingCharLore = world_info.charLore?.find((e) => e.name === fileName);
+    world_names.forEach((item, i) => {
+        const array = (menu_type == 'create' ? create_save.extra_books : existingCharLore?.extraBooks);
+        const isSelected = !!array?.includes(item);
+        extrasSelect.append(new Option(item, String(i), isSelected, isSelected));
+    });
+
+    const popup = new Popup(template, POPUP_TYPE.TEXT, '', {
+        onOpen: function (popup) {
+            const popupDialog = $(popup.dlg);
+
+            primarySelect.on('change', handlePrimaryWorldSelect);
+            extrasSelect.on('change', handleExtrasWorldSelect);
+
+            if (!isMobile()) {
+                extrasSelect.select2({
+                    width: '100%',
+                    placeholder: t`No auxiliary Lorebooks set. Click here to select.`,
+                    allowClear: true,
+                    closeOnSelect: false,
+                    dropdownParent: popupDialog,
+                });
+            }
+        },
+    });
+
+    await popup.show();
+}
+
+function addAlternateGreeting(template, greeting, index, getArray, popup) {
+    const greetingBlock = $('#alternate_greeting_form_template .alternate_greeting').clone();
+    greetingBlock.find('.alternate_greeting_text')
+        .attr('id', `alternate_greeting_${index}`)
+        .on('input', async function () {
+            const value = $(this).val();
+            const array = getArray();
+            array[index] = value;
+        }).val(greeting);
+    greetingBlock.find('.editor_maximize').attr('data-for', `alternate_greeting_${index}`);
+    greetingBlock.find('.greeting_index').text(index + 1);
+    greetingBlock.find('.delete_alternate_greeting').on('click', async function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (confirm(t`Are you sure you want to delete this alternate greeting?`)) {
+            const array = getArray();
+            array.splice(index, 1);
+
+            await popup.complete(POPUP_RESULT.AFFIRMATIVE);
+            openAlternateGreetings();
+        }
+    });
+    template.find('.alternate_greetings_list').append(greetingBlock);
+}
+
+export function openAlternateGreetings() {
+    const chid = $('.open_alternate_greetings').data('chid');
+
+    if (menu_type != 'create' && chid === undefined) {
+        toastr.error('Does not have an Id for this character in editor menu.');
+        return;
+    } else if (characters[chid] && !Array.isArray(characters[chid].data.alternate_greetings)) {
+        characters[chid].data.alternate_greetings = [];
+    }
+
+    const template = $('#alternate_greetings_template .alternate_grettings').clone();
+    const getArray = () => menu_type == 'create' ? create_save.alternate_greetings : characters[chid].data.alternate_greetings;
+    const popup = new Popup(template, POPUP_TYPE.TEXT, '', {
+        wide: true,
+        large: true,
+        allowVerticalScrolling: true,
+        onClose: async () => {
+            if (menu_type !== 'create') {
+                await createOrEditCharacter();
+            }
+        },
+    });
+
+    for (let index = 0; index < getArray().length; index++) {
+        addAlternateGreeting(template, getArray()[index], index, getArray, popup);
+    }
+
+    template.find('.add_alternate_greeting').on('click', function () {
+        const array = getArray();
+        const index = array.length;
+        array.push('');
+        addAlternateGreeting(template, '', index, getArray, popup);
+        updateAlternateGreetingsHintVisibility(template);
+    });
+
+    popup.show();
+    updateAlternateGreetingsHintVisibility(template);
 }
 
 export { getRequestHeaders };

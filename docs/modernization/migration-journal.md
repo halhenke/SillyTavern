@@ -2867,3 +2867,27 @@
 ### Next
 1. Reassess whether to finish the last small message wrappers in `public/script.js` or switch to another dense ownership cluster with higher leverage.
 2. If staying in the message slice, consider collapsing the remaining `messageEditAuto(...)` / `messageEditDone(...)` delegates once compatibility requirements are clear.
+
+## 2026-03-25 - Monolith Reduction Wave 49 (Character Editor Popup Move)
+
+### Completed
+- Moved the character editor popup/helper cluster out of `public/script.js` into `public/scripts/character-core.js`:
+  - character world selector popup
+  - alternate greetings popup
+  - alternate greeting row add/delete helper logic
+  - alternate greetings empty-state hint handling
+- Reduced `public/script.js` to thin wrappers for `openCharacterWorldPopup()` and `openAlternateGreetings()`.
+- Kept the popup logic close to `createOrEditCharacter(...)`, which is already owned by `character-core`, so world selection and alternate greeting edits now live beside the character save flow they depend on.
+- Verified syntax for the touched legacy JS files with `node --check` via `mise`.
+
+### Measurable Impact
+- `public/script.js` lost another mid-sized UI ownership pocket instead of just another handful of wrappers.
+- Character editor popup behavior is now more coherently owned by `character-core`, which already contains the surrounding character create/edit lifecycle.
+
+### Insights
+- This was a better “bigger bite” than forcing the swipe/generation seam immediately, because the dependencies were already aligned with `character-core`.
+- The remaining monolith is still large, but it is increasingly concentrated in generation, import flows, and general startup/event wiring rather than these editor-specific helper islands.
+
+### Next
+1. Continue with another dense character-editor/import cluster or switch to a larger runtime seam like swipe/generation if the dependency surface looks acceptable.
+2. Keep preferring clusters that already have a natural home in an extracted core rather than forcing larger cross-core moves too early.

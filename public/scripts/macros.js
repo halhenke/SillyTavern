@@ -180,6 +180,8 @@ export class MacrosParser {
     }
 }
 
+globalThis.MacrosParser = MacrosParser;
+
 /**
  * Gets a hashed id of the current chat from the metadata.
  * If no metadata exists, creates a new hash and saves it.

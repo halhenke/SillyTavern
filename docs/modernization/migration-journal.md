@@ -3016,3 +3016,28 @@
 ### Next
 1. Reassess whether the next best target is another substantial character-management seam or a broader startup/bootstrap cluster.
 2. Keep using explicit bindings for session-owned side effects when a feature naturally belongs in `character-core` but still needs to coordinate with selection state.
+
+## 2026-03-26 - Startup Regression Follow-up (Slash Command Cycle Fixes)
+
+### Completed
+- Fixed a set of browser-startup module initialization regressions that surfaced after the recent extraction waves:
+  - removed `SlashCommandParser` startup dependencies on `power_user`, `MacrosParser`, and the heavy `SlashCommandCommonEnumsProvider` import path
+  - converted type-only `SlashCommand` imports in `SlashCommandClosure.js` and `SlashCommandExecutor.js` into inline JSDoc `import(...)` references so they no longer participate in runtime module loading
+  - delayed `i18n.js` access to `power-user.js` and `secrets.js` until `initLocales()` instead of pulling those modules in at top-level parser startup
+  - restored the missing `debounce` import in `character-core.js` for `initCharacterSearch()`
+- Preserved the existing public behavior and call sites instead of redesigning slash-command initialization:
+  - `power_user` and `MacrosParser` are still exposed for the rest of the app, but `SlashCommandParser` now reads them through `globalThis` only when needed
+  - the parser’s built-in boolean/on-off enum lists are now created locally where that was enough to avoid another runtime cycle
+- Verified syntax on all touched files with `node --check` via `mise`.
+
+### Measurable Impact
+- The app now gets through browser startup again after the recent extraction work.
+- The slash-command parser path is less brittle at module-evaluation time because it no longer eagerly traverses several heavy runtime modules just to construct parser helpers.
+
+### Insights
+- These fixes were intentionally targeted as startup bug repairs, not another broad modernization pass; the goal was to break import cycles with the smallest behavior-preserving changes possible.
+- Some of the remaining legacy fragility is in module evaluation order rather than function behavior, so syntax-only verification is not enough after extraction waves that move helpers across files.
+
+### Next
+1. Keep an eye on startup/runtime regressions immediately after future `script.js` extractions, especially when moved code depends on utilities that were previously imported only by the monolith.
+2. Resume monolith reduction with the user’s stated constraint in mind: prefer relocations and compatibility-preserving fixes over internal rewrites that make upstream equivalence harder to demonstrate.

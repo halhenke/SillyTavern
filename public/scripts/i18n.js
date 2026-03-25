@@ -1,6 +1,3 @@
-import { registerDebugFunction } from './power-user.js';
-import { updateSecretDisplay } from './secrets.js';
-
 const storageKey = 'language';
 const overrideLanguage = localStorage.getItem(storageKey);
 const localeFile = String(overrideLanguage || navigator.language || navigator.userLanguage || 'en').toLowerCase();
@@ -270,6 +267,11 @@ function addLanguagesToDropdown() {
 }
 
 export async function initLocales() {
+    const [{ updateSecretDisplay }, { registerDebugFunction }] = await Promise.all([
+        import('./secrets.js'),
+        import('./power-user.js'),
+    ]);
+
     langs = await fetch('/locales/lang.json').then(response => response.json());
     localeData = await getLocaleData(localeFile);
     applyLocale();

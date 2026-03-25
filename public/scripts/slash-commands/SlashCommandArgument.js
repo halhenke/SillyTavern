@@ -1,5 +1,4 @@
 import { SlashCommandClosure } from './SlashCommandClosure.js';
-import { commonEnumProviders } from './SlashCommandCommonEnumsProvider.js';
 import { SlashCommandEnumValue } from './SlashCommandEnumValue.js';
 import { SlashCommandExecutor } from './SlashCommandExecutor.js';
 import { SlashCommandScope } from './SlashCommandScope.js';
@@ -19,6 +18,13 @@ export const ARGUMENT_TYPE = {
     'LIST': 'list',
     'DICTIONARY': 'dictionary',
 };
+
+function getDefaultBooleanEnumList() {
+    return [
+        new SlashCommandEnumValue('true'),
+        new SlashCommandEnumValue('false'),
+    ];
+}
 
 export class SlashCommandArgument {
     /**
@@ -76,7 +82,7 @@ export class SlashCommandArgument {
         this.forceEnum = forceEnum;
 
         // If no enums were set explictly and the type is one where we know possible enum values, we set them here
-        if (!this.enumList.length && this.typeList.length === 1 && this.typeList.includes(ARGUMENT_TYPE.BOOLEAN)) this.enumList = commonEnumProviders.boolean()();
+        if (!this.enumList.length && this.typeList.length === 1 && this.typeList.includes(ARGUMENT_TYPE.BOOLEAN)) this.enumList = getDefaultBooleanEnumList();
     }
 }
 

@@ -15,7 +15,7 @@ import { system_message_types } from './system-messages.js';
 import { renderTemplateAsync } from './templates.js';
 import { applyTagsOnCharacterSelect, applyTagsOnGroupSelect, compareTagsForSort, filterByTagState, getTagBlock, isBogusFolder, isBogusFolderOpen, printTagFilters, printTagList, tag_filter_type, tag_map, tags } from './tags.js';
 import { animation_duration, animation_easing, is_send_press } from './ui-core.js';
-import { delay, ensureImageFormatSupported, flashHighlight, getCharaFilename, localizePagination, PAGINATION_TEMPLATE, paginationDropdownChangeHandler, renderPaginationDropdown } from './utils.js';
+import { debounce, delay, ensureImageFormatSupported, flashHighlight, getCharaFilename, localizePagination, PAGINATION_TEMPLATE, paginationDropdownChangeHandler, renderPaginationDropdown } from './utils.js';
 import { accountStorage } from './util/AccountStorage.js';
 import { getPermanentAssistantAvatar } from './welcome-screen.js';
 import { setWorldInfoButtonClass, world_info, world_names } from './world-info.js';

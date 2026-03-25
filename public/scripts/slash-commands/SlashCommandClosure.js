@@ -1,6 +1,5 @@
 import { substituteParams } from '../runtime/parser-adapter.js';
 import { delay, escapeRegex, uuidv4 } from '../utils.js';
-import { SlashCommand } from './SlashCommand.js';
 import { SlashCommandAbortController } from './SlashCommandAbortController.js';
 import { SlashCommandBreak } from './SlashCommandBreak.js';
 import { SlashCommandBreakController } from './SlashCommandBreakController.js';
@@ -518,7 +517,7 @@ export class SlashCommandClosure {
 
     /**
      * Auto-fixes the pipe if it is not a valid result for STscript.
-     * @param {SlashCommand} command Command being executed
+     * @param {import('./SlashCommand.js').SlashCommand} command Command being executed
      */
     #lintPipe(command) {
         if (this.scope.pipe === undefined || this.scope.pipe === null) {

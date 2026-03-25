@@ -1,5 +1,4 @@
 import { uuidv4 } from '../utils.js';
-import { SlashCommand } from './SlashCommand.js';
 import { SlashCommandClosure } from './SlashCommandClosure.js';
 import { SlashCommandNamedArgumentAssignment } from './SlashCommandNamedArgumentAssignment.js';
 import { SlashCommandUnnamedArgumentAssignment } from './SlashCommandUnnamedArgumentAssignment.js';
@@ -24,7 +23,7 @@ export class SlashCommandExecutor {
             arg.value.source = value;
         }
     }
-    /** @type {SlashCommand} */ command;
+    /** @type {import('./SlashCommand.js').SlashCommand} */ command;
     /** @type {SlashCommandNamedArgumentAssignment[]} */ namedArgumentList = [];
     /** @type {SlashCommandUnnamedArgumentAssignment[]} */ unnamedArgumentList = [];
     /** @type {import('./SlashCommandParser.js').ParserFlags} */ parserFlags;

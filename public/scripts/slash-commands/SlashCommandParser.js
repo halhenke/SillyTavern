@@ -17,9 +17,7 @@ import { SlashCommandEnumValue } from './SlashCommandEnumValue.js';
 import { MacroAutoCompleteOption } from '../autocomplete/MacroAutoCompleteOption.js';
 import { SlashCommandBreakPoint } from './SlashCommandBreakPoint.js';
 import { SlashCommandDebugController } from './SlashCommandDebugController.js';
-import { commonEnumProviders } from './SlashCommandCommonEnumsProvider.js';
 import { SlashCommandBreak } from './SlashCommandBreak.js';
-import { MacrosParser } from '../macros.js';
 import { t } from '../i18n.js';
 
 /** @typedef {import('./SlashCommand.js').NamedArgumentsCapture} NamedArgumentsCapture */
@@ -37,6 +35,17 @@ export const PARSER_FLAG = {
 
 function getDefaultParserFlags() {
     return globalThis.power_user?.stscript?.parser?.flags ?? {};
+}
+
+function getRegisteredMacros() {
+    return globalThis.MacrosParser ?? [];
+}
+
+function getOnOffParserFlagEnumList() {
+    return [
+        new SlashCommandEnumValue('on', null, 'macro', '✔️'),
+        new SlashCommandEnumValue('off', null, 'macro', '❌'),
+    ];
 }
 
 export class SlashCommandParser {
@@ -158,7 +167,7 @@ export class SlashCommandParser {
                         description: 'The state of the parser flag to set.',
                         typeList: [ARGUMENT_TYPE.BOOLEAN],
                         defaultValue: 'on',
-                        enumList: commonEnumProviders.boolean('onOff')(),
+                        enumList: getOnOffParserFlagEnumList(),
                     }),
                 ],
                 splitUnnamedArgument: true,
@@ -498,7 +507,7 @@ export class SlashCommandParser {
                     li.querySelector('tt').textContent,
                     (li.querySelector('tt').remove(),li.innerHTML),
                 ));
-                for (const macro of MacrosParser) {
+                for (const macro of getRegisteredMacros()) {
                     if (options.find(it => it.name === macro.key)) continue;
                     options.push(new MacroAutoCompleteOption(macro.key, `{{${macro.key}}}`, macro.description || t`No description provided`));
                 }

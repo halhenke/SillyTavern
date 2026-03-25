@@ -2917,3 +2917,25 @@
 ### Next
 1. Continue with the next dense import/editor cluster if it still has a clear core home, or switch to startup/event-wiring reduction once the remaining feature pockets become too cross-cutting.
 2. Reassess whether `importFromURL(...)` and adjacent drag/drop character import glue should follow the character import move, or whether the better next leverage is elsewhere in the bootstrap layer.
+
+## 2026-03-26 - Monolith Reduction Wave 51 (Character List Search/UI Move)
+
+### Completed
+- Moved the remaining character-list search and view-toggle helpers out of `public/script.js` into `public/scripts/character-core.js`:
+  - `initCharacterSearch()`
+  - `doCharListDisplaySwitch()`
+- Reduced `public/script.js` to thin forwarding wrappers for those list/UI helpers while leaving the event registration in place.
+- Kept the move within `character-core` because the helpers already depend on the same character filter/search/settings state used by list rendering.
+- Verified syntax for the touched legacy JS files with `node --check` via `mise`.
+
+### Measurable Impact
+- Another character-list bootstrap pocket no longer lives in `public/script.js`; the monolith owns less direct filter/search implementation and more pure wiring.
+- The search-bar visibility persistence and character-grid toggle now live beside the list/filtering logic they affect.
+
+### Insights
+- This was a safer follow-up than forcing the mixed external content import path, because the search and view-toggle helpers already sit squarely in the character-list domain.
+- The remaining import/bootstrap logic is now more clearly separated from character list state management, which should make the next reduction target easier to identify.
+
+### Next
+1. Reassess the mixed external content import / drag-drop URL path separately from character list concerns.
+2. Continue targeting cohesive feature pockets with a natural core home before taking on the broader startup/event-wiring seam.

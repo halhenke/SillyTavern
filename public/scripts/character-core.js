@@ -357,6 +357,45 @@ export async function processDroppedFiles(files, data = new Map()) {
     }
 }
 
+export function doCharListDisplaySwitch() {
+    power_user.charListGrid = !power_user.charListGrid;
+    document.body.classList.toggle('charListGrid', power_user.charListGrid);
+    saveSettingsDebounced();
+}
+
+export function initCharacterSearch() {
+    const debouncedCharacterSearch = debounce((searchQuery) => {
+        entitiesFilter.setFilterData(FILTER_TYPES.SEARCH, searchQuery);
+    });
+
+    const searchForm = $('#form_character_search_form');
+    const searchInput = $('#character_search_bar');
+    const searchButton = $('#rm_button_search');
+
+    const storageKey = 'characterSearchFormVisible';
+
+    searchInput.on('input', function () {
+        const searchQuery = String($(this).val());
+        debouncedCharacterSearch(searchQuery);
+    });
+
+    searchButton.on('click', function () {
+        const newVisibility = !searchForm.is(':visible');
+        searchForm.toggle(newVisibility);
+        searchButton.toggleClass('active', newVisibility);
+        accountStorage.setItem(storageKey, String(newVisibility));
+        if (newVisibility) {
+            searchInput.trigger('focus');
+        }
+    });
+
+    eventSource.on(event_types.APP_READY, () => {
+        const isVisible = accountStorage.getItem(storageKey) === 'true';
+        searchForm.toggle(isVisible);
+        searchButton.toggleClass('active', isVisible);
+    });
+}
+
 export function groupToEntity(...args) {
     return groupToEntityInternal(...args);
 }

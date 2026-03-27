@@ -8,6 +8,7 @@ import { showdown } from '../lib.js';
 
 let addCopyToCodeBlocksImpl = null;
 let callPopupImpl = null;
+let debounceImpl = null;
 let delayImpl = null;
 let favsToHotswapImpl = null;
 let resetScrollHeightImpl = null;
@@ -29,6 +30,7 @@ function throwUnbound(name) {
  * @param {{
  *   addCopyToCodeBlocks: (...args: any[]) => any,
  *   callPopup: (...args: any[]) => any,
+ *   debounce: (...args: any[]) => any,
  *   delay: (...args: any[]) => Promise<any>,
  *   favsToHotswap: (...args: any[]) => any,
  *   resetScrollHeight: (...args: any[]) => Promise<any>,
@@ -39,6 +41,7 @@ function throwUnbound(name) {
 export function bindUiCore(impl) {
     addCopyToCodeBlocksImpl = impl?.addCopyToCodeBlocks ?? null;
     callPopupImpl = impl?.callPopup ?? null;
+    debounceImpl = impl?.debounce ?? null;
     delayImpl = impl?.delay ?? null;
     favsToHotswapImpl = impl?.favsToHotswap ?? null;
     resetScrollHeightImpl = impl?.resetScrollHeight ?? null;
@@ -88,6 +91,14 @@ function delayBound(...args) {
     }
 
     return delayImpl(...args);
+}
+
+function debounceBound(...args) {
+    if (!debounceImpl) {
+        throwUnbound('debounce');
+    }
+
+    return debounceImpl(...args);
 }
 
 function favsToHotswapBound(...args) {
@@ -279,6 +290,39 @@ export function initSendTextareaFocusRetention() {
             }
         } else {
             previouslyFocused = true;
+        }
+    });
+}
+
+export function initEditTextareaAutoFit({ chatElement, debounceMs }) {
+    if (CSS.supports('field-sizing', 'content')) {
+        return;
+    }
+
+    /**
+     * Sets the scroll height of the edit textarea to fit the content.
+     * @param {HTMLTextAreaElement} textarea Textarea element to auto-fit
+     */
+    function autoFitEditTextArea(textarea) {
+        const scrollTop = chatElement.scrollTop();
+        textarea.style.height = '0px';
+        const newHeight = textarea.scrollHeight + 4;
+        textarea.style.height = `${newHeight}px`;
+        chatElement.scrollTop(scrollTop);
+    }
+
+    const autoFitEditTextAreaDebounced = debounceBound(autoFitEditTextArea, debounceMs);
+    document.addEventListener('input', event => {
+        if (!(event.target instanceof HTMLTextAreaElement) || !event.target.classList.contains('edit_textarea')) {
+            return;
+        }
+
+        const scrollbarShown = event.target.clientWidth < event.target.offsetWidth && event.target.offsetHeight >= window.innerHeight * 0.75;
+        const immediately = (event.target.scrollHeight > event.target.offsetHeight && !scrollbarShown) || event.target.value === '';
+        if (immediately) {
+            autoFitEditTextArea(event.target);
+        } else {
+            autoFitEditTextAreaDebounced(event.target);
         }
     });
 }

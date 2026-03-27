@@ -3160,3 +3160,26 @@
 ### Next
 1. Reassess whether the next nearby DOM-ready interaction can move with the same low-risk pattern.
 2. Keep prioritizing relocations where the state is local to one UI behavior and not entangled with generation/session logic.
+
+## 2026-03-27 - Monolith Reduction Wave 60 (Edit Textarea Auto-fit Move)
+
+### Completed
+- Moved the edit-textarea auto-fit setup out of `public/script.js` into `public/scripts/ui-core.js` as `initEditTextareaAutoFit(...)`.
+- Kept the behavior intact:
+  - skip the whole path when the browser supports CSS `field-sizing: content`
+  - immediately resize when the textarea is empty or expanding without a scrollbar
+  - otherwise debounce the resize path using the existing short debounce timeout
+- Extended `bindUiCore(...)` with the shared `debounce(...)` helper instead of adding a new direct dependency from `ui-core` into the larger utility module graph.
+- Verified syntax for the touched files with `node --check` via `mise`.
+
+### Measurable Impact
+- `public/script.js` lost another stateful DOM-ready helper block tied to message editing UI.
+- `ui-core.js` now owns more of the generic edit-surface behavior instead of leaving textarea lifecycle setup embedded in the monolith.
+
+### Insights
+- Passing `chatElement` and the debounce delay into one init helper was enough to preserve the original behavior without turning this into a larger editor refactor.
+- Reusing the existing `debounce` helper through `bindUiCore(...)` kept this move consistent with the recent drawer/options/input UI relocations.
+
+### Next
+1. Reassess whether there are enough remaining DOM-ready helper clusters to justify one more `ui-core` pass before switching back to a larger feature seam.
+2. Keep preferring complete interaction-block moves over scattering single helper functions across modules.

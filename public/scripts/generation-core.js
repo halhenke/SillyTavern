@@ -7,11 +7,11 @@ import { getRequestHeaders } from './network-core.js';
 import { baseChatReplace, extractJsonFromData, extractMessageFromData, getBiasStrings, removeMacros, substituteParams } from './parser-core.js';
 import { chat } from './chat-operations-core.js';
 
-let generateImpl = null;
 let addChatsPreambleImpl = null;
 let addChatsSeparatorImpl = null;
 let appendFileContentImpl = null;
 let collapseNewlinesImpl = null;
+let deleteLastMessageImpl = null;
 let createPromptReasoningImpl = null;
 let createRawPromptImpl = null;
 let generateHordeImpl = null;
@@ -23,6 +23,7 @@ let getNovelGenerationDataImpl = null;
 let getNovelSettingsConfigImpl = null;
 let getOpenAiMaxTokensImpl = null;
 let getAnimationDurationImpl = null;
+let getAlwaysForceName2Impl = null;
 let getAbortControllerImpl = null;
 let getAllExtensionPromptsImpl = null;
 let getAutoContinueConfigImpl = null;
@@ -30,6 +31,7 @@ let getCurrentInputTextImpl = null;
 let getConsoleLogPromptsEnabledImpl = null;
 let getCustomStoppingStringsImpl = null;
 let getGeneratingApiConfigImpl = null;
+let getExtensionPromptsImpl = null;
 let getGenericSystemMessageTypeImpl = null;
 let getCharacterCardFieldsImpl = null;
 let getCfgPromptImpl = null;
@@ -56,7 +58,9 @@ let getMinLengthImpl = null;
 let getNamesAsStopStringsImpl = null;
 let getOaiSendIfEmptyImpl = null;
 let getOpenAiMessagesCountImpl = null;
+let getOpenAiContinuePostfixImpl = null;
 let getPromptMetadataExtrasImpl = null;
+let getItemizedPromptsImpl = null;
 let getSelectedPresetNameImpl = null;
 let getSyspromptConfigImpl = null;
 let getTextareaTextImpl = null;
@@ -64,6 +68,7 @@ let getTokenCountImpl = null;
 let getTokenCountAsyncImpl = null;
 let getTextGenGenerationDataImpl = null;
 let getTokenizerNameImpl = null;
+let getToolRecurseLimitImpl = null;
 let getUserAlignmentMessageImpl = null;
 let getPinExamplesImpl = null;
 let getStoryStringConfigImpl = null;
@@ -102,6 +107,8 @@ let extractTitleFromDataImpl = null;
 let extractReasoningFromDataImpl = null;
 let hasToolCallsImpl = null;
 let invokeFunctionToolsImpl = null;
+let isToolCallingSupportedImpl = null;
+let canPerformToolCallsImpl = null;
 let normalizeReasoningTextImpl = null;
 let createStreamingProcessorImpl = null;
 let sendMessageAsUserImpl = null;
@@ -143,8 +150,10 @@ let prepareOpenAIMessagesImpl = null;
 let renderStoryStringImpl = null;
 let runGenerationInterceptorsImpl = null;
 let saveChatConditionalImpl = null;
+let saveFunctionToolInvocationsImpl = null;
 let saveReplyImpl = null;
 let setGeneratedTitleImpl = null;
+let getGenerationStartedImpl = null;
 let getWorldInfoPromptImpl = null;
 let shouldIncludePersonaInStoryStringImpl = null;
 let setImpersonationTextImpl = null;
@@ -156,6 +165,7 @@ let unblockGenerationImpl = null;
 let emitGenerationStartedImpl = null;
 let emitGenerationAfterCommandsImpl = null;
 let pingServerImpl = null;
+let setGenerationStartedImpl = null;
 let unshallowCharacterImpl = null;
 
 export let amount_gen = 0;
@@ -173,7 +183,6 @@ function throwUnbound(name) {
 /**
  * Binds legacy generation implementations to standalone wrappers.
  * @param {{
- *   Generate: (...args: any[]) => Promise<any>,
  *   addChatsPreamble: (...args: any[]) => string,
  *   addChatsSeparator: (...args: any[]) => string,
  *   appendFileContent: (...args: any[]) => Promise<string>,
@@ -330,10 +339,10 @@ export function bindGenerationCore(impl) {
     adjustNovelInstructionPromptImpl = impl?.adjustNovelInstructionPrompt ?? null;
     addPersonaDescriptionExtensionPromptImpl = impl?.addPersonaDescriptionExtensionPrompt ?? null;
     appendFileContentImpl = impl?.appendFileContent ?? null;
+    deleteLastMessageImpl = impl?.deleteLastMessage ?? null;
     emitGenerationAfterCommandsImpl = impl?.emitGenerationAfterCommands ?? null;
     emitGenerationStartedImpl = impl?.emitGenerationStarted ?? null;
     emitImpersonateReadyImpl = impl?.emitImpersonateReady ?? null;
-    generateImpl = impl?.Generate ?? null;
     addChatsPreambleImpl = impl?.addChatsPreamble ?? null;
     addChatsSeparatorImpl = impl?.addChatsSeparator ?? null;
     collapseNewlinesImpl = impl?.collapseNewlines ?? null;
@@ -345,6 +354,7 @@ export function bindGenerationCore(impl) {
     executeSlashCommandsOnChatInputImpl = impl?.executeSlashCommandsOnChatInput ?? null;
     deactivateSendButtonsImpl = impl?.deactivateSendButtons ?? null;
     getAnimationDurationImpl = impl?.getAnimationDuration ?? null;
+    getAlwaysForceName2Impl = impl?.getAlwaysForceName2 ?? null;
     getAllExtensionPromptsImpl = impl?.getAllExtensionPrompts ?? null;
     getAllowWIScanImpl = impl?.getAllowWIScan ?? null;
     getBeforePromptTypeImpl = impl?.getBeforePromptType ?? null;
@@ -356,9 +366,11 @@ export function bindGenerationCore(impl) {
     getDepthPromptIdImpl = impl?.getDepthPromptId ?? null;
     getDepthPromptIndexIdImpl = impl?.getDepthPromptIndexId ?? null;
     getExtensionPromptImpl = impl?.getExtensionPrompt ?? null;
+    getExtensionPromptsImpl = impl?.getExtensionPrompts ?? null;
     getExtensionPromptRoleByNameImpl = impl?.getExtensionPromptRoleByName ?? null;
     getForceOutputSequencesImpl = impl?.getForceOutputSequences ?? null;
     getGenerationTriggerImpl = impl?.getGenerationTrigger ?? null;
+    getGenerationStartedImpl = impl?.getGenerationStarted ?? null;
     getTrimSpacesEnabledImpl = impl?.getTrimSpacesEnabled ?? null;
     getInChatPromptTypeImpl = impl?.getInChatPromptType ?? null;
     getInPromptPromptTypeImpl = impl?.getInPromptPromptType ?? null;
@@ -383,7 +395,9 @@ export function bindGenerationCore(impl) {
     getMinLengthImpl = impl?.getMinLength ?? null;
     getNamesAsStopStringsImpl = impl?.getNamesAsStopStrings ?? null;
     getOaiSendIfEmptyImpl = impl?.getOaiSendIfEmpty ?? null;
+    getOpenAiContinuePostfixImpl = impl?.getOpenAiContinuePostfix ?? null;
     getOpenAiMessagesCountImpl = impl?.getOpenAiMessagesCount ?? null;
+    getItemizedPromptsImpl = impl?.getItemizedPrompts ?? null;
     getPromptMetadataExtrasImpl = impl?.getPromptMetadataExtras ?? null;
     getSelectedPresetNameImpl = impl?.getSelectedPresetName ?? null;
     getSyspromptConfigImpl = impl?.getSyspromptConfig ?? null;
@@ -399,6 +413,7 @@ export function bindGenerationCore(impl) {
     getTokenPaddingImpl = impl?.getTokenPadding ?? null;
     getTextGenGenerationDataImpl = impl?.getTextGenGenerationData ?? null;
     getTokenizerNameImpl = impl?.getTokenizerName ?? null;
+    getToolRecurseLimitImpl = impl?.getToolRecurseLimit ?? null;
     getUserAlignmentMessageImpl = impl?.getUserAlignmentMessage ?? null;
     getWiAnchorBeforeImpl = impl?.getWiAnchorBefore ?? null;
     getWorldInfoIncludeNamesImpl = impl?.getWorldInfoIncludeNames ?? null;
@@ -408,6 +423,8 @@ export function bindGenerationCore(impl) {
     hasPendingFileAttachmentImpl = impl?.hasPendingFileAttachment ?? null;
     hideStopButtonImpl = impl?.hideStopButton ?? null;
     hideSwipeButtonsImpl = impl?.hideSwipeButtons ?? null;
+    isToolCallingSupportedImpl = impl?.isToolCallingSupported ?? null;
+    canPerformToolCallsImpl = impl?.canPerformToolCalls ?? null;
     isCharacterEditMenuImpl = impl?.isCharacterEditMenu ?? null;
     isHordeGenerationNotAllowedImpl = impl?.isHordeGenerationNotAllowed ?? null;
     isStreamingEnabledImpl = impl?.isStreamingEnabled ?? null;
@@ -439,6 +456,7 @@ export function bindGenerationCore(impl) {
     sendSystemMessageImpl = impl?.sendSystemMessage ?? null;
     sendStreamingRequestImpl = impl?.sendStreamingRequest ?? null;
     saveChatConditionalImpl = impl?.saveChatConditional ?? null;
+    saveFunctionToolInvocationsImpl = impl?.saveFunctionToolInvocations ?? null;
     saveReplyImpl = impl?.saveReply ?? null;
     setAbortControllerImpl = impl?.setAbortController ?? null;
     setCharacterIdImpl = impl?.setCharacterId ?? null;
@@ -447,6 +465,7 @@ export function bindGenerationCore(impl) {
     setCustomWorldInfoDepthPromptImpl = impl?.setCustomWorldInfoDepthPrompt ?? null;
     setExtensionPromptImpl = impl?.setExtensionPrompt ?? null;
     setGeneratedTitleImpl = impl?.setGeneratedTitle ?? null;
+    setGenerationStartedImpl = impl?.setGenerationStarted ?? null;
     setImpersonationTextImpl = impl?.setImpersonationText ?? null;
     setOpenAiMaxTokensImpl = impl?.setOpenAiMaxTokens ?? null;
     setGenerationParamsFromPresetImpl = impl?.setGenerationParamsFromPreset ?? null;
@@ -506,12 +525,429 @@ export function syncTalkativenessDefault(value) {
     talkativeness_default = value;
 }
 
-export function Generate(...args) {
-    if (!generateImpl) {
-        throwUnbound('Generate');
+export async function Generate(type, { automatic_trigger, force_name2, quiet_prompt, quietToLoud, skipWIAN, force_chid, signal, quietImage, quietName, jsonSchema = null, depth = 0 } = {}, dryRun = false) {
+    if (!setGenerationProgressImpl) {
+        throwUnbound('setGenerationProgress');
+    }
+    if (!setGenerationStartedImpl) {
+        throwUnbound('setGenerationStarted');
+    }
+    if (!getAlwaysForceName2Impl) {
+        throwUnbound('getAlwaysForceName2');
+    }
+    if (!isToolCallingSupportedImpl) {
+        throwUnbound('isToolCallingSupported');
+    }
+    if (!canPerformToolCallsImpl) {
+        throwUnbound('canPerformToolCalls');
+    }
+    if (!getToolRecurseLimitImpl) {
+        throwUnbound('getToolRecurseLimit');
+    }
+    if (!getExtensionPromptsImpl) {
+        throwUnbound('getExtensionPrompts');
+    }
+    if (!getItemizedPromptsImpl) {
+        throwUnbound('getItemizedPrompts');
+    }
+    if (!getTokenPaddingImpl) {
+        throwUnbound('getTokenPadding');
+    }
+    if (!deleteLastMessageImpl) {
+        throwUnbound('deleteLastMessage');
+    }
+    if (!saveFunctionToolInvocationsImpl) {
+        throwUnbound('saveFunctionToolInvocations');
+    }
+    if (!getOpenAiContinuePostfixImpl) {
+        throwUnbound('getOpenAiContinuePostfix');
+    }
+    if (!setSendButtonStateImpl) {
+        throwUnbound('setSendButtonState');
+    }
+    if (!setInContextMessagesImpl) {
+        throwUnbound('setInContextMessages');
     }
 
-    return generateImpl(...args);
+    console.log('Generate entered');
+    setGenerationProgressImpl(0);
+    const generationStartedNow = new Date();
+    setGenerationStartedImpl(generationStartedNow);
+
+    const entryState = await prepareGenerationEntryState({
+        automaticTrigger: automatic_trigger,
+        currentCharacterId: this_chid,
+        dryRun,
+        forceChid: force_chid,
+        forceName2: force_name2,
+        quietImage,
+        quietPrompt: quiet_prompt,
+        quietToLoud,
+        signal,
+        skipWIAN,
+        type,
+    });
+
+    if (entryState.status === 'complete') {
+        return entryState.value;
+    }
+
+    const { isImpersonate, isInstruct } = entryState;
+    quiet_prompt = entryState.quietPrompt;
+
+    let {
+        generationStarted,
+        isContinue,
+        messageBias,
+        promptBias,
+        isUserPromptBias,
+    } = await prepareGenerationMessages({
+        type,
+        dryRun,
+        isImpersonate,
+        automaticTrigger: automatic_trigger,
+        generationStarted: generationStartedNow,
+    });
+    setGenerationStartedImpl(generationStarted);
+
+    let {
+        description,
+        personality,
+        persona,
+        scenario,
+        mesExamples,
+        system,
+        jailbreak,
+        charDepthPrompt,
+        creatorNotes,
+    } = preparePromptContextState({ isInstruct });
+
+    const canUseTools = isToolCallingSupportedImpl();
+    const canPerformToolCalls = !dryRun && canPerformToolCallsImpl(type) && depth < getToolRecurseLimitImpl();
+    let { coreChat, promptReasoning } = await prepareCoreChatState({
+        canUseTools,
+        isContinue,
+        type,
+    });
+
+    let {
+        aborted: contextWindowAborted,
+        adjustedParams,
+        cfgGuidanceScale,
+        thisMaxContext: this_max_context,
+        useCfgPrompt,
+    } = await prepareGenerationContextWindow({
+        coreChat,
+        dryRun,
+        type,
+    });
+
+    if (contextWindowAborted) {
+        unblockGenerationImpl(type);
+        return Promise.resolve();
+    }
+
+    console.log(`Core/all messages: ${coreChat.length}/${chat.length}`);
+
+    if ((promptBias && !isUserPromptBias) || getAlwaysForceName2Impl() || main_api == 'novel') {
+        force_name2 = true;
+    }
+
+    if (isImpersonate) {
+        force_name2 = false;
+    }
+
+    let {
+        afterScenarioAnchor,
+        beforeScenarioAnchor,
+        combinedStoryString,
+        injectedIndices,
+        jailbreak: preparedJailbreak,
+        mesExamplesArray,
+        storyString,
+        worldInfoAfter,
+        worldInfoBefore,
+        worldInfoString,
+    } = await preparePromptAugmentationState({
+        charDepthPrompt,
+        coreChat,
+        creatorNotes,
+        description,
+        dryRun,
+        isContinue,
+        isInstruct,
+        jailbreak,
+        mesExamples,
+        personality,
+        persona,
+        quietPrompt: quiet_prompt,
+        scenario,
+        skipWIAN,
+        system,
+        thisMaxContext: this_max_context,
+        type,
+    });
+    jailbreak = preparedJailbreak;
+
+    let {
+        addUserAlignment,
+        chat2,
+        continueMag: continue_mag,
+        oaiMessageExamples,
+        oaiMessages,
+        userAlignmentMessage,
+        userMessageIndices,
+    } = prepareMessageHistoryState({
+        coreChat,
+        isContinue,
+        isInstruct,
+        mesExamplesArray,
+    });
+
+    let {
+        arrMes,
+        countExmAdd: count_exm_add,
+        cyclePrompt,
+        injectedIndices: packedInjectedIndices,
+        pinExmString,
+    } = await prepareContextPackingState({
+        addUserAlignment,
+        chat2,
+        combinedStoryString,
+        forceName2: force_name2,
+        injectedIndices,
+        isContinue,
+        isImpersonate,
+        isInstruct,
+        mesExamplesArray,
+        promptBias,
+        quietName,
+        quietPrompt: quiet_prompt,
+        quietToLoud,
+        thisMaxContext: this_max_context,
+        type,
+        userAlignmentMessage,
+        userMessageIndices,
+    });
+    injectedIndices = packedInjectedIndices;
+
+    let mesSend = [];
+
+    if (isContinue && main_api === 'openai' && !cyclePrompt.endsWith(' ')) {
+        const continuePostfix = getOpenAiContinuePostfixImpl();
+        cyclePrompt += continuePostfix;
+        continue_mag += continuePostfix;
+    }
+
+    const originalType = type;
+
+    if (!dryRun) {
+        setSendButtonStateImpl(true);
+    }
+
+    let generatedPromptCache = cyclePrompt || '';
+    console.debug('calling runGenerate');
+
+    let mesExmString = '';
+    ({
+        countExmAdd: count_exm_add,
+        mesExmString,
+        mesSend,
+    } = await preparePromptAssemblyState({
+        arrMes,
+        combinedStoryString,
+        countExmAdd: count_exm_add,
+        forceName2: force_name2,
+        generatedPromptCache,
+        isContinue,
+        isImpersonate,
+        isInstruct,
+        mesExamplesArray,
+        pinExmString,
+        promptBias,
+        quietName,
+        quietPrompt: quiet_prompt,
+        quietToLoud,
+        thisMaxContext: this_max_context,
+        type,
+    }));
+
+    let mesSendString = '';
+    let { combinedPrompt: finalPrompt, mesSendString: builtMesSendString } = await buildCombinedPrompt({
+        afterScenarioAnchor,
+        beforeScenarioAnchor,
+        cfgGuidanceScale,
+        combinedStoryString,
+        description,
+        generatedPromptCache,
+        injectedIndices,
+        isImpersonate,
+        isInstruct,
+        isNegative: false,
+        jailbreak,
+        mesExmString,
+        mesSend,
+        name: name2,
+        naiPreamble: getNovelSettingsConfigImpl()?.naiSettings?.preamble,
+        persona,
+        personality,
+        promptBias,
+        scenario,
+        storyString,
+        system,
+        useCfgPrompt,
+        user: name1,
+        worldInfoAfter,
+        worldInfoBefore,
+    });
+    mesSendString = builtMesSendString;
+
+    const eventData = { prompt: finalPrompt, dryRun: dryRun };
+    await eventSource.emit(event_types.GENERATE_AFTER_COMBINE_PROMPTS, eventData);
+    finalPrompt = eventData.prompt;
+
+    let thisPromptBits = [];
+    const negativePrompt = main_api === 'textgenerationwebui' && useCfgPrompt
+        ? (await buildCombinedPrompt({
+            afterScenarioAnchor,
+            beforeScenarioAnchor,
+            cfgGuidanceScale,
+            combinedStoryString,
+            description,
+            generatedPromptCache,
+            injectedIndices,
+            isImpersonate,
+            isInstruct,
+            isNegative: true,
+            jailbreak,
+            mesExmString,
+            mesSend,
+            name: name2,
+            naiPreamble: getNovelSettingsConfigImpl()?.naiSettings?.preamble,
+            persona,
+            personality,
+            promptBias,
+            scenario,
+            storyString,
+            system,
+            useCfgPrompt,
+            user: name1,
+            worldInfoAfter,
+            worldInfoBefore,
+        })).combinedPrompt
+        : null;
+
+    let {
+        generateData: generate_data,
+        openAiCounts,
+        openAiMessageCount,
+    } = await prepareGenerationData({
+        adjustedParams,
+        cfgGuidanceScale,
+        cyclePrompt,
+        description,
+        dryRun,
+        extensionPrompts: getExtensionPromptsImpl(),
+        finalPrompt,
+        isContinue,
+        isImpersonate,
+        jailbreak,
+        negativePrompt,
+        oaiMessageExamples,
+        oaiMessages,
+        personality,
+        promptBias,
+        quietImage,
+        quietPrompt: quiet_prompt,
+        scenario,
+        system,
+        type,
+        useCfgPrompt,
+        worldInfoAfter,
+        worldInfoBefore,
+    });
+
+    if (openAiCounts) {
+        parseTokenCounts(openAiCounts, thisPromptBits);
+    }
+
+    if (main_api === 'openai' && !dryRun) {
+        setInContextMessagesImpl(openAiMessageCount, type);
+    }
+
+    await eventSource.emit(event_types.GENERATE_AFTER_DATA, generate_data);
+
+    if (dryRun) {
+        return Promise.resolve();
+    }
+
+    const normalizedContinueMag = isContinue ? promptReasoning.removePrefix(continue_mag) : continue_mag;
+
+    return executeGenerationRequestFlow({
+        arrMes,
+        beforeScenarioAnchor,
+        canPerformToolCalls,
+        continueMag: normalizedContinueMag,
+        countExmAdd: count_exm_add,
+        deleteLastMessage: deleteLastMessageImpl,
+        description,
+        finalPrompt,
+        generateData: generate_data,
+        generateOptions: {
+            automatic_trigger,
+            force_name2,
+            quiet_prompt,
+            quietToLoud,
+            skipWIAN,
+            force_chid,
+            signal,
+            quietImage,
+            quietName,
+            depth,
+            itemizedPrompts: getItemizedPromptsImpl(),
+            tokenPadding: getTokenPaddingImpl(),
+        },
+        generatedPromptCache,
+        generationStarted: generationStarted,
+        injectedIndices,
+        isContinue,
+        isImpersonate,
+        jsonSchema,
+        mesExamplesArray,
+        mesExmString,
+        mesSend,
+        mesSendString,
+        oaiMessageExamples,
+        oaiMessages,
+        originalType,
+        persona,
+        personality,
+        pinExmString,
+        promptBias,
+        promptBits: thisPromptBits,
+        promptReasoning,
+        quietToLoud,
+        scenario,
+        storyString,
+        system,
+        thisMaxContext: this_max_context,
+        type,
+        worldInfoString,
+    }).then(onExecutionResult, onError);
+
+    async function onExecutionResult(result) {
+        if (result.status === 'recurse') {
+            depth = depth + 1;
+            await saveFunctionToolInvocationsImpl(result.invocationResult.invocations);
+            return Generate('normal', { ...result.generateOptions, depth }, dryRun);
+        }
+
+        return result.value;
+    }
+
+    function onError(exception) {
+        return handleGenerationError({ exception, type });
+    }
 }
 
 export class TempResponseLength {
@@ -2439,7 +2875,7 @@ export async function finalizeStreamingGeneration({
             && ['', '...'].includes(processor?.result);
 
         if (hasToolCalls && shouldDeleteMessage) {
-            await deleteLastMessage();
+            await deleteLastMessageImpl();
         }
 
         const invocationResult = await invokeFunctionToolsImpl(processor.toolCalls);
@@ -2796,7 +3232,7 @@ export async function finalizeGenerationResponse({
         const hasToolCalls = hasToolCallsImpl(data);
         const shouldDeleteMessage = type !== 'swipe' && ['', '...'].includes(getMessage) && !reasoning;
         if (hasToolCalls && shouldDeleteMessage) {
-            await deleteLastMessage();
+            await deleteLastMessageImpl();
         }
 
         const invocationResult = await invokeFunctionToolsImpl(data);

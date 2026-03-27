@@ -264,7 +264,7 @@ import { addOneMessage as addOneMessageCore, bindChatOperationsCore, clearChat a
 import { importExternalContent as importExternalContentCore, importFromURL as importFromURLCore } from './scripts/content-import-core.js';
 import { addDebugFunctions as addDebugFunctionsCore, bindDebugCore } from './scripts/debug-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
-import { TempResponseLength, bindGenerationCore, buildCombinedPrompt as buildCombinedPromptCore, executeGenerationRequestFlow as executeGenerationRequestFlowCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, handleGenerationError as handleGenerationErrorCore, prepareContextPackingState as prepareContextPackingStateCore, prepareCoreChatState as prepareCoreChatStateCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationData as prepareGenerationDataCore, prepareGenerationEntryState as prepareGenerationEntryStateCore, prepareGenerationMessages as prepareGenerationMessagesCore, prepareMessageHistoryState as prepareMessageHistoryStateCore, preparePromptAssemblyState as preparePromptAssemblyStateCore, preparePromptAugmentationState as preparePromptAugmentationStateCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
+import { TempResponseLength, Generate as GenerateCore, bindGenerationCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
 import { beginMessageEdit as beginMessageEditCore, bindMessageCore, cancelDeleteMode as cancelDeleteModeCore, cancelMessageEdit as cancelMessageEditCore, cleanUpMessage as cleanUpMessageCore, closeMessageEditor as closeMessageEditorCore, confirmDeleteMode as confirmDeleteModeCore, copyEditedMessage as copyEditedMessageCore, deleteEditedMessage as deleteEditedMessageCore, deleteSwipe as deleteSwipeCore, editedMessageId as editedMessageIdCore, getFirstDisplayedMessageId as getFirstDisplayedMessageIdCore, hideSwipeButtons as hideSwipeButtonsCore, initMessageCopyBinding as initMessageCopyBindingCore, isDeleteMode as isDeleteModeCore, messageEditAuto as messageEditAutoCore, messageEditDone as messageEditDoneCore, messageFormatting as messageFormattingCore, moveEditedMessageDown as moveEditedMessageDownCore, moveEditedMessageUp as moveEditedMessageUpCore, openMessageDelete as openMessageDeleteCore, selectMessageDeleteTarget as selectMessageDeleteTargetCore, setEditedMessageId as setEditedMessageIdCore, showSwipeButtons as showSwipeButtonsCore, swipe_left as swipeLeftCore, swipe_right as swipeRightCore, syncMesToSwipe as syncMesToSwipeCore, syncSwipeToMes as syncSwipeToMesCore, updateEditArrowClasses as updateEditArrowClassesCore, updateMessageBlock as updateMessageBlockCore, updateViewMessageIds as updateViewMessageIdsCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
@@ -540,10 +540,10 @@ bindGenerationCore({
     adjustNovelInstructionPrompt,
     addPersonaDescriptionExtensionPrompt,
     appendFileContent,
+    deleteLastMessage,
     emitGenerationAfterCommands: (type, options, dryRun) => eventSource.emit(event_types.GENERATION_AFTER_COMMANDS, type, options, dryRun),
     emitGenerationStarted: (type, options, dryRun) => eventSource.emit(event_types.GENERATION_STARTED, type, options, dryRun),
     emitImpersonateReady: (message) => eventSource.emit(event_types.IMPERSONATE_READY, message),
-    Generate,
     addChatsPreamble,
     addChatsSeparator,
     collapseNewlines,
@@ -560,6 +560,7 @@ bindGenerationCore({
     formatPromptReasoning: (reasoning, depth) => getRegexedString(String(reasoning ?? ''), regex_placement.REASONING, { isPrompt: true, depth }),
     generateHorde,
     getAnimationDuration: () => animation_duration,
+    getAlwaysForceName2: () => power_user.always_force_name2,
     getAllExtensionPrompts,
     getAbortController: () => abortController,
     getAutoContinueConfig: () => power_user.auto_continue,
@@ -573,12 +574,14 @@ bindGenerationCore({
     getDepthPromptId: () => inject_ids.DEPTH_PROMPT,
     getDepthPromptIndexId: (index) => inject_ids.DEPTH_PROMPT_INDEX(index),
     getExtensionPrompt,
+    getExtensionPrompts: () => extension_prompts,
     getExtensionPromptRoleByName,
     getForceOutputSequences: () => ({
         first: force_output_sequence.FIRST,
         last: force_output_sequence.LAST,
     }),
     getGenerationTrigger: (type) => GENERATION_TYPE_TRIGGERS.includes(type) ? type : 'normal',
+    getGenerationStarted: () => generation_started,
     getTrimSpacesEnabled: () => power_user.trim_spaces,
     getGenericSystemMessageType: () => system_message_types.GENERIC,
     getGenerateUrl,
@@ -621,8 +624,10 @@ bindGenerationCore({
         novelaiSettingNames: novelai_setting_names,
     }),
     getOpenAiMaxTokens: () => oai_settings.openai_max_tokens,
+    getOpenAiContinuePostfix: () => oai_settings.continue_postfix,
     getOpenAiMessagesCount: () => openai_messages_count,
     getPinExamples: () => power_user.pin_examples,
+    getItemizedPrompts: () => itemizedPrompts,
     getPromptMetadataExtras: () => ({
         authorsNoteString: extension_prompts['2_floating_prompt']?.value || '',
         chatVectorsString: extension_prompts['3_vectors']?.value || '',
@@ -654,6 +659,7 @@ bindGenerationCore({
     getTokenPadding: () => power_user.token_padding,
     getTextGenGenerationData,
     getTokenizerName: () => getFriendlyTokenizerName(main_api).tokenizerName || '',
+    getToolRecurseLimit: () => ToolManager.RECURSE_LIMIT,
     getWiAnchorBefore: () => wi_anchor_position.before,
     getWorldInfoIncludeNames: () => world_info_include_names,
     getWorldInfoPrompt,
@@ -663,6 +669,8 @@ bindGenerationCore({
     hasPendingFileAttachment,
     hideStopButton,
     hideSwipeButtons,
+    isToolCallingSupported: () => ToolManager.isToolCallingSupported(),
+    canPerformToolCalls: (type) => ToolManager.canPerformToolCalls(type),
     isCharacterEditMenu: () => menu_type == 'character_edit',
     isHordeGenerationNotAllowed,
     isStreamingEnabled,
@@ -684,6 +692,7 @@ bindGenerationCore({
     removeReasoningFromString,
     renderStoryString,
     saveChatConditional,
+    saveFunctionToolInvocations: (...args) => ToolManager.saveFunctionToolInvocations(...args),
     saveReply,
     sendMessageAsUser,
     sendGenerationRequest,
@@ -697,6 +706,7 @@ bindGenerationCore({
     setCustomWorldInfoDepthPrompt: (depth, role, value) => setExtensionPrompt(inject_ids.CUSTOM_WI_DEPTH_ROLE(depth, role), value, extension_prompt_types.IN_CHAT, depth, false, role),
     setExtensionPrompt,
     setGeneratedTitle: (value) => kobold_horde_model = value,
+    setGenerationStarted: (value) => generation_started = value,
     setImpersonationText: (message) => $('#send_textarea').val(message)[0].dispatchEvent(new Event('input', { bubbles: true })),
     setOpenAiMaxTokens: (value) => oai_settings.openai_max_tokens = value,
     setGenerationParamsFromPreset,
@@ -2636,381 +2646,7 @@ function removeLastMessage() {
  * @returns {Promise<any>} Returns a promise that resolves when the text is done generating.
  */
 export async function Generate(type, { automatic_trigger, force_name2, quiet_prompt, quietToLoud, skipWIAN, force_chid, signal, quietImage, quietName, jsonSchema = null, depth = 0 } = {}, dryRun = false) {
-    console.log('Generate entered');
-    setGenerationProgress(0);
-    generation_started = new Date();
-
-    const entryState = await prepareGenerationEntryStateCore({
-        automaticTrigger: automatic_trigger,
-        currentCharacterId: this_chid,
-        dryRun,
-        forceChid: force_chid,
-        forceName2: force_name2,
-        quietImage,
-        quietPrompt: quiet_prompt,
-        quietToLoud,
-        signal,
-        skipWIAN,
-        type,
-    });
-
-    if (entryState.status === 'complete') {
-        return entryState.value;
-    }
-
-    const { isImpersonate, isInstruct } = entryState;
-    quiet_prompt = entryState.quietPrompt;
-
-    let {
-        generationStarted,
-        isContinue,
-        messageBias,
-        promptBias,
-        isUserPromptBias,
-        textareaText,
-    } = await prepareGenerationMessagesCore({
-        type,
-        dryRun,
-        isImpersonate,
-        automaticTrigger: automatic_trigger,
-        generationStarted: generation_started,
-    });
-    generation_started = generationStarted;
-
-    let {
-        description,
-        personality,
-        persona,
-        scenario,
-        mesExamples,
-        system,
-        jailbreak,
-        charDepthPrompt,
-        creatorNotes,
-    } = preparePromptContextStateCore({ isInstruct });
-
-    const canUseTools = ToolManager.isToolCallingSupported();
-    const canPerformToolCalls = !dryRun && ToolManager.canPerformToolCalls(type) && depth < ToolManager.RECURSE_LIMIT;
-    let { coreChat, promptReasoning } = await prepareCoreChatStateCore({
-        canUseTools,
-        isContinue,
-        type,
-    });
-
-    let {
-        aborted: contextWindowAborted,
-        adjustedParams,
-        cfgGuidanceScale,
-        thisMaxContext: this_max_context,
-        useCfgPrompt,
-    } = await prepareGenerationContextWindowCore({
-        coreChat,
-        dryRun,
-        type,
-    });
-
-    if (contextWindowAborted) {
-        unblockGeneration(type);
-        return Promise.resolve();
-    }
-
-    console.log(`Core/all messages: ${coreChat.length}/${chat.length}`);
-
-    if ((promptBias && !isUserPromptBias) || power_user.always_force_name2 || main_api == 'novel') {
-        force_name2 = true;
-    }
-
-    if (isImpersonate) {
-        force_name2 = false;
-    }
-
-    let {
-        afterScenarioAnchor,
-        beforeScenarioAnchor,
-        combinedStoryString,
-        injectedIndices,
-        jailbreak: preparedJailbreak,
-        mesExamplesArray,
-        storyString,
-        worldInfoAfter,
-        worldInfoBefore,
-        worldInfoString,
-    } = await preparePromptAugmentationStateCore({
-        charDepthPrompt,
-        coreChat,
-        creatorNotes,
-        description,
-        dryRun,
-        isContinue,
-        isInstruct,
-        jailbreak,
-        mesExamples,
-        personality,
-        persona,
-        quietPrompt: quiet_prompt,
-        scenario,
-        skipWIAN,
-        system,
-        thisMaxContext: this_max_context,
-        type,
-    });
-    jailbreak = preparedJailbreak;
-
-    let {
-        addUserAlignment,
-        chat2,
-        continueMag: continue_mag,
-        oaiMessageExamples,
-        oaiMessages,
-        userAlignmentMessage,
-        userMessageIndices,
-    } = prepareMessageHistoryStateCore({
-        coreChat,
-        isContinue,
-        isInstruct,
-        mesExamplesArray,
-    });
-
-    let {
-        arrMes,
-        countExmAdd: count_exm_add,
-        cyclePrompt,
-        injectedIndices: packedInjectedIndices,
-        pinExmString,
-    } = await prepareContextPackingStateCore({
-        addUserAlignment,
-        chat2,
-        combinedStoryString,
-        forceName2: force_name2,
-        injectedIndices,
-        isContinue,
-        isImpersonate,
-        isInstruct,
-        mesExamplesArray,
-        promptBias,
-        quietName,
-        quietPrompt: quiet_prompt,
-        quietToLoud,
-        thisMaxContext: this_max_context,
-        type,
-        userAlignmentMessage,
-        userMessageIndices,
-    });
-    injectedIndices = packedInjectedIndices;
-
-    let mesSend = [];
-
-    if (isContinue) {
-        // Coping mechanism for OAI spacing
-        if (main_api === 'openai' && !cyclePrompt.endsWith(' ')) {
-            cyclePrompt += oai_settings.continue_postfix;
-            continue_mag += oai_settings.continue_postfix;
-        }
-    }
-
-    const originalType = type;
-
-    if (!dryRun) {
-        setSendButtonState(true);
-    }
-
-    let generatedPromptCache = cyclePrompt || '';
-    console.debug('calling runGenerate');
-
-    let mesExmString = '';
-    ({
-        countExmAdd: count_exm_add,
-        mesExmString,
-        mesSend,
-    } = await preparePromptAssemblyStateCore({
-        arrMes,
-        combinedStoryString,
-        countExmAdd: count_exm_add,
-        forceName2: force_name2,
-        generatedPromptCache,
-        isContinue,
-        isImpersonate,
-        isInstruct,
-        mesExamplesArray,
-        pinExmString,
-        promptBias,
-        quietName,
-        quietPrompt: quiet_prompt,
-        quietToLoud,
-        thisMaxContext: this_max_context,
-        type,
-    }));
-
-    // For prompt bit itemization
-    let mesSendString = '';
-    let { combinedPrompt: finalPrompt, mesSendString: builtMesSendString } = await buildCombinedPromptCore({
-        afterScenarioAnchor,
-        beforeScenarioAnchor,
-        cfgGuidanceScale,
-        combinedStoryString,
-        description,
-        generatedPromptCache,
-        injectedIndices,
-        isImpersonate,
-        isInstruct,
-        isNegative: false,
-        jailbreak,
-        mesExmString,
-        mesSend,
-        name: name2,
-        naiPreamble: nai_settings.preamble,
-        persona,
-        personality,
-        promptBias,
-        scenario,
-        storyString,
-        system,
-        useCfgPrompt,
-        user: name1,
-        worldInfoAfter,
-        worldInfoBefore,
-    });
-    mesSendString = builtMesSendString;
-
-    const eventData = { prompt: finalPrompt, dryRun: dryRun };
-    await eventSource.emit(event_types.GENERATE_AFTER_COMBINE_PROMPTS, eventData);
-    finalPrompt = eventData.prompt;
-
-    let thisPromptBits = [];
-    const negativePrompt = main_api === 'textgenerationwebui' && useCfgPrompt
-        ? (await buildCombinedPromptCore({
-            afterScenarioAnchor,
-            beforeScenarioAnchor,
-            cfgGuidanceScale,
-            combinedStoryString,
-            description,
-            generatedPromptCache,
-            injectedIndices,
-            isImpersonate,
-            isInstruct,
-            isNegative: true,
-            jailbreak,
-            mesExmString,
-            mesSend,
-            name: name2,
-            naiPreamble: nai_settings.preamble,
-            persona,
-            personality,
-            promptBias,
-            scenario,
-            storyString,
-            system,
-            useCfgPrompt,
-            user: name1,
-            worldInfoAfter,
-            worldInfoBefore,
-        })).combinedPrompt
-        : null;
-
-    let {
-        generateData: generate_data,
-        maxLength,
-        openAiCounts,
-        openAiMessageCount,
-    } = await prepareGenerationDataCore({
-        adjustedParams,
-        cfgGuidanceScale,
-        cyclePrompt,
-        description,
-        dryRun,
-        extensionPrompts: extension_prompts,
-        finalPrompt,
-        isContinue,
-        isImpersonate,
-        jailbreak,
-        negativePrompt,
-        oaiMessageExamples,
-        oaiMessages,
-        personality,
-        promptBias,
-        quietImage,
-        quietPrompt: quiet_prompt,
-        scenario,
-        system,
-        type,
-        useCfgPrompt,
-        worldInfoAfter,
-        worldInfoBefore,
-    });
-
-    if (openAiCounts) {
-        parseTokenCounts(openAiCounts, thisPromptBits);
-    }
-
-    if (main_api === 'openai' && !dryRun) {
-        setInContextMessages(openAiMessageCount, type);
-    }
-
-    await eventSource.emit(event_types.GENERATE_AFTER_DATA, generate_data);
-
-    if (dryRun) {
-        return Promise.resolve();
-    }
-
-    const normalizedContinueMag = isContinue ? promptReasoning.removePrefix(continue_mag) : continue_mag;
-
-    return executeGenerationRequestFlowCore({
-        arrMes,
-        beforeScenarioAnchor,
-        canPerformToolCalls,
-        continueMag: normalizedContinueMag,
-        countExmAdd: count_exm_add,
-        deleteLastMessage,
-        description,
-        finalPrompt,
-        generateData: generate_data,
-        generateOptions: { automatic_trigger, force_name2, quiet_prompt, quietToLoud, skipWIAN, force_chid, signal, quietImage, quietName, depth, itemizedPrompts, tokenPadding: power_user.token_padding },
-        generatedPromptCache,
-        generationStarted: generation_started,
-        injectedIndices,
-        isContinue,
-        isImpersonate,
-        jsonSchema,
-        mesExamplesArray,
-        mesExmString,
-        mesSend,
-        mesSendString,
-        oaiMessageExamples,
-        oaiMessages,
-        originalType,
-        persona,
-        personality,
-        pinExmString,
-        promptBias,
-        promptBits: thisPromptBits,
-        promptReasoning,
-        quietToLoud,
-        scenario,
-        storyString,
-        system,
-        thisMaxContext: this_max_context,
-        type,
-        worldInfoString,
-    }).then(onExecutionResult, onError);
-
-    async function onExecutionResult(result) {
-        if (result.status === 'recurse') {
-            depth = depth + 1;
-            await ToolManager.saveFunctionToolInvocations(result.invocationResult.invocations);
-            return Generate('normal', { ...result.generateOptions, depth }, dryRun);
-        }
-
-        return result.value;
-    }
-
-    /**
-     * Exception handler for finishGenerating
-     * @param {Error|object} exception Error or response JSON
-     * @throws {Error|object} Re-throws the exception
-     */
-    function onError(exception) {
-        return handleGenerationErrorCore({ exception, type });
-    }
+    return GenerateCore(type, { automatic_trigger, force_name2, quiet_prompt, quietToLoud, skipWIAN, force_chid, signal, quietImage, quietName, jsonSchema, depth }, dryRun);
 }
 //MARK: Generate() ends
 

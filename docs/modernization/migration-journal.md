@@ -3353,3 +3353,9 @@
 This wave moved two larger legacy ownership points into `public/scripts/settings-core.js`: `getSettings()` and `changeMainAPI()`. The move stayed relocation-first rather than redesigning the settings load path. `script.js` now keeps thin wrappers while `bindSettingsCore(...)` supplies the remaining script-owned setters and runtime dependencies that still have to bridge back into legacy locals.
 
 The main constraint here was import-cycle risk. A direct `settings-core -> openai/power-user/tags/backgrounds/...` import graph would have recreated the same startup-order problems we already hit in slash-command and debounce bindings. To keep the equivalence story clear without introducing new module cycles, the moved functions still execute their original flow but call bound hooks for state mutation and settings-loader side effects.
+
+### 2026-03-28: Wave 67 - moved top-level `Generate()` orchestration out of `script.js`
+
+This wave moved the main `Generate()` orchestration path into `public/scripts/generation-core.js`. The implementation already depended on generation-core helpers for most of its work, so the move was done by relocating the orchestration body and extending `bindGenerationCore(...)` with the remaining script-owned hooks it still needed: generation-start timestamp ownership, itemized/extension prompt stores, tool-calling recursion helpers, and `deleteLastMessage()`.
+
+`script.js` now keeps a thin `Generate(...)` compatibility wrapper. A small related cleanup fixed `generation-core` to call a bound `deleteLastMessage` implementation in tool-call cleanup paths instead of relying on an unresolved free reference.

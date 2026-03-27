@@ -8,13 +8,19 @@ import { removeMacros, substituteParams } from './parser-core.js';
 import { POPUP_TYPE, callGenericPopup } from './popup.js';
 import { power_user } from './power-user.js';
 import { system_message_types } from './system-messages.js';
-import { is_send_press } from './ui-core.js';
+import { getTokenCountAsync } from './tokenizers.js';
+import { animation_duration, animation_easing, is_send_press } from './ui-core.js';
 import { copyText } from './utils.js';
 
 let cleanUpMessageImpl = null;
 let messageFormattingImpl = null;
 let saveChatDebouncedImpl = null;
 let addCopyToCodeBlocksImpl = null;
+let generateImpl = null;
+let isHordeGenerationNotAllowedImpl = null;
+let setSendButtonStateImpl = null;
+let stopStreamingIfNeededImpl = null;
+let unblockGenerationImpl = null;
 let updateReasoningUIImpl = null;
 
 export let editedMessageId = undefined;
@@ -33,6 +39,11 @@ function throwUnbound(name) {
  *   messageFormatting: (...args: any[]) => any,
  *   saveChatDebounced: (...args: any[]) => any,
  *   addCopyToCodeBlocks: (...args: any[]) => any,
+ *   Generate: (...args: any[]) => Promise<any>,
+ *   isHordeGenerationNotAllowed: (...args: any[]) => boolean,
+ *   setSendButtonState: (...args: any[]) => any,
+ *   stopStreamingIfNeeded: (...args: any[]) => any,
+ *   unblockGeneration: (...args: any[]) => any,
  *   updateReasoningUI: (...args: any[]) => any,
  * }} impl Implementations to bind
  */
@@ -41,6 +52,11 @@ export function bindMessageCore(impl) {
     messageFormattingImpl = impl?.messageFormatting ?? null;
     saveChatDebouncedImpl = impl?.saveChatDebounced ?? null;
     addCopyToCodeBlocksImpl = impl?.addCopyToCodeBlocks ?? null;
+    generateImpl = impl?.Generate ?? null;
+    isHordeGenerationNotAllowedImpl = impl?.isHordeGenerationNotAllowed ?? null;
+    setSendButtonStateImpl = impl?.setSendButtonState ?? null;
+    stopStreamingIfNeededImpl = impl?.stopStreamingIfNeeded ?? null;
+    unblockGenerationImpl = impl?.unblockGeneration ?? null;
     updateReasoningUIImpl = impl?.updateReasoningUI ?? null;
 }
 
@@ -248,6 +264,353 @@ export function hideSwipeButtons() {
     chatElement.find('.swipe_right').hide();
     chatElement.find('.last_mes .swipes-counter').hide();
     chatElement.find('.swipe_left').hide();
+}
+
+/**
+ * Handles the swipe to the left event.
+ * @param {JQuery.Event} _event Event.
+ * @param {object} params Additional parameters.
+ * @param {string} [params.source] The source of the swipe event.
+ * @param {boolean} [params.repeated] Is the swipe event repeated.
+ */
+export function swipe_left(_event, { source, repeated } = {}) {
+    if (chat.length - 1 === Number(editedMessageId)) {
+        closeMessageEditor();
+    }
+
+    if (!stopStreamingIfNeededImpl) {
+        throwUnbound('stopStreamingIfNeeded');
+    }
+
+    stopStreamingIfNeededImpl();
+
+    syncMesToSwipe();
+
+    if (source === 'keyboard' && repeated && chat[chat.length - 1].swipe_id === 0) {
+        return;
+    }
+
+    const swipeDuration = 120;
+    const swipeRange = '700px';
+    chat[chat.length - 1].swipe_id--;
+
+    if (chat[chat.length - 1].swipe_id < 0) {
+        chat[chat.length - 1].swipe_id = chat[chat.length - 1].swipes.length - 1;
+    }
+
+    if (chat[chat.length - 1].swipe_id >= 0) {
+        if (!Array.isArray(chat[chat.length - 1].swipe_info)) {
+            chat[chat.length - 1].swipe_info = [];
+        }
+
+        const messageRoot = $('.last_mes');
+        const messageBlock = messageRoot.children('.mes_block').children('.mes_text');
+        const messageRootHeight = messageRoot[0].scrollHeight;
+        messageRoot.css('height', messageRootHeight);
+        const messageBlockHeight = messageBlock[0].scrollHeight;
+
+        chat[chat.length - 1].mes = chat[chat.length - 1].swipes[chat[chat.length - 1].swipe_id];
+        chat[chat.length - 1].send_date = chat[chat.length - 1].swipe_info[chat[chat.length - 1].swipe_id]?.send_date || chat[chat.length - 1].send_date;
+        chat[chat.length - 1].extra = structuredClone(chat[chat.length - 1].swipe_info[chat[chat.length - 1].swipe_id]?.extra || chat[chat.length - 1].extra);
+
+        if (chat[chat.length - 1].extra) {
+            delete chat[chat.length - 1].extra.memory;
+            delete chat[chat.length - 1].extra.display_text;
+        }
+
+        messageRoot.children('.mes_block').transition({
+            x: swipeRange,
+            duration: animation_duration > 0 ? swipeDuration : 0,
+            easing: animation_easing,
+            queue: false,
+            complete: async function () {
+                const isAnimationScroll = ($('#chat').scrollTop() >= ($('#chat').prop('scrollHeight') - $('#chat').outerHeight()) - 10);
+                addOneMessage(chat[chat.length - 1], { type: 'swipe' });
+
+                if (power_user.message_token_count_enabled) {
+                    if (!chat[chat.length - 1].extra) {
+                        chat[chat.length - 1].extra = {};
+                    }
+
+                    const swipeMessage = $('#chat').find(`[mesid="${chat.length - 1}"]`);
+                    const tokenCountText = (chat[chat.length - 1]?.extra?.reasoning || '') + chat[chat.length - 1].mes;
+                    const tokenCount = await getTokenCountAsync(tokenCountText, 0);
+                    chat[chat.length - 1].extra.token_count = tokenCount;
+                    swipeMessage.find('.tokenCounterDisplay').text(`${tokenCount}t`);
+                }
+
+                let newHeight = messageRootHeight - (messageBlockHeight - messageBlock[0].scrollHeight);
+                if (newHeight < 103) {
+                    newHeight = 103;
+                }
+
+                messageRoot.animate({ height: `${newHeight}px` }, {
+                    duration: 0,
+                    queue: false,
+                    progress: function () {
+                        if (isAnimationScroll) {
+                            $('#chat').scrollTop($('#chat')[0].scrollHeight);
+                        }
+                    },
+                    complete: function () {
+                        messageRoot.css('height', 'auto');
+                        if (isAnimationScroll) {
+                            $('#chat').scrollTop($('#chat')[0].scrollHeight);
+                        }
+                    },
+                });
+
+                messageRoot.children('.mes_block').transition({
+                    x: `-${swipeRange}`,
+                    duration: 0,
+                    easing: animation_easing,
+                    queue: false,
+                    complete: function () {
+                        messageRoot.children('.mes_block').transition({
+                            x: '0px',
+                            duration: animation_duration > 0 ? swipeDuration : 0,
+                            easing: animation_easing,
+                            queue: false,
+                            complete: async function () {
+                                appendMediaToMessage(chat[chat.length - 1], messageRoot.children('.mes_block'));
+                                await eventSource.emit(event_types.MESSAGE_SWIPED, chat.length - 1);
+                                saveChatDebounced();
+                            },
+                        });
+                    },
+                });
+            },
+        });
+
+        messageRoot.children('.avatar').transition({
+            x: swipeRange,
+            duration: animation_duration > 0 ? swipeDuration : 0,
+            easing: animation_easing,
+            queue: false,
+            complete: function () {
+                messageRoot.children('.avatar').transition({
+                    x: `-${swipeRange}`,
+                    duration: 0,
+                    easing: animation_easing,
+                    queue: false,
+                    complete: function () {
+                        messageRoot.children('.avatar').transition({
+                            x: '0px',
+                            duration: animation_duration > 0 ? swipeDuration : 0,
+                            easing: animation_easing,
+                            queue: false,
+                        });
+                    },
+                });
+            },
+        });
+    }
+
+    if (chat[chat.length - 1].swipe_id < 0) {
+        chat[chat.length - 1].swipe_id = 0;
+    }
+}
+
+/**
+ * Handles the swipe to the right event.
+ * @param {JQuery.Event} [_event] Event.
+ * @param {object} params Additional parameters.
+ * @param {string} [params.source] The source of the swipe event.
+ * @param {boolean} [params.repeated] Is the swipe event repeated.
+ */
+export function swipe_right(_event = null, { source, repeated } = {}) {
+    if (chat.length - 1 === Number(editedMessageId)) {
+        closeMessageEditor();
+    }
+
+    if (!isHordeGenerationNotAllowedImpl) {
+        throwUnbound('isHordeGenerationNotAllowed');
+    }
+    if (!unblockGenerationImpl) {
+        throwUnbound('unblockGeneration');
+    }
+    if (!setSendButtonStateImpl) {
+        throwUnbound('setSendButtonState');
+    }
+    if (!generateImpl) {
+        throwUnbound('Generate');
+    }
+
+    if (isHordeGenerationNotAllowedImpl()) {
+        return unblockGenerationImpl();
+    }
+
+    syncMesToSwipe();
+
+    const isPristine = !chat_metadata?.tainted;
+    const swipeDuration = 200;
+    const swipeRange = 700;
+    let runGenerate = false;
+    let runSwipeRight = false;
+
+    if (chat[chat.length - 1].swipe_id === undefined) {
+        chat[chat.length - 1].swipe_id = 0;
+        chat[chat.length - 1].swipes = [];
+        chat[chat.length - 1].swipe_info = [];
+        chat[chat.length - 1].swipes[0] = chat[chat.length - 1].mes;
+        chat[chat.length - 1].swipe_info[0] = {
+            send_date: chat[chat.length - 1].send_date,
+            gen_started: chat[chat.length - 1].gen_started,
+            gen_finished: chat[chat.length - 1].gen_finished,
+            extra: structuredClone(chat[chat.length - 1].extra),
+        };
+    }
+
+    if (chat.length === 1 && chat[0].swipe_id !== undefined && chat[0].swipe_id === chat[0].swipes.length - 1 && isPristine) {
+        chat[0].swipe_id = 0;
+    } else {
+        if (source === 'keyboard' && repeated && chat[chat.length - 1].swipe_id === chat[chat.length - 1].swipes.length - 1) {
+            return;
+        }
+        chat[chat.length - 1].swipe_id++;
+    }
+
+    if (chat[chat.length - 1].extra) {
+        delete chat[chat.length - 1].extra.memory;
+        delete chat[chat.length - 1].extra.display_text;
+        delete chat[chat.length - 1].extra.image;
+        delete chat[chat.length - 1].extra.image_swipes;
+        delete chat[chat.length - 1].extra.video;
+        delete chat[chat.length - 1].extra.inline_image;
+    }
+
+    if (!Array.isArray(chat[chat.length - 1].swipe_info)) {
+        chat[chat.length - 1].swipe_info = [];
+    }
+
+    if (parseInt(chat[chat.length - 1].swipe_id) === chat[chat.length - 1].swipes.length && (chat.length !== 1 || !isPristine)) {
+        delete chat[chat.length - 1].gen_started;
+        delete chat[chat.length - 1].gen_finished;
+        runGenerate = true;
+    } else if (parseInt(chat[chat.length - 1].swipe_id) < chat[chat.length - 1].swipes.length) {
+        chat[chat.length - 1].mes = chat[chat.length - 1].swipes[chat[chat.length - 1].swipe_id];
+        chat[chat.length - 1].send_date = chat[chat.length - 1]?.swipe_info[chat[chat.length - 1].swipe_id]?.send_date || chat[chat.length - 1].send_date;
+        chat[chat.length - 1].extra = structuredClone(chat[chat.length - 1].swipe_info[chat[chat.length - 1].swipe_id]?.extra || chat[chat.length - 1].extra || []);
+        runSwipeRight = true;
+    }
+
+    const swipeMessage = $('#chat').find(`[mesid="${chat.length - 1}"]`);
+    const rightSwipeButton = swipeMessage.find('.swipe_right');
+    const messageRoot = rightSwipeButton.parent().parent();
+
+    if (chat[chat.length - 1].swipe_id > chat[chat.length - 1].swipes.length) {
+        chat[chat.length - 1].swipe_id = chat[chat.length - 1].swipes.length;
+    }
+    if (runGenerate) {
+        rightSwipeButton.css('display', 'none');
+    }
+
+    if (runGenerate || runSwipeRight) {
+        const messageBlock = messageRoot.find('.mes_block .mes_text');
+        const messageRootHeight = messageRoot[0].scrollHeight;
+        const messageBlockHeight = messageBlock[0].scrollHeight;
+
+        messageRoot.children('.swipe_left').css('display', 'flex');
+        messageRoot.children('.mes_block').transition({
+            x: `-${swipeRange}`,
+            duration: animation_duration > 0 ? swipeDuration : 0,
+            easing: animation_easing,
+            queue: false,
+            complete: async function () {
+                const isAnimationScroll = ($('#chat').scrollTop() >= ($('#chat').prop('scrollHeight') - $('#chat').outerHeight()) - 10);
+                const currentSwipeMessage = $('#chat').find(`[mesid="${chat.length - 1}"]`);
+
+                if (runGenerate && parseInt(chat[chat.length - 1].swipe_id) === chat[chat.length - 1].swipes.length) {
+                    currentSwipeMessage.find('.mes_text').html('...');
+                    currentSwipeMessage.find('.mes_timer').html('');
+                    currentSwipeMessage.find('.tokenCounterDisplay').text('');
+                    updateReasoningUIImpl(currentSwipeMessage, { reset: true });
+                } else {
+                    addOneMessage(chat[chat.length - 1], { type: 'swipe' });
+
+                    if (power_user.message_token_count_enabled) {
+                        if (!chat[chat.length - 1].extra) {
+                            chat[chat.length - 1].extra = {};
+                        }
+
+                        const tokenCountText = (chat[chat.length - 1]?.extra?.reasoning || '') + chat[chat.length - 1].mes;
+                        const tokenCount = await getTokenCountAsync(tokenCountText, 0);
+                        chat[chat.length - 1].extra.token_count = tokenCount;
+                        currentSwipeMessage.find('.tokenCounterDisplay').text(`${tokenCount}t`);
+                    }
+                }
+
+                let newHeight = messageRootHeight - (messageBlockHeight - messageBlock[0].scrollHeight);
+                if (newHeight < 103) {
+                    newHeight = 103;
+                }
+
+                messageRoot.animate({ height: `${newHeight}px` }, {
+                    duration: 0,
+                    queue: false,
+                    progress: function () {
+                        if (isAnimationScroll) {
+                            $('#chat').scrollTop($('#chat')[0].scrollHeight);
+                        }
+                    },
+                    complete: function () {
+                        messageRoot.css('height', 'auto');
+                        if (isAnimationScroll) {
+                            $('#chat').scrollTop($('#chat')[0].scrollHeight);
+                        }
+                    },
+                });
+
+                messageRoot.children('.mes_block').transition({
+                    x: swipeRange,
+                    duration: 0,
+                    easing: animation_easing,
+                    queue: false,
+                    complete: function () {
+                        messageRoot.children('.mes_block').transition({
+                            x: '0px',
+                            duration: animation_duration > 0 ? swipeDuration : 0,
+                            easing: animation_easing,
+                            queue: false,
+                            complete: async function () {
+                                appendMediaToMessage(chat[chat.length - 1], currentSwipeMessage);
+                                await eventSource.emit(event_types.MESSAGE_SWIPED, chat.length - 1);
+                                if (runGenerate && !is_send_press && parseInt(chat[chat.length - 1].swipe_id) === chat[chat.length - 1].swipes.length) {
+                                    setSendButtonStateImpl(true);
+                                    await generateImpl('swipe');
+                                } else if (parseInt(chat[chat.length - 1].swipe_id) !== chat[chat.length - 1].swipes.length) {
+                                    saveChatDebounced();
+                                }
+                            },
+                        });
+                    },
+                });
+            },
+        });
+
+        messageRoot.children('.avatar').transition({
+            x: `-${swipeRange}`,
+            duration: animation_duration > 0 ? swipeDuration : 0,
+            easing: animation_easing,
+            queue: false,
+            complete: function () {
+                messageRoot.children('.avatar').transition({
+                    x: swipeRange,
+                    duration: 0,
+                    easing: animation_easing,
+                    queue: false,
+                    complete: function () {
+                        messageRoot.children('.avatar').transition({
+                            x: '0px',
+                            duration: animation_duration > 0 ? swipeDuration : 0,
+                            easing: animation_easing,
+                            queue: false,
+                        });
+                    },
+                });
+            },
+        });
+    }
 }
 
 export async function deleteSwipe(swipeId = null) {

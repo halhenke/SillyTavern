@@ -265,7 +265,7 @@ import { importExternalContent as importExternalContentCore, importFromURL as im
 import { addDebugFunctions as addDebugFunctionsCore, bindDebugCore } from './scripts/debug-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
 import { TempResponseLength, bindGenerationCore, buildCombinedPrompt as buildCombinedPromptCore, executeGenerationRequestFlow as executeGenerationRequestFlowCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, handleGenerationError as handleGenerationErrorCore, prepareContextPackingState as prepareContextPackingStateCore, prepareCoreChatState as prepareCoreChatStateCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationData as prepareGenerationDataCore, prepareGenerationEntryState as prepareGenerationEntryStateCore, prepareGenerationMessages as prepareGenerationMessagesCore, prepareMessageHistoryState as prepareMessageHistoryStateCore, preparePromptAssemblyState as preparePromptAssemblyStateCore, preparePromptAugmentationState as preparePromptAugmentationStateCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
-import { beginMessageEdit as beginMessageEditCore, bindMessageCore, cancelDeleteMode as cancelDeleteModeCore, cancelMessageEdit as cancelMessageEditCore, closeMessageEditor as closeMessageEditorCore, confirmDeleteMode as confirmDeleteModeCore, copyEditedMessage as copyEditedMessageCore, deleteEditedMessage as deleteEditedMessageCore, deleteSwipe as deleteSwipeCore, editedMessageId as editedMessageIdCore, getFirstDisplayedMessageId as getFirstDisplayedMessageIdCore, hideSwipeButtons as hideSwipeButtonsCore, initMessageCopyBinding as initMessageCopyBindingCore, isDeleteMode as isDeleteModeCore, messageEditAuto as messageEditAutoCore, messageEditDone as messageEditDoneCore, moveEditedMessageDown as moveEditedMessageDownCore, moveEditedMessageUp as moveEditedMessageUpCore, openMessageDelete as openMessageDeleteCore, selectMessageDeleteTarget as selectMessageDeleteTargetCore, setEditedMessageId as setEditedMessageIdCore, showSwipeButtons as showSwipeButtonsCore, syncMesToSwipe as syncMesToSwipeCore, syncSwipeToMes as syncSwipeToMesCore, updateEditArrowClasses as updateEditArrowClassesCore, updateMessageBlock as updateMessageBlockCore, updateViewMessageIds as updateViewMessageIdsCore } from './scripts/message-core.js';
+import { beginMessageEdit as beginMessageEditCore, bindMessageCore, cancelDeleteMode as cancelDeleteModeCore, cancelMessageEdit as cancelMessageEditCore, closeMessageEditor as closeMessageEditorCore, confirmDeleteMode as confirmDeleteModeCore, copyEditedMessage as copyEditedMessageCore, deleteEditedMessage as deleteEditedMessageCore, deleteSwipe as deleteSwipeCore, editedMessageId as editedMessageIdCore, getFirstDisplayedMessageId as getFirstDisplayedMessageIdCore, hideSwipeButtons as hideSwipeButtonsCore, initMessageCopyBinding as initMessageCopyBindingCore, isDeleteMode as isDeleteModeCore, messageEditAuto as messageEditAutoCore, messageEditDone as messageEditDoneCore, moveEditedMessageDown as moveEditedMessageDownCore, moveEditedMessageUp as moveEditedMessageUpCore, openMessageDelete as openMessageDeleteCore, selectMessageDeleteTarget as selectMessageDeleteTargetCore, setEditedMessageId as setEditedMessageIdCore, showSwipeButtons as showSwipeButtonsCore, swipe_left as swipeLeftCore, swipe_right as swipeRightCore, syncMesToSwipe as syncMesToSwipeCore, syncSwipeToMes as syncSwipeToMesCore, updateEditArrowClasses as updateEditArrowClassesCore, updateMessageBlock as updateMessageBlockCore, updateViewMessageIds as updateViewMessageIdsCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
 import { bindSessionCore, doNewChat as doNewChatCore, handleDeleteChat as handleDeleteChatCore, initCharacterManagementDropdownBindings as initCharacterManagementDropdownBindingsCore, newAssistantChat as newAssistantChatCore, renameGroupOrCharacterChat as renameGroupOrCharacterChatCore, resetChatState as resetChatStateCore, selectRightMenuWithAnimation as selectRightMenuWithAnimationCore, select_rm_characters as selectRmCharactersCore, select_rm_create as selectRmCreateCore, select_rm_info as selectRmInfoCore, select_selected_character as selectSelectedCharacterCore, sendTextareaMessage as sendTextareaMessageCore, setExternalAbortController as setExternalAbortControllerCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes, updateRemoteChatName as updateRemoteChatNameCore } from './scripts/session-core.js';
@@ -444,8 +444,17 @@ bindParserCore({
 bindMessageCore({
     addCopyToCodeBlocks,
     cleanUpMessage,
+    Generate,
+    isHordeGenerationNotAllowed,
     messageFormatting,
     saveChatDebounced,
+    setSendButtonState,
+    stopStreamingIfNeeded: () => {
+        if (isStreamingEnabled() && streamingProcessor) {
+            streamingProcessor.onStopStreaming();
+        }
+    },
+    unblockGeneration,
     updateReasoningUI,
 });
 bindExtensionsCore({
@@ -5450,145 +5459,7 @@ function formatSwipeCounter(current, total) {
  * @param {boolean} [params.repeated] Is the swipe event repeated.
  */
 export function swipe_left(_event, { source, repeated } = {}) {
-    if (chat.length - 1 === Number(this_edit_mes_id)) {
-        closeMessageEditor();
-    }
-    if (isStreamingEnabled() && streamingProcessor) {
-        streamingProcessor.onStopStreaming();
-    }
-
-    // Make sure ad-hoc changes to extras are saved before swiping away
-    syncMesToSwipe();
-
-    // If the user is holding down the key and we're at the first swipe, don't do anything
-    if (source === 'keyboard' && repeated && chat[chat.length - 1].swipe_id === 0) {
-        return;
-    }
-
-    const swipe_duration = 120;
-    const swipe_range = '700px';
-    chat[chat.length - 1]['swipe_id']--;
-
-    if (chat[chat.length - 1]['swipe_id'] < 0) {
-        chat[chat.length - 1]['swipe_id'] = chat[chat.length - 1]['swipes'].length - 1;
-    }
-
-    if (chat[chat.length - 1]['swipe_id'] >= 0) {
-        /*$(this).parent().children('swipe_right').css('display', 'flex');
-        if (chat[chat.length - 1]['swipe_id'] === 0) {
-            $(this).css('display', 'none');
-        }*/ // Just in case
-        if (!Array.isArray(chat[chat.length - 1]['swipe_info'])) {
-            chat[chat.length - 1]['swipe_info'] = [];
-        }
-        let this_mes_div = $(this).parent();
-        let this_mes_block = $(this).parent().children('.mes_block').children('.mes_text');
-        const this_mes_div_height = this_mes_div[0].scrollHeight;
-        this_mes_div.css('height', this_mes_div_height);
-        const this_mes_block_height = this_mes_block[0].scrollHeight;
-        chat[chat.length - 1]['mes'] = chat[chat.length - 1]['swipes'][chat[chat.length - 1]['swipe_id']];
-        chat[chat.length - 1]['send_date'] = chat[chat.length - 1].swipe_info[chat[chat.length - 1]['swipe_id']]?.send_date || chat[chat.length - 1].send_date; //load the last mes box with the latest generation
-        chat[chat.length - 1]['extra'] = structuredClone(chat[chat.length - 1].swipe_info[chat[chat.length - 1]['swipe_id']]?.extra || chat[chat.length - 1].extra);
-
-        if (chat[chat.length - 1].extra) {
-            // if message has memory attached - remove it to allow regen
-            if (chat[chat.length - 1].extra.memory) {
-                delete chat[chat.length - 1].extra.memory;
-            }
-            // ditto for display text
-            if (chat[chat.length - 1].extra.display_text) {
-                delete chat[chat.length - 1].extra.display_text;
-            }
-        }
-        $(this).parent().children('.mes_block').transition({
-            x: swipe_range,
-            duration: animation_duration > 0 ? swipe_duration : 0,
-            easing: animation_easing,
-            queue: false,
-            complete: async function () {
-                const is_animation_scroll = ($('#chat').scrollTop() >= ($('#chat').prop('scrollHeight') - $('#chat').outerHeight()) - 10);
-                //console.log('on left swipe click calling addOneMessage');
-                addOneMessage(chat[chat.length - 1], { type: 'swipe' });
-
-                if (power_user.message_token_count_enabled) {
-                    if (!chat[chat.length - 1].extra) {
-                        chat[chat.length - 1].extra = {};
-                    }
-
-                    const swipeMessage = $('#chat').find(`[mesid="${chat.length - 1}"]`);
-                    const tokenCountText = (chat[chat.length - 1]?.extra?.reasoning || '') + chat[chat.length - 1].mes;
-                    const tokenCount = await getTokenCountAsync(tokenCountText, 0);
-                    chat[chat.length - 1]['extra']['token_count'] = tokenCount;
-                    swipeMessage.find('.tokenCounterDisplay').text(`${tokenCount}t`);
-                }
-
-                let new_height = this_mes_div_height - (this_mes_block_height - this_mes_block[0].scrollHeight);
-                if (new_height < 103) new_height = 103;
-                this_mes_div.animate({ height: new_height + 'px' }, {
-                    duration: 0, //used to be 100
-                    queue: false,
-                    progress: function () {
-                        // Scroll the chat down as the message expands
-
-                        if (is_animation_scroll) $('#chat').scrollTop($('#chat')[0].scrollHeight);
-                    },
-                    complete: function () {
-                        this_mes_div.css('height', 'auto');
-                        // Scroll the chat down to the bottom once the animation is complete
-                        if (is_animation_scroll) $('#chat').scrollTop($('#chat')[0].scrollHeight);
-                    },
-                });
-                $(this).parent().children('.mes_block').transition({
-                    x: '-' + swipe_range,
-                    duration: 0,
-                    easing: animation_easing,
-                    queue: false,
-                    complete: function () {
-                        $(this).parent().children('.mes_block').transition({
-                            x: '0px',
-                            duration: animation_duration > 0 ? swipe_duration : 0,
-                            easing: animation_easing,
-                            queue: false,
-                            complete: async function () {
-                                appendMediaToMessage(chat[chat.length - 1], $(this).parent().children('.mes_block'));
-                                await eventSource.emit(event_types.MESSAGE_SWIPED, (chat.length - 1));
-                                saveChatDebounced();
-                            },
-                        });
-                    },
-                });
-            },
-        });
-
-        $(this).parent().children('.avatar').transition({
-            x: swipe_range,
-            duration: animation_duration > 0 ? swipe_duration : 0,
-            easing: animation_easing,
-            queue: false,
-            complete: function () {
-                $(this).parent().children('.avatar').transition({
-                    x: '-' + swipe_range,
-                    duration: 0,
-                    easing: animation_easing,
-                    queue: false,
-                    complete: function () {
-                        $(this).parent().children('.avatar').transition({
-                            x: '0px',
-                            duration: animation_duration > 0 ? swipe_duration : 0,
-                            easing: animation_easing,
-                            queue: false,
-                            complete: function () {
-
-                            },
-                        });
-                    },
-                });
-            },
-        });
-    }
-    if (chat[chat.length - 1]['swipe_id'] < 0) {
-        chat[chat.length - 1]['swipe_id'] = 0;
-    }
+    return swipeLeftCore(_event, { source, repeated });
 }
 
 /**
@@ -5600,199 +5471,7 @@ export function swipe_left(_event, { source, repeated } = {}) {
  */
 //MARK: swipe_right
 export function swipe_right(_event = null, { source, repeated } = {}) {
-    if (chat.length - 1 === Number(this_edit_mes_id)) {
-        closeMessageEditor();
-    }
-
-    if (isHordeGenerationNotAllowed()) {
-        return unblockGeneration();
-    }
-
-    // Make sure ad-hoc changes to extras are saved before swiping away
-    syncMesToSwipe();
-
-    const isPristine = !chat_metadata?.tainted;
-    const swipe_duration = 200;
-    const swipe_range = 700;
-    //console.log(swipe_range);
-    let run_generate = false;
-    let run_swipe_right = false;
-    if (chat[chat.length - 1]['swipe_id'] === undefined) {              // if there is no swipe-message in the last spot of the chat array
-        chat[chat.length - 1]['swipe_id'] = 0;                        // set it to id 0
-        chat[chat.length - 1]['swipes'] = [];                         // empty the array
-        chat[chat.length - 1]['swipe_info'] = [];
-        chat[chat.length - 1]['swipes'][0] = chat[chat.length - 1]['mes'];  //assign swipe array with last message from chat
-        chat[chat.length - 1]['swipe_info'][0] = {
-            'send_date': chat[chat.length - 1]['send_date'],
-            'gen_started': chat[chat.length - 1]['gen_started'],
-            'gen_finished': chat[chat.length - 1]['gen_finished'],
-            'extra': structuredClone(chat[chat.length - 1]['extra']),
-        };
-        //assign swipe info array with last message from chat
-    }
-    // if swipe_right is called on the last alternate greeting in pristine chats, loop back around
-    if (chat.length === 1 && chat[0]['swipe_id'] !== undefined && chat[0]['swipe_id'] === chat[0]['swipes'].length - 1 && isPristine) {
-        chat[0]['swipe_id'] = 0;
-    } else {
-        // If the user is holding down the key and we're at the last swipe, don't do anything
-        if (source === 'keyboard' && repeated && chat[chat.length - 1].swipe_id === chat[chat.length - 1].swipes.length - 1) {
-            return;
-        }
-        // make new slot in array
-        chat[chat.length - 1]['swipe_id']++;
-    }
-    if (chat[chat.length - 1].extra) {
-        // if message has memory attached - remove it to allow regen
-        if (chat[chat.length - 1].extra.memory) {
-            delete chat[chat.length - 1].extra.memory;
-        }
-        // ditto for display text
-        if (chat[chat.length - 1].extra.display_text) {
-            delete chat[chat.length - 1].extra.display_text;
-        }
-
-        delete chat[chat.length - 1].extra.image;
-        delete chat[chat.length - 1].extra.image_swipes;
-        delete chat[chat.length - 1].extra.video;
-        delete chat[chat.length - 1].extra.inline_image;
-    }
-    if (!Array.isArray(chat[chat.length - 1]['swipe_info'])) {
-        chat[chat.length - 1]['swipe_info'] = [];
-    }
-    //if swipe id of last message is the same as the length of the 'swipes' array and not the greeting
-    if (parseInt(chat[chat.length - 1]['swipe_id']) === chat[chat.length - 1]['swipes'].length && (chat.length !== 1 || !isPristine)) {
-        delete chat[chat.length - 1].gen_started;
-        delete chat[chat.length - 1].gen_finished;
-        run_generate = true;
-    } else if (parseInt(chat[chat.length - 1]['swipe_id']) < chat[chat.length - 1]['swipes'].length) { //otherwise, if the id is less than the number of swipes
-        chat[chat.length - 1]['mes'] = chat[chat.length - 1]['swipes'][chat[chat.length - 1]['swipe_id']]; //load the last mes box with the latest generation
-        chat[chat.length - 1]['send_date'] = chat[chat.length - 1]?.swipe_info[chat[chat.length - 1]['swipe_id']]?.send_date || chat[chat.length - 1]['send_date']; //update send date
-        chat[chat.length - 1]['extra'] = structuredClone(chat[chat.length - 1].swipe_info[chat[chat.length - 1]['swipe_id']]?.extra || chat[chat.length - 1].extra || []);
-        run_swipe_right = true; //then prepare to do normal right swipe to show next message
-    }
-
-    const currentMessage = $('#chat').children().filter(`[mesid="${chat.length - 1}"]`);
-    let this_div = currentMessage.find('.swipe_right');
-    let this_mes_div = this_div.parent().parent();
-
-    if (chat[chat.length - 1]['swipe_id'] > chat[chat.length - 1]['swipes'].length) { //if we swipe right while generating (the swipe ID is greater than what we are viewing now)
-        chat[chat.length - 1]['swipe_id'] = chat[chat.length - 1]['swipes'].length; //show that message slot (will be '...' while generating)
-    }
-    if (run_generate) {               //hide swipe arrows while generating
-        this_div.css('display', 'none');
-    }
-    // handles animated transitions when swipe right, specifically height transitions between messages
-    if (run_generate || run_swipe_right) {
-        let this_mes_block = this_mes_div.find('.mes_block .mes_text');
-        const this_mes_div_height = this_mes_div[0].scrollHeight;
-        const this_mes_block_height = this_mes_block[0].scrollHeight;
-
-        this_mes_div.children('.swipe_left').css('display', 'flex');
-        this_mes_div.children('.mes_block').transition({        // this moves the div back and forth
-            x: '-' + swipe_range,
-            duration: animation_duration > 0 ? swipe_duration : 0,
-            easing: animation_easing,
-            queue: false,
-            complete: async function () {
-                const is_animation_scroll = ($('#chat').scrollTop() >= ($('#chat').prop('scrollHeight') - $('#chat').outerHeight()) - 10);
-                //console.log(parseInt(chat[chat.length-1]['swipe_id']));
-                //console.log(chat[chat.length-1]['swipes'].length);
-                const swipeMessage = $('#chat').find('[mesid="' + (chat.length - 1) + '"]');
-                if (run_generate && parseInt(chat[chat.length - 1]['swipe_id']) === chat[chat.length - 1]['swipes'].length) {
-                    //shows "..." while generating
-                    swipeMessage.find('.mes_text').html('...');
-                    // resets the timer
-                    swipeMessage.find('.mes_timer').html('');
-                    swipeMessage.find('.tokenCounterDisplay').text('');
-                    updateReasoningUI(swipeMessage, { reset: true });
-                } else {
-                    //console.log('showing previously generated swipe candidate, or "..."');
-                    //console.log('onclick right swipe calling addOneMessage');
-                    addOneMessage(chat[chat.length - 1], { type: 'swipe' });
-
-                    if (power_user.message_token_count_enabled) {
-                        if (!chat[chat.length - 1].extra) {
-                            chat[chat.length - 1].extra = {};
-                        }
-
-                        const tokenCountText = (chat[chat.length - 1]?.extra?.reasoning || '') + chat[chat.length - 1].mes;
-                        const tokenCount = await getTokenCountAsync(tokenCountText, 0);
-                        chat[chat.length - 1]['extra']['token_count'] = tokenCount;
-                        swipeMessage.find('.tokenCounterDisplay').text(`${tokenCount}t`);
-                    }
-                }
-                let new_height = this_mes_div_height - (this_mes_block_height - this_mes_block[0].scrollHeight);
-                if (new_height < 103) new_height = 103;
-
-
-                this_mes_div.animate({ height: new_height + 'px' }, {
-                    duration: 0, //used to be 100
-                    queue: false,
-                    progress: function () {
-                        // Scroll the chat down as the message expands
-                        if (is_animation_scroll) $('#chat').scrollTop($('#chat')[0].scrollHeight);
-                    },
-                    complete: function () {
-                        this_mes_div.css('height', 'auto');
-                        // Scroll the chat down to the bottom once the animation is complete
-                        if (is_animation_scroll) $('#chat').scrollTop($('#chat')[0].scrollHeight);
-                    },
-                });
-                this_mes_div.children('.mes_block').transition({
-                    x: swipe_range,
-                    duration: 0,
-                    easing: animation_easing,
-                    queue: false,
-                    complete: function () {
-                        this_mes_div.children('.mes_block').transition({
-                            x: '0px',
-                            duration: animation_duration > 0 ? swipe_duration : 0,
-                            easing: animation_easing,
-                            queue: false,
-                            complete: async function () {
-                                appendMediaToMessage(chat[chat.length - 1], swipeMessage);
-                                await eventSource.emit(event_types.MESSAGE_SWIPED, (chat.length - 1));
-                                if (run_generate && !is_send_press && parseInt(chat[chat.length - 1]['swipe_id']) === chat[chat.length - 1]['swipes'].length) {
-                                    console.debug('caught here 2');
-                                    setSendButtonState(true);
-                                    await Generate('swipe');
-                                } else {
-                                    if (parseInt(chat[chat.length - 1]['swipe_id']) !== chat[chat.length - 1]['swipes'].length) {
-                                        saveChatDebounced();
-                                    }
-                                }
-                            },
-                        });
-                    },
-                });
-            },
-        });
-        this_mes_div.children('.avatar').transition({ // moves avatar along with swipe
-            x: '-' + swipe_range,
-            duration: animation_duration > 0 ? swipe_duration : 0,
-            easing: animation_easing,
-            queue: false,
-            complete: function () {
-                this_mes_div.children('.avatar').transition({
-                    x: swipe_range,
-                    duration: 0,
-                    easing: animation_easing,
-                    queue: false,
-                    complete: function () {
-                        this_mes_div.children('.avatar').transition({
-                            x: '0px',
-                            duration: animation_duration > 0 ? swipe_duration : 0,
-                            easing: animation_easing,
-                            queue: false,
-                            complete: function () {
-
-                            },
-                        });
-                    },
-                });
-            },
-        });
-    }
+    return swipeRightCore(_event, { source, repeated });
 }
 
 /**

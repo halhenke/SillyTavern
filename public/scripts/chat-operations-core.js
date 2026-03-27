@@ -2,15 +2,18 @@ import { SVGInject, moment } from '../lib.js';
 import { getMessageTimeStamp } from './RossAscends-mods.js';
 import { isChatSaving } from './app-state-core.js';
 import { characters } from './character-core.js';
-import { default_avatar, getCurrentChatId, chat_metadata, name1, syncChatMetadata, this_chid, user_avatar } from './chat-core.js';
+import { default_avatar, getCurrentChatId, chat_metadata, name1, name2, syncChatMetadata, this_chid, user_avatar } from './chat-core.js';
 import { debounce_timeout } from './constants.js';
 import { event_types, eventSource } from './events.js';
 import { getRegexedString, regex_placement } from './extensions/regex/engine.js';
-import { groups, importGroupChat, selected_group } from './group-chats.js';
+import { group_generation_id, groups, importGroupChat, selected_group } from './group-chats.js';
 import { getRequestHeaders, getThumbnailUrl } from './network-core.js';
 import { POPUP_TYPE, callGenericPopup } from './popup.js';
-import { saveTokenCache } from './tokenizers.js';
-import { debounce, delay, download, humanFileSize, sortMoments, timestampToMoment, waitUntilCondition, uuidv4 } from './utils.js';
+import { power_user } from './power-user.js';
+import { parseReasoningInSwipes } from './reasoning.js';
+import { statMesProcess } from './stats.js';
+import { getTokenCountAsync, saveTokenCache } from './tokenizers.js';
+import { debounce, delay, download, humanFileSize, isDataURL, saveBase64AsFile, sortMoments, timestampToMoment, waitUntilCondition, uuidv4 } from './utils.js';
 import { humanizedDateTime } from './RossAscends-mods.js';
 import { renderTemplateAsync } from './templates.js';
 
@@ -29,6 +32,9 @@ let getChatTruncationImpl = null;
 let getCharacterAvatarImpl = null;
 let getCharacterCardFieldsImpl = null;
 let getCharactersImpl = null;
+let getGeneratingApiImpl = null;
+let getGeneratingModelImpl = null;
+let getGenerationStartedImpl = null;
 let getSelectedGroupImpl = null;
 let getMaxContextSizeImpl = null;
 let hideSwipeButtonsImpl = null;
@@ -45,7 +51,6 @@ let resetItemizedPromptsImpl = null;
 let saveChatImpl = null;
 let saveCharacterDebouncedImpl = null;
 let saveItemizedPromptsImpl = null;
-let saveReplyImpl = null;
 let sendMessageAsUserImpl = null;
 let setChatMetadataImpl = null;
 let setIsChatSavingImpl = null;
@@ -89,11 +94,14 @@ function throwUnbound(name) {
   *   deactivateSendButtons: (...args: any[]) => any,
   *   deleteSwipe: (...args: any[]) => Promise<any>,
   *   extractMessageBias: (...args: any[]) => any,
-  *   formatCharacterAvatar: (...args: any[]) => any,
+ *   formatCharacterAvatar: (...args: any[]) => any,
  *   getChatTruncation: () => number,
  *   getCharacterAvatar: (...args: any[]) => any,
   *   getCharacterCardFields: (...args: any[]) => any,
   *   getCharacters: (...args: any[]) => Promise<any>,
+ *   getGeneratingApi: () => string,
+ *   getGeneratingModel: (...args: any[]) => string,
+ *   getGenerationStarted: () => Date,
  *   getItemizedPrompts: () => any[],
  *   getSelectedGroup: () => string|null|undefined,
   *   getGroupChat: (...args: any[]) => Promise<any>,
@@ -113,7 +121,6 @@ function throwUnbound(name) {
   *   saveChat: (...args: any[]) => Promise<any>,
   *   saveCharacterDebounced: (...args: any[]) => any,
   *   saveItemizedPrompts: (...args: any[]) => Promise<any>,
-  *   saveReply: (...args: any[]) => Promise<any>,
   *   sendMessageAsUser: (...args: any[]) => Promise<any>,
   *   setChatMetadata: (value: any) => any,
   *   setIsChatSaving: (value: boolean) => any,
@@ -148,6 +155,9 @@ export function bindChatOperationsCore(impl) {
     getCharacterAvatarImpl = impl?.getCharacterAvatar ?? null;
     getCharacterCardFieldsImpl = impl?.getCharacterCardFields ?? null;
     getCharactersImpl = impl?.getCharacters ?? null;
+    getGeneratingApiImpl = impl?.getGeneratingApi ?? null;
+    getGeneratingModelImpl = impl?.getGeneratingModel ?? null;
+    getGenerationStartedImpl = impl?.getGenerationStarted ?? null;
     getItemizedPromptsImpl = impl?.getItemizedPrompts ?? null;
     getSelectedGroupImpl = impl?.getSelectedGroup ?? null;
     getGroupChatImpl = impl?.getGroupChat ?? null;
@@ -166,7 +176,6 @@ export function bindChatOperationsCore(impl) {
     saveChatImpl = impl?.saveChat ?? null;
     saveCharacterDebouncedImpl = impl?.saveCharacterDebounced ?? null;
     saveItemizedPromptsImpl = impl?.saveItemizedPrompts ?? null;
-    saveReplyImpl = impl?.saveReply ?? null;
     scrollChatToBottomImpl = impl?.scrollChatToBottom ?? null;
     sendMessageAsUserImpl = impl?.sendMessageAsUser ?? null;
     setChatMetadataImpl = impl?.setChatMetadata ?? null;
@@ -637,14 +646,221 @@ export function saveItemizedPrompts(...args) {
     return saveItemizedPromptsImpl(...args);
 }
 
-export function saveReply(...args) {
-    if (!saveReplyImpl) throwUnbound('saveReply');
-    return saveReplyImpl(...args);
-}
-
 export function sendMessageAsUser(...args) {
     if (!sendMessageAsUserImpl) throwUnbound('sendMessageAsUser');
     return sendMessageAsUserImpl(...args);
+}
+
+function saveImageToMessage(img, mes) {
+    if (mes && img.image) {
+        if (!mes.extra || typeof mes.extra !== 'object') {
+            mes.extra = {};
+        }
+        mes.extra.image = img.image;
+        mes.extra.title = img.title;
+        mes.extra.inline_image = img.inline;
+    }
+}
+
+async function processImageAttachment(message, { imageUrl }) {
+    if (!imageUrl) {
+        return;
+    }
+
+    let url = imageUrl;
+    if (isDataURL(url)) {
+        const fileName = `inline_image_${Date.now().toString()}`;
+        const [, mime, base64] = /^data:(.*?);base64,(.*)$/.exec(imageUrl);
+        url = await saveBase64AsFile(base64, message.name, fileName, mime.split('/')[1]);
+    }
+
+    saveImageToMessage({ image: url, inline: true }, message);
+}
+
+export async function saveReply({ type, getMessage, fromStreaming = false, title = '', swipes = [], reasoning = '', imageUrl = '' } = {}) {
+    if (arguments.length > 1 && typeof arguments[0] !== 'object') {
+        console.trace('saveReply called with positional arguments. Please use an object instead.');
+        [type, getMessage, fromStreaming, title, swipes, reasoning, imageUrl] = arguments;
+    }
+
+    if (!getGeneratingApiImpl) throwUnbound('getGeneratingApi');
+    if (!getGeneratingModelImpl) throwUnbound('getGeneratingModel');
+    if (!getGenerationStartedImpl) throwUnbound('getGenerationStarted');
+
+    if (type !== 'append' && type !== 'continue' && type !== 'appendFinal' && chat.length && (chat[chat.length - 1].swipe_id === undefined || chat[chat.length - 1].is_user)) {
+        type = 'normal';
+    }
+
+    if (chat.length && (!chat[chat.length - 1].extra || typeof chat[chat.length - 1].extra !== 'object')) {
+        chat[chat.length - 1].extra = {};
+    }
+
+    if (chat.length && !chat[chat.length - 1].extra.reasoning) {
+        chat[chat.length - 1].extra.reasoning = '';
+    }
+
+    if (!reasoning) {
+        reasoning = '';
+    }
+
+    let oldMessage = '';
+    const generationFinished = new Date();
+    const generationStarted = getGenerationStartedImpl();
+    const generatingApi = getGeneratingApiImpl();
+
+    if (type === 'swipe') {
+        oldMessage = chat[chat.length - 1].mes;
+        chat[chat.length - 1].swipes.length++;
+        if (chat[chat.length - 1].swipe_id === chat[chat.length - 1].swipes.length - 1) {
+            chat[chat.length - 1].title = title;
+            chat[chat.length - 1].mes = getMessage;
+            chat[chat.length - 1].gen_started = generationStarted;
+            chat[chat.length - 1].gen_finished = generationFinished;
+            chat[chat.length - 1].send_date = getMessageTimeStamp();
+            chat[chat.length - 1].extra.api = generatingApi;
+            chat[chat.length - 1].extra.model = getGeneratingModelImpl();
+            chat[chat.length - 1].extra.reasoning = reasoning;
+            chat[chat.length - 1].extra.reasoning_duration = null;
+            await processImageAttachment(chat[chat.length - 1], { imageUrl });
+            if (power_user.message_token_count_enabled) {
+                const tokenCountText = `${reasoning || ''}${chat[chat.length - 1].mes}`;
+                chat[chat.length - 1].extra.token_count = await getTokenCountAsync(tokenCountText, 0);
+            }
+            const chatId = chat.length - 1;
+            await eventSource.emit(event_types.MESSAGE_RECEIVED, chatId, type);
+            addOneMessage(chat[chatId], { type: 'swipe' });
+            await eventSource.emit(event_types.CHARACTER_MESSAGE_RENDERED, chatId, type);
+        } else {
+            chat[chat.length - 1].mes = getMessage;
+        }
+    } else if (type === 'append' || type === 'continue') {
+        console.debug('Trying to append.');
+        oldMessage = chat[chat.length - 1].mes;
+        chat[chat.length - 1].title = title;
+        chat[chat.length - 1].mes += getMessage;
+        chat[chat.length - 1].gen_started = generationStarted;
+        chat[chat.length - 1].gen_finished = generationFinished;
+        chat[chat.length - 1].send_date = getMessageTimeStamp();
+        chat[chat.length - 1].extra.api = generatingApi;
+        chat[chat.length - 1].extra.model = getGeneratingModelImpl();
+        chat[chat.length - 1].extra.reasoning = reasoning;
+        chat[chat.length - 1].extra.reasoning_duration = null;
+        await processImageAttachment(chat[chat.length - 1], { imageUrl });
+        if (power_user.message_token_count_enabled) {
+            const tokenCountText = `${reasoning || ''}${chat[chat.length - 1].mes}`;
+            chat[chat.length - 1].extra.token_count = await getTokenCountAsync(tokenCountText, 0);
+        }
+        const chatId = chat.length - 1;
+        await eventSource.emit(event_types.MESSAGE_RECEIVED, chatId, type);
+        addOneMessage(chat[chatId], { type: 'swipe' });
+        await eventSource.emit(event_types.CHARACTER_MESSAGE_RENDERED, chatId, type);
+    } else if (type === 'appendFinal') {
+        oldMessage = chat[chat.length - 1].mes;
+        console.debug('Trying to appendFinal.');
+        chat[chat.length - 1].title = title;
+        chat[chat.length - 1].mes = getMessage;
+        chat[chat.length - 1].gen_started = generationStarted;
+        chat[chat.length - 1].gen_finished = generationFinished;
+        chat[chat.length - 1].send_date = getMessageTimeStamp();
+        chat[chat.length - 1].extra.api = generatingApi;
+        chat[chat.length - 1].extra.model = getGeneratingModelImpl();
+        chat[chat.length - 1].extra.reasoning += reasoning;
+        await processImageAttachment(chat[chat.length - 1], { imageUrl });
+        if (power_user.message_token_count_enabled) {
+            const tokenCountText = `${reasoning || ''}${chat[chat.length - 1].mes}`;
+            chat[chat.length - 1].extra.token_count = await getTokenCountAsync(tokenCountText, 0);
+        }
+        const chatId = chat.length - 1;
+        await eventSource.emit(event_types.MESSAGE_RECEIVED, chatId, type);
+        addOneMessage(chat[chatId], { type: 'swipe' });
+        await eventSource.emit(event_types.CHARACTER_MESSAGE_RENDERED, chatId, type);
+    } else {
+        console.debug('entering chat update routine for non-swipe post');
+        chat[chat.length] = {};
+        chat[chat.length - 1].extra = {};
+        chat[chat.length - 1].name = name2;
+        chat[chat.length - 1].is_user = false;
+        chat[chat.length - 1].send_date = getMessageTimeStamp();
+        chat[chat.length - 1].extra.api = generatingApi;
+        chat[chat.length - 1].extra.model = getGeneratingModelImpl();
+        chat[chat.length - 1].extra.reasoning = reasoning;
+        chat[chat.length - 1].extra.reasoning_duration = null;
+        if (power_user.trim_spaces) {
+            getMessage = getMessage.trim();
+        }
+        chat[chat.length - 1].mes = getMessage;
+        chat[chat.length - 1].title = title;
+        chat[chat.length - 1].gen_started = generationStarted;
+        chat[chat.length - 1].gen_finished = generationFinished;
+
+        if (power_user.message_token_count_enabled) {
+            const tokenCountText = `${reasoning || ''}${chat[chat.length - 1].mes}`;
+            chat[chat.length - 1].extra.token_count = await getTokenCountAsync(tokenCountText, 0);
+        }
+
+        if (selected_group) {
+            console.debug('entering chat update for groups');
+            let avatarImg = 'img/ai4.png';
+            if (characters[this_chid].avatar !== 'none') {
+                avatarImg = getThumbnailUrl('avatar', characters[this_chid].avatar);
+            }
+            chat[chat.length - 1].force_avatar = avatarImg;
+            chat[chat.length - 1].original_avatar = characters[this_chid].avatar;
+            chat[chat.length - 1].extra.gen_id = group_generation_id;
+        }
+
+        await processImageAttachment(chat[chat.length - 1], { imageUrl });
+        const chatId = chat.length - 1;
+
+        !fromStreaming && await eventSource.emit(event_types.MESSAGE_RECEIVED, chatId, type);
+        addOneMessage(chat[chatId]);
+        !fromStreaming && await eventSource.emit(event_types.CHARACTER_MESSAGE_RENDERED, chatId, type);
+    }
+
+    const item = chat[chat.length - 1];
+    if (item.swipe_info === undefined) {
+        item.swipe_info = [];
+    }
+    if (item.swipe_id !== undefined) {
+        const swipeId = item.swipe_id;
+        item.swipes[swipeId] = item.mes;
+        item.swipe_info[swipeId] = {
+            send_date: item.send_date,
+            gen_started: item.gen_started,
+            gen_finished: item.gen_finished,
+            extra: structuredClone(item.extra),
+        };
+    } else {
+        item.swipe_id = 0;
+        item.swipes = [];
+        item.swipes[0] = item.mes;
+        item.swipe_info[0] = {
+            send_date: item.send_date,
+            gen_started: item.gen_started,
+            gen_finished: item.gen_finished,
+            extra: structuredClone(item.extra),
+        };
+    }
+
+    if (Array.isArray(swipes) && swipes.length > 0) {
+        const swipeInfoExtra = structuredClone(item.extra ?? {});
+        delete swipeInfoExtra.token_count;
+        delete swipeInfoExtra.reasoning;
+        delete swipeInfoExtra.reasoning_duration;
+        const swipeInfo = {
+            send_date: item.send_date,
+            gen_started: item.gen_started,
+            gen_finished: item.gen_finished,
+            extra: swipeInfoExtra,
+        };
+        const swipeInfoArray = Array(swipes.length).fill().map(() => structuredClone(swipeInfo));
+        parseReasoningInSwipes(swipes, swipeInfoArray, item.extra?.reasoning_duration);
+        item.swipes.push(...swipes);
+        item.swipe_info.push(...swipeInfoArray);
+    }
+
+    statMesProcess(chat[chat.length - 1], type, characters, this_chid, oldMessage);
+    return { type, getMessage };
 }
 
 function insertSVGIcon(mes, extra) {

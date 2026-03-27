@@ -3117,3 +3117,23 @@
 ### Next
 1. Decide whether the next pass should stay in startup/bootstrap cleanup or return to a larger domain seam now that the low-risk UI helper pocket is thinner.
 2. Keep bundling obviously-related helper moves together when they share the same destination module and risk profile.
+
+## 2026-03-27 - Monolith Reduction Wave 58 (Options Menu UI Move)
+
+### Completed
+- Moved the options-menu visibility/state helper block out of `public/script.js` into `public/scripts/ui-core.js`.
+- Relocated the show/hide and hover-dismiss behavior behind a single `initOptionsMenu(...)` entrypoint in `ui-core`, and replaced the local `script.js` block with one startup call that passes the existing Popper instance.
+- Extended `bindUiCore(...)` with `showBookmarksButtons(...)`, which was the only legacy helper the moved options-menu logic still needed.
+- Verified syntax for the touched files with `node --check` via `mise`.
+
+### Measurable Impact
+- `public/script.js` lost another medium-sized DOM/UI block from the jQuery ready handler instead of continuing to accumulate navigation/menu behavior.
+- `ui-core.js` now owns a more coherent slice of shared menu/drawer UI behavior rather than splitting it between standalone helpers and monolith-local state.
+
+### Insights
+- Moving the whole options-menu block together was cleaner than peeling off only `showMenu()` or `hideMenu()`, because the local state (`isOptionsMenuVisible`) is only meaningful as part of the full interaction.
+- Passing the existing Popper instance into `initOptionsMenu(...)` preserved the current startup flow without introducing another global or cross-module singleton.
+
+### Next
+1. Reassess whether there is enough startup/UI helper density left to justify more work in `ui-core`, or whether the next batch should switch back to a feature-domain seam.
+2. Keep grouping DOM behavior by complete interaction blocks when the state is local to that interaction.

@@ -12,6 +12,7 @@ let delayImpl = null;
 let favsToHotswapImpl = null;
 let resetScrollHeightImpl = null;
 let scrollChatToBottomImpl = null;
+let showBookmarksButtonsImpl = null;
 
 export let ANIMATION_DURATION_DEFAULT = 0;
 export let animation_duration = 0;
@@ -32,6 +33,7 @@ function throwUnbound(name) {
  *   favsToHotswap: (...args: any[]) => any,
  *   resetScrollHeight: (...args: any[]) => Promise<any>,
  *   scrollChatToBottom: (...args: any[]) => any,
+ *   showBookmarksButtons: (...args: any[]) => any,
  * }} impl Implementations to bind
  */
 export function bindUiCore(impl) {
@@ -41,6 +43,7 @@ export function bindUiCore(impl) {
     favsToHotswapImpl = impl?.favsToHotswap ?? null;
     resetScrollHeightImpl = impl?.resetScrollHeight ?? null;
     scrollChatToBottomImpl = impl?.scrollChatToBottom ?? null;
+    showBookmarksButtonsImpl = impl?.showBookmarksButtons ?? null;
 }
 
 export function syncAnimationDurationDefault(value) {
@@ -101,6 +104,14 @@ function resetScrollHeightBound(...args) {
     }
 
     return resetScrollHeightImpl(...args);
+}
+
+function showBookmarksButtonsBound(...args) {
+    if (!showBookmarksButtonsImpl) {
+        throwUnbound('showBookmarksButtons');
+    }
+
+    return showBookmarksButtonsImpl(...args);
 }
 
 export function reloadMarkdownProcessor(...args) {
@@ -205,6 +216,46 @@ export function initStandaloneMode() {
     if (isPwaMode) {
         $('body').addClass('PWA');
     }
+}
+
+export function initOptionsMenu({ buttonSelector = '#options_button', menuSelector = '#options', popper } = {}) {
+    const button = $(buttonSelector);
+    const menu = $(menuSelector);
+    let isOptionsMenuVisible = false;
+
+    function showMenu() {
+        showBookmarksButtonsBound();
+        menu.fadeIn(animation_duration);
+        popper?.update();
+        isOptionsMenuVisible = true;
+    }
+
+    function hideMenu() {
+        menu.fadeOut(animation_duration);
+        popper?.update();
+        isOptionsMenuVisible = false;
+    }
+
+    function isMouseOverButtonOrMenu() {
+        return menu.is(':hover, :focus-within') || button.is(':hover, :focus');
+    }
+
+    button.on('click', function () {
+        if (isOptionsMenuVisible) {
+            hideMenu();
+        } else {
+            showMenu();
+        }
+    });
+
+    $(document).on('click', function () {
+        if (!isOptionsMenuVisible) {
+            return;
+        }
+        if (!isMouseOverButtonOrMenu()) {
+            hideMenu();
+        }
+    });
 }
 
 export function showStopButton() {

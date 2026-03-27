@@ -3137,3 +3137,26 @@
 ### Next
 1. Reassess whether there is enough startup/UI helper density left to justify more work in `ui-core`, or whether the next batch should switch back to a feature-domain seam.
 2. Keep grouping DOM behavior by complete interaction blocks when the state is local to that interaction.
+
+## 2026-03-27 - Monolith Reduction Wave 59 (Input Focus Retention Move)
+
+### Completed
+- Moved the send-textarea focus-retention interaction out of `public/script.js` into `public/scripts/ui-core.js`.
+- Relocated the full behavior as a single `initSendTextareaFocusRetention()` helper in `ui-core`, including:
+  - tracking whether the send textarea was previously focused
+  - restoring focus after send/regenerate/continue/impersonate button clicks
+  - clearing that state on unrelated document clicks
+- Replaced the monolith-local jQuery-ready block with one startup call into `ui-core`.
+- Verified syntax for the touched files with `node --check` via `mise`.
+
+### Measurable Impact
+- `public/script.js` lost another small-but-stateful DOM interaction block from the jQuery-ready section.
+- `ui-core.js` now owns another shared interaction pattern near the input/send controls instead of splitting those concerns between core UI helpers and monolith-local setup code.
+
+### Insights
+- This was a good fit for `ui-core` because the state is private to one interaction and does not need any domain-level data or cross-module orchestration.
+- Moving the whole block together kept the logic easy to compare with the original implementation and avoided introducing another wrapper-only seam.
+
+### Next
+1. Reassess whether the next nearby DOM-ready interaction can move with the same low-risk pattern.
+2. Keep prioritizing relocations where the state is local to one UI behavior and not entangled with generation/session logic.

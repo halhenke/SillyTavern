@@ -258,6 +258,31 @@ export function initOptionsMenu({ buttonSelector = '#options_button', menuSelect
     });
 }
 
+export function initSendTextareaFocusRetention() {
+    let previouslyFocused = false;
+
+    $('#send_textarea').on('focusin focus click', () => {
+        previouslyFocused = true;
+    });
+
+    $('#send_but, #option_regenerate, #option_continue, #mes_continue, #mes_impersonate').on('click', () => {
+        if (previouslyFocused) {
+            $('#send_textarea').trigger('focus');
+        }
+    });
+
+    $(document).on('click', event => {
+        if ($(':focus').attr('id') !== 'send_textarea') {
+            const validIDs = ['options_button', 'send_but', 'mes_impersonate', 'mes_continue', 'send_textarea', 'option_regenerate', 'option_continue'];
+            if (!validIDs.includes($(event.target).attr('id'))) {
+                previouslyFocused = false;
+            }
+        } else {
+            previouslyFocused = true;
+        }
+    });
+}
+
 export function showStopButton() {
     document.getElementById('mes_stop')?.style.setProperty('display', 'flex');
 }

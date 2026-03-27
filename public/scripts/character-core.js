@@ -19,7 +19,7 @@ import { debounce, delay, ensureImageFormatSupported, flashHighlight, getCharaFi
 import { accountStorage } from './util/AccountStorage.js';
 import { getPermanentAssistantAvatar } from './welcome-screen.js';
 import { setWorldInfoButtonClass, world_info, world_names } from './world-info.js';
-import { saveSettingsDebounced } from './settings-core.js';
+import { saveCharacterDebounced, saveSettingsDebounced } from './settings-core.js';
 import { chat_metadata, this_chid } from './chat-core.js';
 
 let buildAvatarListImpl = null;
@@ -411,6 +411,49 @@ export function initCharacterSearch() {
         const isVisible = accountStorage.getItem(storageKey) === 'true';
         searchForm.toggle(isVisible);
         searchButton.toggleClass('active', isVisible);
+    });
+}
+
+export function initCharacterEditorBindings() {
+    $('#character_name_pole').on('input', function () {
+        if (menu_type == 'create') {
+            create_save.name = String($('#character_name_pole').val());
+        }
+    });
+
+    const elementsToUpdate = {
+        '#description_textarea': function () { create_save.description = String($('#description_textarea').val()); },
+        '#creator_notes_textarea': function () { create_save.creator_notes = String($('#creator_notes_textarea').val()); },
+        '#character_version_textarea': function () { create_save.character_version = String($('#character_version_textarea').val()); },
+        '#system_prompt_textarea': function () { create_save.system_prompt = String($('#system_prompt_textarea').val()); },
+        '#post_history_instructions_textarea': function () { create_save.post_history_instructions = String($('#post_history_instructions_textarea').val()); },
+        '#creator_textarea': function () { create_save.creator = String($('#creator_textarea').val()); },
+        '#tags_textarea': function () { create_save.tags = String($('#tags_textarea').val()); },
+        '#personality_textarea': function () { create_save.personality = String($('#personality_textarea').val()); },
+        '#scenario_pole': function () { create_save.scenario = String($('#scenario_pole').val()); },
+        '#mes_example_textarea': function () { create_save.mes_example = String($('#mes_example_textarea').val()); },
+        '#firstmessage_textarea': function () { create_save.first_message = String($('#firstmessage_textarea').val()); },
+        '#talkativeness_slider': function () { create_save.talkativeness = Number($('#talkativeness_slider').val()); },
+        '#depth_prompt_prompt': function () { create_save.depth_prompt_prompt = String($('#depth_prompt_prompt').val()); },
+        '#depth_prompt_depth': function () { create_save.depth_prompt_depth = Number($('#depth_prompt_depth').val()); },
+        '#depth_prompt_role': function () { create_save.depth_prompt_role = String($('#depth_prompt_role').val()); },
+    };
+
+    Object.keys(elementsToUpdate).forEach(function (id) {
+        $(id).on('input', function () {
+            if (menu_type == 'create') {
+                elementsToUpdate[id]();
+            } else {
+                saveCharacterDebounced();
+            }
+        });
+    });
+
+    $('#favorite_button').on('click', function () {
+        updateFavButtonState(!fav_ch_checked);
+        if (menu_type != 'create') {
+            saveCharacterDebounced();
+        }
     });
 }
 

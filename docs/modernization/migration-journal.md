@@ -3183,3 +3183,27 @@
 ### Next
 1. Reassess whether there are enough remaining DOM-ready helper clusters to justify one more `ui-core` pass before switching back to a larger feature seam.
 2. Keep preferring complete interaction-block moves over scattering single helper functions across modules.
+
+## 2026-03-27 - Monolith Reduction Wave 61 (Character Editor Binding Move)
+
+### Completed
+- Moved the character editor input/favorite listener block out of `public/script.js` into `public/scripts/character-core.js` as `initCharacterEditorBindings()`.
+- Relocated the full create/edit form synchronization behavior intact:
+  - `#character_name_pole` create-mode update
+  - the shared `elementsToUpdate` map for create-save form fields
+  - save-vs-create branching for existing characters vs create mode
+  - favorite toggle handling with debounced character save for existing characters
+- Used the existing `saveCharacterDebounced()` export from `settings-core` rather than adding another custom bind-only seam for this path.
+- Verified syntax for the touched files with `node --check` via `mise`.
+
+### Measurable Impact
+- `public/script.js` lost another medium-sized character-editor setup block from the jQuery-ready section.
+- `character-core.js` now owns more of the actual character editor interaction setup instead of only owning the later create/edit execution path.
+
+### Insights
+- This move is easier to justify than spreading these listeners across `ui-core`, because the state being edited is clearly `character-core` state (`create_save`, favorite status, create-vs-edit mode).
+- Reusing `settings-core` for the debounced save path kept the move relocation-oriented rather than introducing another temporary binding surface in `script.js`.
+
+### Next
+1. Reassess whether the next best move in this area is the delete/import/export character UI cluster or a separate chat-management block.
+2. Keep pulling listener setup toward the module that already owns the underlying edited state when that ownership is clear.

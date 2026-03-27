@@ -3348,3 +3348,8 @@
 ### Next
 1. Continue with a few more cohesive listener/control clusters, or switch back to a denser feature seam once the remaining DOM-ready setup stops yielding good chunks.
 2. Keep preferring destination modules that already own the state and operations behind the moved bindings.
+### 2026-03-28: Wave 66 - moved settings bootstrap and API-mode switch out of `script.js`
+
+This wave moved two larger legacy ownership points into `public/scripts/settings-core.js`: `getSettings()` and `changeMainAPI()`. The move stayed relocation-first rather than redesigning the settings load path. `script.js` now keeps thin wrappers while `bindSettingsCore(...)` supplies the remaining script-owned setters and runtime dependencies that still have to bridge back into legacy locals.
+
+The main constraint here was import-cycle risk. A direct `settings-core -> openai/power-user/tags/backgrounds/...` import graph would have recreated the same startup-order problems we already hit in slash-command and debounce bindings. To keep the equivalence story clear without introducing new module cycles, the moved functions still execute their original flow but call bound hooks for state mutation and settings-loader side effects.

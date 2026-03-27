@@ -269,7 +269,7 @@ import { beginMessageEdit as beginMessageEditCore, bindMessageCore, cancelDelete
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
 import { bindSessionCore, doNewChat as doNewChatCore, handleDeleteChat as handleDeleteChatCore, initCharacterManagementDropdownBindings as initCharacterManagementDropdownBindingsCore, newAssistantChat as newAssistantChatCore, renameGroupOrCharacterChat as renameGroupOrCharacterChatCore, resetChatState as resetChatStateCore, selectRightMenuWithAnimation as selectRightMenuWithAnimationCore, select_rm_characters as selectRmCharactersCore, select_rm_create as selectRmCreateCore, select_rm_info as selectRmInfoCore, select_selected_character as selectSelectedCharacterCore, sendTextareaMessage as sendTextareaMessageCore, setExternalAbortController as setExternalAbortControllerCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes, updateRemoteChatName as updateRemoteChatNameCore } from './scripts/session-core.js';
-import { bindSettingsCore } from './scripts/settings-core.js';
+import { bindSettingsCore, changeMainAPI as changeMainAPICore, getSettings as getSettingsCore } from './scripts/settings-core.js';
 import { activateSendButtons as activateSendButtonsCore, bindUiCore, deactivateSendButtons as deactivateSendButtonsCore, doDrawerOpenClick as doDrawerOpenClickCore, doNavbarIconClick as doNavbarIconClickCore, fixViewport as fixViewportCore, getSlideToggleOptions as getSlideToggleOptionsCore, hideStopButton as hideStopButtonCore, initEditTextareaAutoFit as initEditTextareaAutoFitCore, initExecutionControlBindings as initExecutionControlBindingsCore, initInlineDrawerBindings as initInlineDrawerBindingsCore, initOptionsMenu as initOptionsMenuCore, initRangeInputBindings as initRangeInputBindingsCore, initSendTextareaFocusRetention as initSendTextareaFocusRetentionCore, initStandaloneMode as initStandaloneModeCore, reloadMarkdownProcessor as reloadMarkdownProcessorCore, setAnimationDuration as setAnimationDurationCore, setSendButtonState as setSendButtonStateCore, showStopButton as showStopButtonCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
 import { accountStorage } from './scripts/util/AccountStorage.js';
 import { initWelcomeScreen, openPermanentAssistantChat, openPermanentAssistantCard, getPermanentAssistantAvatar } from './scripts/welcome-screen.js';
@@ -828,6 +828,80 @@ bindSettingsCore({
     saveSettingsDebounced,
     saveMetadata,
     saveCharacterDebounced,
+    getOpenAiSettings: () => oai_settings,
+    getCurrentVersion: () => currentVersion,
+    getCurrentUserAvatar: () => user_avatar,
+    getRequestHeaders,
+    getCurrentAmountGen: () => amount_gen,
+    getCurrentMaxContext: () => max_context,
+    setSettings: (value) => {
+        settings = value;
+    },
+    setName1: (value) => {
+        name1 = value;
+        syncName1(name1);
+    },
+    setAmountGen: (value) => {
+        amount_gen = value;
+        syncAmountGen(amount_gen);
+    },
+    setMaxContext: (value) => {
+        max_context = value;
+        syncMaxContext(max_context);
+    },
+    setSwipes: (value) => {
+        swipes = value;
+    },
+    setMainApi: (value) => {
+        main_api = value;
+        syncMainApi(main_api);
+    },
+    setActiveCharacter: (value) => {
+        active_character = value;
+        syncActiveCharacter(active_character);
+    },
+    setActiveGroup: (value) => {
+        active_group = value;
+        syncActiveGroup(active_group);
+    },
+    setSelectedButton: (value) => {
+        selected_button = value;
+    },
+    setFirstRun: (value) => {
+        firstRun = value;
+    },
+    setSettingsReady: (value) => {
+        settingsReady = value;
+    },
+    hideSwipeButtons,
+    showSwipeButtons,
+    reloadLoop,
+    doOnboarding,
+    accountStorage,
+    setUserControls,
+    eventSource,
+    eventTypes: event_types,
+    loadKoboldSettings,
+    loadNovelSettings,
+    loadTextGenSettings,
+    loadOpenAISettings,
+    loadHordeSettings,
+    loadPowerUserSettings,
+    applyPowerUserSettings,
+    loadTagsSettings,
+    loadBackgroundSettings,
+    loadProxyPresets,
+    initUserAvatar,
+    setPersonaDescription,
+    setWorldInfoSettings,
+    loadExtensionSettings,
+    hideLoader,
+    setOnlineStatus,
+    getStatusHorde,
+    getHordeModels,
+    validateDisabledSamplers,
+    setupChatCompletionPromptManager,
+    forceCharacterEditorTokenize,
 });
 
 /**
@@ -4071,121 +4145,7 @@ export async function openCharacterChat(file_name) {
 ////////// OPTIMZED MAIN API CHANGE FUNCTION ////////////
 
 export function changeMainAPI() {
-    const selectedVal = $('#main_api').val();
-    //console.log(selectedVal);
-    const apiElements = {
-        'koboldhorde': {
-            apiStreaming: $('#NULL_SELECTOR'),
-            apiSettings: $('#kobold_api-settings'),
-            apiConnector: $('#kobold_horde'),
-            apiPresets: $('#kobold_api-presets'),
-            apiRanges: $('#range_block'),
-            maxContextElem: $('#max_context_block'),
-            amountGenElem: $('#amount_gen_block'),
-        },
-        'kobold': {
-            apiStreaming: $('#streaming_kobold_block'),
-            apiSettings: $('#kobold_api-settings'),
-            apiConnector: $('#kobold_api'),
-            apiPresets: $('#kobold_api-presets'),
-            apiRanges: $('#range_block'),
-            maxContextElem: $('#max_context_block'),
-            amountGenElem: $('#amount_gen_block'),
-        },
-        'textgenerationwebui': {
-            apiStreaming: $('#streaming_textgenerationwebui_block'),
-            apiSettings: $('#textgenerationwebui_api-settings'),
-            apiConnector: $('#textgenerationwebui_api'),
-            apiPresets: $('#textgenerationwebui_api-presets'),
-            apiRanges: $('#range_block_textgenerationwebui'),
-            maxContextElem: $('#max_context_block'),
-            amountGenElem: $('#amount_gen_block'),
-        },
-        'novel': {
-            apiStreaming: $('#streaming_novel_block'),
-            apiSettings: $('#novel_api-settings'),
-            apiConnector: $('#novel_api'),
-            apiPresets: $('#novel_api-presets'),
-            apiRanges: $('#range_block_novel'),
-            maxContextElem: $('#max_context_block'),
-            amountGenElem: $('#amount_gen_block'),
-        },
-        'openai': {
-            apiStreaming: $('#NULL_SELECTOR'),
-            apiSettings: $('#openai_settings'),
-            apiConnector: $('#openai_api'),
-            apiPresets: $('#openai_api-presets'),
-            apiRanges: $('#range_block_openai'),
-            maxContextElem: $('#max_context_block'),
-            amountGenElem: $('#amount_gen_block'),
-        },
-    };
-    //console.log('--- apiElements--- ');
-    //console.log(apiElements);
-
-    //first, disable everything so the old elements stop showing
-    for (const apiName in apiElements) {
-        const apiObj = apiElements[apiName];
-        //do not hide items to then proceed to immediately show them.
-        if (selectedVal === apiName) {
-            continue;
-        }
-        apiObj.apiSettings.css('display', 'none');
-        apiObj.apiConnector.css('display', 'none');
-        apiObj.apiRanges.css('display', 'none');
-        apiObj.apiPresets.css('display', 'none');
-        apiObj.apiStreaming.css('display', 'none');
-    }
-
-    //then, find and enable the active item.
-    //This is split out of the loop so that different apis can share settings divs
-    let activeItem = apiElements[selectedVal];
-
-    activeItem.apiStreaming.css('display', 'block');
-    activeItem.apiSettings.css('display', 'block');
-    activeItem.apiConnector.css('display', 'block');
-    activeItem.apiRanges.css('display', 'block');
-    activeItem.apiPresets.css('display', 'block');
-
-    if (selectedVal === 'openai') {
-        activeItem.apiPresets.css('display', 'flex');
-    }
-
-    if (selectedVal === 'textgenerationwebui' || selectedVal === 'novel') {
-        console.debug('enabling amount_gen for ooba/novel');
-        activeItem.amountGenElem.find('input').prop('disabled', false);
-        activeItem.amountGenElem.css('opacity', 1.0);
-    }
-
-    //custom because streaming has been moved up under response tokens, which exists inside common settings block
-    if (selectedVal === 'novel') {
-        $('#ai_module_block_novel').css('display', 'block');
-    } else {
-        $('#ai_module_block_novel').css('display', 'none');
-    }
-
-    $('#prompt_cost_block').toggle(selectedVal === 'textgenerationwebui');
-
-    // Hide common settings for OpenAI
-    console.debug('value?', selectedVal);
-    if (selectedVal == 'openai') {
-        console.debug('hiding settings?');
-        $('#common-gen-settings-block').css('display', 'none');
-    } else {
-        $('#common-gen-settings-block').css('display', 'block');
-    }
-
-    main_api = selectedVal;
-    syncMainApi(main_api);
-    setOnlineStatus('no_connection');
-
-    if (main_api == 'koboldhorde') {
-        getStatusHorde();
-        getHordeModels(true);
-    }
-    validateDisabledSamplers();
-    setupChatCompletionPromptManager(oai_settings);
-    forceCharacterEditorTokenize();
+    return changeMainAPICore();
 }
 
 export function setUserName(value, { toastPersonaNameChange = true } = {}) {
@@ -4230,133 +4190,7 @@ function reloadLoop() {
 //MARK: getSettings()
 ///////////////////////////////////////////
 export async function getSettings() {
-    const response = await fetch('/api/settings/get', {
-        method: 'POST',
-        headers: getRequestHeaders(),
-        body: JSON.stringify({}),
-        cache: 'no-cache',
-    });
-
-    if (!response.ok) {
-        reloadLoop();
-        toastr.error(t`Settings could not be loaded after multiple attempts. Please try again later.`);
-        throw new Error('Error getting settings');
-    }
-
-    const data = await response.json();
-    if (data.result != 'file not find' && data.settings) {
-        settings = JSON.parse(data.settings);
-        if (settings.username !== undefined && settings.username !== '') {
-            name1 = settings.username;
-            syncName1(name1);
-            $('#your_name').text(name1);
-        }
-
-        accountStorage.init(settings?.accountStorage);
-        await setUserControls(data.enable_accounts);
-
-        // Allow subscribers to mutate settings
-        await eventSource.emit(event_types.SETTINGS_LOADED_BEFORE, settings);
-
-        //Load AI model config settings
-        amount_gen = settings.amount_gen;
-        syncAmountGen(amount_gen);
-        if (settings.max_context !== undefined)
-            max_context = parseInt(settings.max_context);
-        syncMaxContext(max_context);
-
-        swipes = settings.swipes !== undefined ? !!settings.swipes : true;  // enable swipes by default
-        $('#swipes-checkbox').prop('checked', swipes); /// swipecode
-        hideSwipeButtons();
-        showSwipeButtons();
-
-        // Kobold
-        loadKoboldSettings(data, settings.kai_settings ?? settings, settings);
-
-        // Novel
-        loadNovelSettings(data, settings.nai_settings ?? settings);
-
-        // TextGen
-        loadTextGenSettings(data, settings);
-
-        // OpenAI
-        loadOpenAISettings(data, settings.oai_settings ?? settings);
-
-        // Horde
-        loadHordeSettings(settings);
-
-        // Load power user settings
-        await loadPowerUserSettings(settings, data);
-
-        // Apply theme toggles from power user settings
-        applyPowerUserSettings();
-
-        // Load character tags
-        loadTagsSettings(settings);
-
-        // Load background
-        loadBackgroundSettings(settings);
-
-        // Load proxy presets
-        loadProxyPresets(settings);
-
-        // Allow subscribers to mutate settings
-        await eventSource.emit(event_types.SETTINGS_LOADED_AFTER, settings);
-
-        // Set context size after loading power user (may override the max value)
-        $('#max_context').val(max_context);
-        $('#max_context_counter').val(max_context);
-
-        $('#amount_gen').val(amount_gen);
-        $('#amount_gen_counter').val(amount_gen);
-
-        //Load which API we are using
-        if (settings.main_api == undefined) {
-            settings.main_api = 'kobold';
-        }
-
-        if (settings.main_api == 'poe') {
-            settings.main_api = 'openai';
-        }
-
-        main_api = settings.main_api;
-        syncMainApi(main_api);
-        $('#main_api').val(main_api);
-        $(`#main_api option[value=${main_api}]`).attr('selected', 'true');
-        changeMainAPI();
-
-        //Load User's Name and Avatar
-        initUserAvatar(settings.user_avatar);
-        setPersonaDescription();
-
-        //Load the active character and group
-        active_character = settings.active_character;
-        active_group = settings.active_group;
-        syncActiveCharacter(active_character);
-        syncActiveGroup(active_group);
-
-        setWorldInfoSettings(settings.world_info_settings ?? settings, data);
-
-        selected_button = settings.selected_button;
-
-        if (data.enable_extensions) {
-            const enableAutoUpdate = Boolean(data.enable_extensions_auto_update);
-            const isVersionChanged = settings.currentVersion !== currentVersion;
-            await loadExtensionSettings(settings, isVersionChanged, enableAutoUpdate);
-            await eventSource.emit(event_types.EXTENSION_SETTINGS_LOADED);
-        }
-
-        firstRun = !!settings.firstRun;
-
-        if (firstRun) {
-            hideLoader();
-            await doOnboarding(user_avatar);
-            firstRun = false;
-        }
-    }
-    await validateDisabledSamplers();
-    settingsReady = true;
-    await eventSource.emit(event_types.SETTINGS_LOADED);
+    return getSettingsCore();
 }
 
 //MARK: saveSettings()

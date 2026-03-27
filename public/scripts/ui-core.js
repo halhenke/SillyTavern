@@ -15,6 +15,9 @@ let resetScrollHeightImpl = null;
 let resetMovableStylesImpl = null;
 let scrollChatToBottomImpl = null;
 let showBookmarksButtonsImpl = null;
+let pauseScriptExecutionImpl = null;
+let stopGenerationImpl = null;
+let stopScriptExecutionImpl = null;
 
 export let ANIMATION_DURATION_DEFAULT = 0;
 export let animation_duration = 0;
@@ -34,10 +37,13 @@ function throwUnbound(name) {
  *   debounce: (...args: any[]) => any,
  *   delay: (...args: any[]) => Promise<any>,
  *   favsToHotswap: (...args: any[]) => any,
+ *   pauseScriptExecution: (...args: any[]) => any,
  *   resetMovableStyles: (...args: any[]) => any,
  *   resetScrollHeight: (...args: any[]) => Promise<any>,
  *   scrollChatToBottom: (...args: any[]) => any,
  *   showBookmarksButtons: (...args: any[]) => any,
+ *   stopGeneration: (...args: any[]) => any,
+ *   stopScriptExecution: (...args: any[]) => any,
  * }} impl Implementations to bind
  */
 export function bindUiCore(impl) {
@@ -46,10 +52,13 @@ export function bindUiCore(impl) {
     debounceImpl = impl?.debounce ?? null;
     delayImpl = impl?.delay ?? null;
     favsToHotswapImpl = impl?.favsToHotswap ?? null;
+    pauseScriptExecutionImpl = impl?.pauseScriptExecution ?? null;
     resetMovableStylesImpl = impl?.resetMovableStyles ?? null;
     resetScrollHeightImpl = impl?.resetScrollHeight ?? null;
     scrollChatToBottomImpl = impl?.scrollChatToBottom ?? null;
     showBookmarksButtonsImpl = impl?.showBookmarksButtons ?? null;
+    stopGenerationImpl = impl?.stopGeneration ?? null;
+    stopScriptExecutionImpl = impl?.stopScriptExecution ?? null;
 }
 
 export function syncAnimationDurationDefault(value) {
@@ -134,6 +143,30 @@ function showBookmarksButtonsBound(...args) {
     }
 
     return showBookmarksButtonsImpl(...args);
+}
+
+function pauseScriptExecutionBound(...args) {
+    if (!pauseScriptExecutionImpl) {
+        throwUnbound('pauseScriptExecution');
+    }
+
+    return pauseScriptExecutionImpl(...args);
+}
+
+function stopGenerationBound(...args) {
+    if (!stopGenerationImpl) {
+        throwUnbound('stopGeneration');
+    }
+
+    return stopGenerationImpl(...args);
+}
+
+function stopScriptExecutionBound(...args) {
+    if (!stopScriptExecutionImpl) {
+        throwUnbound('stopScriptExecution');
+    }
+
+    return stopScriptExecutionImpl(...args);
 }
 
 export function reloadMarkdownProcessor(...args) {
@@ -370,6 +403,24 @@ export function initInlineDrawerBindings() {
         drawerContent.toggleClass('maximized');
         const drawerId = drawerContent.attr('id');
         resetMovableStylesBound(drawerId);
+    });
+}
+
+export function initExecutionControlBindings() {
+    $(document).on('click', '.mes_stop', function () {
+        stopGenerationBound();
+    });
+
+    $(document).on('click', '#form_sheld .stscript_continue', function () {
+        pauseScriptExecutionBound();
+    });
+
+    $(document).on('click', '#form_sheld .stscript_pause', function () {
+        pauseScriptExecutionBound();
+    });
+
+    $(document).on('click', '#form_sheld .stscript_stop', function () {
+        stopScriptExecutionBound();
     });
 }
 

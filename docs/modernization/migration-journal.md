@@ -3323,3 +3323,28 @@
 ### Next
 1. Reassess whether one more nearby UI/control cluster is worth moving before switching back to a denser feature seam.
 2. Keep bundling drawer/panel chrome behavior together in `ui-core` when the moved logic is mostly DOM interaction and local UI state.
+
+## 2026-03-27 - Listener Cleanup Batch
+
+### Completed
+- Continued shrinking the DOM-ready block with a small batch of relocation-style listener moves rather than deeper refactors:
+  - moved the message copy handler into `public/scripts/message-core.js`
+  - moved a small character-panel control cluster into `public/scripts/character-core.js`
+  - moved execution control button bindings (`.mes_stop` and the STscript continue/pause/stop buttons) into `public/scripts/ui-core.js`
+- Kept each move close to the module that already owned the invoked behavior or state, and preserved the existing startup flow by replacing the monolith-local handlers with init calls.
+- Verified syntax for the touched files with `node --check` via `mise` after each batch.
+
+### Measurable Impact
+- `public/script.js` lost several more listener blocks without widening into a redesign of generation, session, or parser behavior.
+- Ownership is a bit clearer:
+  - message-surface copy behavior now lives with `message-core`
+  - character-panel controls live with `character-core`
+  - generic execution-control wiring lives with `ui-core`
+
+### Insights
+- These listener moves are still paying off because a lot of the remaining monolith weight is now concentrated in DOM-ready setup rather than unique core business logic.
+- Batching the journal note at this level is enough to keep handoff quality without writing a fresh mini-report for every one-button move.
+
+### Next
+1. Continue with a few more cohesive listener/control clusters, or switch back to a denser feature seam once the remaining DOM-ready setup stops yielding good chunks.
+2. Keep preferring destination modules that already own the state and operations behind the moved bindings.

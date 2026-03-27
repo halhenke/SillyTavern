@@ -29,12 +29,14 @@ let deleteSwipeImpl = null;
 let extractMessageBiasImpl = null;
 let formatCharacterAvatarImpl = null;
 let getChatTruncationImpl = null;
+let getChatCreateDateImpl = null;
 let getCharacterAvatarImpl = null;
 let getCharacterCardFieldsImpl = null;
 let getCharactersImpl = null;
 let getGeneratingApiImpl = null;
 let getGeneratingModelImpl = null;
 let getGenerationStartedImpl = null;
+let getNeutralCharacterNameImpl = null;
 let getSelectedGroupImpl = null;
 let getMaxContextSizeImpl = null;
 let hideSwipeButtonsImpl = null;
@@ -48,7 +50,6 @@ let loadItemizedPromptsImpl = null;
 let restoreNeutralChatImpl = null;
 let resetExtensionPromptsImpl = null;
 let resetItemizedPromptsImpl = null;
-let saveChatImpl = null;
 let saveCharacterDebouncedImpl = null;
 let saveItemizedPromptsImpl = null;
 let sendMessageAsUserImpl = null;
@@ -93,9 +94,10 @@ function throwUnbound(name) {
  *   createOrEditCharacter: (...args: any[]) => Promise<any>,
   *   deactivateSendButtons: (...args: any[]) => any,
   *   deleteSwipe: (...args: any[]) => Promise<any>,
-  *   extractMessageBias: (...args: any[]) => any,
+ *   extractMessageBias: (...args: any[]) => any,
  *   formatCharacterAvatar: (...args: any[]) => any,
  *   getChatTruncation: () => number,
+ *   getChatCreateDate: () => string,
  *   getCharacterAvatar: (...args: any[]) => any,
   *   getCharacterCardFields: (...args: any[]) => any,
   *   getCharacters: (...args: any[]) => Promise<any>,
@@ -103,6 +105,7 @@ function throwUnbound(name) {
  *   getGeneratingModel: (...args: any[]) => string,
  *   getGenerationStarted: () => Date,
  *   getItemizedPrompts: () => any[],
+ *   getNeutralCharacterName: () => string,
  *   getSelectedGroup: () => string|null|undefined,
   *   getGroupChat: (...args: any[]) => Promise<any>,
   *   getMaxContextSize: (...args: any[]) => number,
@@ -118,7 +121,6 @@ function throwUnbound(name) {
  *   restoreNeutralChat: (...args: any[]) => any,
  *   scrollChatToBottom: () => any,
   *   loadItemizedPrompts: (...args: any[]) => Promise<any>,
-  *   saveChat: (...args: any[]) => Promise<any>,
   *   saveCharacterDebounced: (...args: any[]) => any,
   *   saveItemizedPrompts: (...args: any[]) => Promise<any>,
   *   sendMessageAsUser: (...args: any[]) => Promise<any>,
@@ -152,6 +154,7 @@ export function bindChatOperationsCore(impl) {
     extractMessageBiasImpl = impl?.extractMessageBias ?? null;
     formatCharacterAvatarImpl = impl?.formatCharacterAvatar ?? null;
     getChatTruncationImpl = impl?.getChatTruncation ?? null;
+    getChatCreateDateImpl = impl?.getChatCreateDate ?? null;
     getCharacterAvatarImpl = impl?.getCharacterAvatar ?? null;
     getCharacterCardFieldsImpl = impl?.getCharacterCardFields ?? null;
     getCharactersImpl = impl?.getCharacters ?? null;
@@ -159,6 +162,7 @@ export function bindChatOperationsCore(impl) {
     getGeneratingModelImpl = impl?.getGeneratingModel ?? null;
     getGenerationStartedImpl = impl?.getGenerationStarted ?? null;
     getItemizedPromptsImpl = impl?.getItemizedPrompts ?? null;
+    getNeutralCharacterNameImpl = impl?.getNeutralCharacterName ?? null;
     getSelectedGroupImpl = impl?.getSelectedGroup ?? null;
     getGroupChatImpl = impl?.getGroupChat ?? null;
     getMaxContextSizeImpl = impl?.getMaxContextSize ?? null;
@@ -173,7 +177,6 @@ export function bindChatOperationsCore(impl) {
     resetItemizedPromptsImpl = impl?.resetItemizedPrompts ?? null;
     loadItemizedPromptsImpl = impl?.loadItemizedPrompts ?? null;
     restoreNeutralChatImpl = impl?.restoreNeutralChat ?? null;
-    saveChatImpl = impl?.saveChat ?? null;
     saveCharacterDebouncedImpl = impl?.saveCharacterDebounced ?? null;
     saveItemizedPromptsImpl = impl?.saveItemizedPrompts ?? null;
     scrollChatToBottomImpl = impl?.scrollChatToBottom ?? null;
@@ -633,8 +636,7 @@ export function renameChat(...args) {
 }
 
 export function saveChat(...args) {
-    if (!saveChatImpl) throwUnbound('saveChat');
-    return saveChatImpl(...args);
+    return saveChatInternal(...args);
 }
 
 export function saveChatConditional(...args) {
@@ -861,6 +863,97 @@ export async function saveReply({ type, getMessage, fromStreaming = false, title
 
     statMesProcess(chat[chat.length - 1], type, characters, this_chid, oldMessage);
     return { type, getMessage };
+}
+
+async function saveChatInternal({ chatName, withMetadata, mesId, force = false } = {}) {
+    if (arguments.length > 0 && typeof arguments[0] !== 'object') {
+        console.trace('saveChat called with positional arguments. Please use an object instead.');
+        [chatName, withMetadata, mesId, force] = arguments;
+    }
+
+    if (!getChatCreateDateImpl) throwUnbound('getChatCreateDate');
+    if (!getNeutralCharacterNameImpl) throwUnbound('getNeutralCharacterName');
+
+    const metadata = { ...chat_metadata, ...(withMetadata || {}) };
+    const fileName = chatName ?? characters[this_chid]?.chat;
+    const neutralCharacterName = getNeutralCharacterNameImpl();
+
+    if (!fileName && name2 === neutralCharacterName) {
+        return;
+    }
+
+    if (!fileName) {
+        console.warn('saveChat called without chat_name and no chat file found');
+        return;
+    }
+
+    characters[this_chid].date_last_chat = Date.now();
+    chat.forEach(function (item) {
+        if (item.is_group) {
+            toastr.error(t`Trying to save group chat with regular saveChat function. Aborting to prevent corruption.`);
+            throw new Error('Group chat saved from saveChat');
+        }
+    });
+
+    const trimmedChat = (mesId !== undefined && mesId >= 0 && mesId < chat.length)
+        ? chat.slice(0, Number(mesId) + 1)
+        : chat.slice();
+
+    const chatToSave = [
+        {
+            user_name: name1,
+            character_name: name2,
+            create_date: getChatCreateDateImpl(),
+            chat_metadata: metadata,
+        },
+        ...trimmedChat,
+    ];
+
+    try {
+        const result = await fetch('/api/chats/save', {
+            method: 'POST',
+            cache: 'no-cache',
+            headers: getRequestHeaders(),
+            body: JSON.stringify({
+                ch_name: characters[this_chid].name,
+                file_name: fileName,
+                chat: chatToSave,
+                avatar_url: characters[this_chid].avatar,
+                force,
+            }),
+        });
+
+        if (result.ok) {
+            return;
+        }
+
+        const errorData = await result.json();
+        const isIntegrityError = errorData?.error === 'integrity' && !force;
+        if (!isIntegrityError) {
+            throw new Error(result.statusText);
+        }
+
+        const popupResult = await Popup.show.input(
+            t`ERROR: Chat integrity check failed while saving the file.`,
+            t`<p>After you click OK, the page will be reloaded to prevent data corruption.</p>
+              <p>To confirm an overwrite (and potentially <b>LOSE YOUR DATA</b>), enter <code>OVERWRITE</code> (in all caps) in the box below before clicking OK.</p>`,
+            '',
+            { okButton: 'OK', cancelButton: false },
+        );
+
+        const forceSaveConfirmed = popupResult === 'OVERWRITE';
+
+        if (!forceSaveConfirmed) {
+            console.warn('Chat integrity check failed, and user did not confirm the overwrite. Reloading the page.');
+            window.location.reload();
+            return;
+        }
+
+        await saveChatInternal({ chatName, withMetadata, mesId, force: true });
+    } catch (error) {
+        console.error(error);
+        toastr.error(t`Check the server connection and reload the page to prevent data loss.`, t`Chat could not be saved`);
+    }
 }
 
 function insertSVGIcon(mes, extra) {
@@ -1399,7 +1492,6 @@ export async function reloadCurrentChat() {
 
 async function saveChatConditionalInternal() {
     if (!cancelDebouncedChatSaveImpl) throwUnbound('cancelDebouncedChatSave');
-    if (!saveChatImpl) throwUnbound('saveChat');
     if (!setIsChatSavingImpl) throwUnbound('setIsChatSaving');
 
     try {
@@ -1416,7 +1508,7 @@ async function saveChatConditionalInternal() {
         if (selected_group) {
             await saveGroupChat(selected_group, true);
         } else {
-            await saveChatImpl();
+            await saveChatInternal();
         }
 
         saveTokenCache();

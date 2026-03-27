@@ -2,11 +2,11 @@ import { SVGInject, moment } from '../lib.js';
 import { getMessageTimeStamp } from './RossAscends-mods.js';
 import { isChatSaving } from './app-state-core.js';
 import { characters } from './character-core.js';
-import { default_avatar, getCurrentChatId, chat_metadata, syncChatMetadata, this_chid, user_avatar } from './chat-core.js';
+import { default_avatar, getCurrentChatId, chat_metadata, name1, syncChatMetadata, this_chid, user_avatar } from './chat-core.js';
 import { debounce_timeout } from './constants.js';
 import { event_types, eventSource } from './events.js';
 import { getRegexedString, regex_placement } from './extensions/regex/engine.js';
-import { groups, selected_group } from './group-chats.js';
+import { groups, importGroupChat, selected_group } from './group-chats.js';
 import { getRequestHeaders, getThumbnailUrl } from './network-core.js';
 import { POPUP_TYPE, callGenericPopup } from './popup.js';
 import { saveTokenCache } from './tokenizers.js';
@@ -271,6 +271,47 @@ export function initChatManagementBindings() {
             console.log(`An error has occurred: ${error.message}`);
             await delay(250);
             toastr.error(`Error: ${error.message}`);
+        }
+    });
+}
+
+export function initChatImportBindings() {
+    $('#chat_import_button').on('click', function () {
+        $('#chat_import_file').trigger('click');
+    });
+
+    $('#chat_import_file').on('change', async function (e) {
+        const targetElement = /** @type {HTMLInputElement} */ (e.target);
+        if (!(targetElement instanceof HTMLInputElement)) {
+            return;
+        }
+        const file = targetElement.files[0];
+
+        if (!file) {
+            return;
+        }
+
+        const ext = file.name.match(/\.(\w+)$/);
+        if (!ext || (ext[1].toLowerCase() != 'json' && ext[1].toLowerCase() != 'jsonl')) {
+            return;
+        }
+
+        if (selected_group && file.name.endsWith('.json')) {
+            toastr.warning('Only SillyTavern\'s own format is supported for group chat imports. Sorry!');
+            return;
+        }
+
+        const format = ext[1].toLowerCase();
+        $('#chat_import_file_type').val(format);
+
+        const formData = new FormData(/** @type {HTMLFormElement} */($('#form_import_chat').get(0)));
+        formData.append('user_name', name1);
+        $('#select_chat_div').html('');
+
+        if (selected_group) {
+            await importGroupChat(formData, e.originalEvent.target);
+        } else {
+            await importCharacterChat(formData, e.originalEvent.target);
         }
     });
 }

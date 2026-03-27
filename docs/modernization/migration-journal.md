@@ -3277,3 +3277,27 @@
 ### Next
 1. Continue with the adjacent character/chat management listener clusters, especially chat import and nearby control buttons.
 2. Keep moving UI triggers toward the module that already owns the invoked behavior when that mapping is straightforward.
+
+## 2026-03-27 - Monolith Reduction Wave 65 (Chat Import Binding Move)
+
+### Completed
+- Moved the chat import UI listener block out of `public/script.js` into `public/scripts/chat-operations-core.js` as `initChatImportBindings()`.
+- Relocated the full interaction intact:
+  - `#chat_import_button` file-picker trigger
+  - `#chat_import_file` validation and import flow
+  - group-vs-character routing for imported chat files
+  - import-format tracking via `#chat_import_file_type`
+- Kept the current user-name and selected-group behavior by using the same `name1` and `selected_group` state now imported directly inside `chat-operations-core`.
+- Verified syntax for the touched files with `node --check` via `mise`.
+
+### Measurable Impact
+- `public/script.js` lost another sizable chat-management listener block from the DOM-ready section.
+- `chat-operations-core.js` now owns more of the chat import surface instead of splitting the UI trigger layer away from the actual import operations it already uses.
+
+### Insights
+- This was a good fit for `chat-operations-core` because the handler already depended on chat import behavior, selected-group routing, and current user state, all of which are closer to chat/session operations than generic UI.
+- Pulling in `importGroupChat` and `name1` directly was simpler and more traceable than inventing another temporary binding seam for a small, already-cohesive block.
+
+### Next
+1. Reassess whether the next adjacent move should be the group/duplicate/stop control bindings or a more generic UI cluster like inline drawers.
+2. Keep moving complete import/export listener clusters together when they operate on the same area of state and remote behavior.

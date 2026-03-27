@@ -265,7 +265,7 @@ import { importExternalContent as importExternalContentCore, importFromURL as im
 import { addDebugFunctions as addDebugFunctionsCore, bindDebugCore } from './scripts/debug-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
 import { TempResponseLength, bindGenerationCore, buildCombinedPrompt as buildCombinedPromptCore, executeGenerationRequestFlow as executeGenerationRequestFlowCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, handleGenerationError as handleGenerationErrorCore, prepareContextPackingState as prepareContextPackingStateCore, prepareCoreChatState as prepareCoreChatStateCore, prepareGenerationContextWindow as prepareGenerationContextWindowCore, prepareGenerationData as prepareGenerationDataCore, prepareGenerationEntryState as prepareGenerationEntryStateCore, prepareGenerationMessages as prepareGenerationMessagesCore, prepareMessageHistoryState as prepareMessageHistoryStateCore, preparePromptAssemblyState as preparePromptAssemblyStateCore, preparePromptAugmentationState as preparePromptAugmentationStateCore, preparePromptContextState as preparePromptContextStateCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
-import { beginMessageEdit as beginMessageEditCore, bindMessageCore, cancelDeleteMode as cancelDeleteModeCore, cancelMessageEdit as cancelMessageEditCore, closeMessageEditor as closeMessageEditorCore, confirmDeleteMode as confirmDeleteModeCore, copyEditedMessage as copyEditedMessageCore, deleteEditedMessage as deleteEditedMessageCore, deleteSwipe as deleteSwipeCore, editedMessageId as editedMessageIdCore, getFirstDisplayedMessageId as getFirstDisplayedMessageIdCore, hideSwipeButtons as hideSwipeButtonsCore, initMessageCopyBinding as initMessageCopyBindingCore, isDeleteMode as isDeleteModeCore, messageEditAuto as messageEditAutoCore, messageEditDone as messageEditDoneCore, moveEditedMessageDown as moveEditedMessageDownCore, moveEditedMessageUp as moveEditedMessageUpCore, openMessageDelete as openMessageDeleteCore, selectMessageDeleteTarget as selectMessageDeleteTargetCore, setEditedMessageId as setEditedMessageIdCore, showSwipeButtons as showSwipeButtonsCore, swipe_left as swipeLeftCore, swipe_right as swipeRightCore, syncMesToSwipe as syncMesToSwipeCore, syncSwipeToMes as syncSwipeToMesCore, updateEditArrowClasses as updateEditArrowClassesCore, updateMessageBlock as updateMessageBlockCore, updateViewMessageIds as updateViewMessageIdsCore } from './scripts/message-core.js';
+import { beginMessageEdit as beginMessageEditCore, bindMessageCore, cancelDeleteMode as cancelDeleteModeCore, cancelMessageEdit as cancelMessageEditCore, cleanUpMessage as cleanUpMessageCore, closeMessageEditor as closeMessageEditorCore, confirmDeleteMode as confirmDeleteModeCore, copyEditedMessage as copyEditedMessageCore, deleteEditedMessage as deleteEditedMessageCore, deleteSwipe as deleteSwipeCore, editedMessageId as editedMessageIdCore, getFirstDisplayedMessageId as getFirstDisplayedMessageIdCore, hideSwipeButtons as hideSwipeButtonsCore, initMessageCopyBinding as initMessageCopyBindingCore, isDeleteMode as isDeleteModeCore, messageEditAuto as messageEditAutoCore, messageEditDone as messageEditDoneCore, messageFormatting as messageFormattingCore, moveEditedMessageDown as moveEditedMessageDownCore, moveEditedMessageUp as moveEditedMessageUpCore, openMessageDelete as openMessageDeleteCore, selectMessageDeleteTarget as selectMessageDeleteTargetCore, setEditedMessageId as setEditedMessageIdCore, showSwipeButtons as showSwipeButtonsCore, swipe_left as swipeLeftCore, swipe_right as swipeRightCore, syncMesToSwipe as syncMesToSwipeCore, syncSwipeToMes as syncSwipeToMesCore, updateEditArrowClasses as updateEditArrowClassesCore, updateMessageBlock as updateMessageBlockCore, updateViewMessageIds as updateViewMessageIdsCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
 import { bindSessionCore, doNewChat as doNewChatCore, handleDeleteChat as handleDeleteChatCore, initCharacterManagementDropdownBindings as initCharacterManagementDropdownBindingsCore, newAssistantChat as newAssistantChatCore, renameGroupOrCharacterChat as renameGroupOrCharacterChatCore, resetChatState as resetChatStateCore, selectRightMenuWithAnimation as selectRightMenuWithAnimationCore, select_rm_characters as selectRmCharactersCore, select_rm_create as selectRmCreateCore, select_rm_info as selectRmInfoCore, select_selected_character as selectSelectedCharacterCore, sendTextareaMessage as sendTextareaMessageCore, setExternalAbortController as setExternalAbortControllerCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes, updateRemoteChatName as updateRemoteChatNameCore } from './scripts/session-core.js';
@@ -443,10 +443,9 @@ bindParserCore({
 });
 bindMessageCore({
     addCopyToCodeBlocks,
-    cleanUpMessage,
     Generate,
+    getStoppingStrings,
     isHordeGenerationNotAllowed,
-    messageFormatting,
     saveChatDebounced,
     setSendButtonState,
     stopStreamingIfNeeded: () => {
@@ -1459,162 +1458,8 @@ export async function sendTextareaMessage() {
  * @returns {string} HTML string
  */
 export function messageFormatting(mes, ch_name, isSystem, isUser, messageId, sanitizerOverrides = {}, isReasoning = false) {
-    if (!mes) {
-        return '';
-    }
-
-    if (Number(messageId) === 0 && !isSystem && !isUser && !isReasoning) {
-        const mesBeforeReplace = mes;
-        const chatMessage = chat[messageId];
-        mes = substituteParams(mes, undefined, ch_name);
-        if (chatMessage && chatMessage.mes === mesBeforeReplace && chatMessage.extra?.display_text !== mesBeforeReplace) {
-            chatMessage.mes = mes;
-        }
-    }
-
     mesForShowdownParse = mes;
-
-    // Force isSystem = false on comment messages so they get formatted properly
-    if (ch_name === COMMENT_NAME_DEFAULT && isSystem && !isUser) {
-        isSystem = false;
-    }
-
-    // Let hidden messages have markdown
-    if (isSystem && ch_name !== systemUserName) {
-        isSystem = false;
-    }
-
-    // Prompt bias replacement should be applied on the raw message
-    const replacedPromptBias = power_user.user_prompt_bias && substituteParams(power_user.user_prompt_bias);
-    if (!power_user.show_user_prompt_bias && ch_name && !isUser && !isSystem && replacedPromptBias && mes.startsWith(replacedPromptBias)) {
-        mes = mes.slice(replacedPromptBias.length);
-    }
-
-    if (!isSystem) {
-        function getRegexPlacement() {
-            try {
-                if (isReasoning) {
-                    return regex_placement.REASONING;
-                }
-                if (isUser) {
-                    return regex_placement.USER_INPUT;
-                } else if (chat[messageId]?.extra?.type === 'narrator') {
-                    return regex_placement.SLASH_COMMAND;
-                } else {
-                    return regex_placement.AI_OUTPUT;
-                }
-            } catch {
-                return regex_placement.AI_OUTPUT;
-            }
-        }
-
-        const regexPlacement = getRegexPlacement();
-        const usableMessages = chat.map((x, index) => ({ message: x, index: index })).filter(x => !x.message.is_system);
-        const indexOf = usableMessages.findIndex(x => x.index === Number(messageId));
-        const depth = messageId >= 0 && indexOf !== -1 ? (usableMessages.length - indexOf - 1) : undefined;
-
-        // Always override the character name
-        mes = getRegexedString(mes, regexPlacement, {
-            characterOverride: ch_name,
-            isMarkdown: true,
-            depth: depth,
-        });
-    }
-
-    if (power_user.auto_fix_generated_markdown) {
-        mes = fixMarkdown(mes, true);
-    }
-
-    if (!isSystem && power_user.encode_tags) {
-        mes = mes.replaceAll('<', '&lt;').replaceAll('>', '&gt;');
-    }
-
-    // Make sure reasoning strings are always shown, even if they include "<" or ">"
-    [power_user.reasoning.prefix, power_user.reasoning.suffix].forEach((reasoningString) => {
-        if (!reasoningString || !reasoningString.trim().length) {
-            return;
-        }
-        // Only replace the first occurrence of the reasoning string
-        if (mes.includes(reasoningString)) {
-            mes = mes.replace(reasoningString, escapeHtml(reasoningString));
-        }
-    });
-
-    if (!isSystem) {
-        // Save double quotes in tags as a special character to prevent them from being encoded
-        if (!power_user.encode_tags) {
-            mes = mes.replace(/<([^>]+)>/g, function (_, contents) {
-                return '<' + contents.replace(/"/g, '\ufffe') + '>';
-            });
-        }
-
-        mes = mes.replace(
-            /<style>[\s\S]*?<\/style>|```[\s\S]*?```|~~~[\s\S]*?~~~|``[\s\S]*?``|`[\s\S]*?`|(".*?")|(\u201C.*?\u201D)|(\u00AB.*?\u00BB)|(\u300C.*?\u300D)|(\u300E.*?\u300F)|(\uFF02.*?\uFF02)/gim,
-            function (match, p1, p2, p3, p4, p5, p6) {
-                if (p1) {
-                    // English double quotes
-                    return `<q>"${p1.slice(1, -1)}"</q>`;
-                } else if (p2) {
-                    // Curly double quotes “ ”
-                    return `<q>“${p2.slice(1, -1)}”</q>`;
-                } else if (p3) {
-                    // Guillemets « »
-                    return `<q>«${p3.slice(1, -1)}»</q>`;
-                } else if (p4) {
-                    // Corner brackets 「 」
-                    return `<q>「${p4.slice(1, -1)}」</q>`;
-                } else if (p5) {
-                    // White corner brackets 『 』
-                    return `<q>『${p5.slice(1, -1)}』</q>`;
-                } else if (p6) {
-                    // Fullwidth quotes ＂ ＂
-                    return `<q>＂${p6.slice(1, -1)}＂</q>`;
-                } else {
-                    // Return the original match if no quotes are found
-                    return match;
-                }
-            },
-        );
-
-        // Restore double quotes in tags
-        if (!power_user.encode_tags) {
-            mes = mes.replace(/\ufffe/g, '"');
-        }
-
-        mes = mes.replaceAll('\\begin{align*}', '$$');
-        mes = mes.replaceAll('\\end{align*}', '$$');
-        mes = converter.makeHtml(mes);
-
-        mes = mes.replace(/<code(.*)>[\s\S]*?<\/code>/g, function (match) {
-            // Firefox creates extra newlines from <br>s in code blocks, so we replace them before converting newlines to <br>s.
-            return match.replace(/\n/gm, '\u0000');
-        });
-        mes = mes.replace(/\u0000/g, '\n'); // Restore converted newlines
-        mes = mes.trim();
-
-        mes = mes.replace(/<code(.*)>[\s\S]*?<\/code>/g, function (match) {
-            return match.replace(/&amp;/g, '&');
-        });
-    }
-
-    if (!power_user.allow_name2_display && ch_name && !isUser && !isSystem) {
-        mes = mes.replace(new RegExp(`(^|\n)${escapeRegex(ch_name)}:`, 'g'), '$1');
-    }
-
-    /** @type {import('dompurify').Config & { RETURN_DOM_FRAGMENT: false; RETURN_DOM: false }} */
-    const config = {
-        RETURN_DOM: false,
-        RETURN_DOM_FRAGMENT: false,
-        RETURN_TRUSTED_TYPE: false,
-        MESSAGE_SANITIZE: true,
-        ADD_TAGS: ['custom-style'],
-        ...sanitizerOverrides,
-    };
-    mes = encodeStyleTags(mes);
-    mes = DOMPurify.sanitize(mes, config);
-    mes = decodeStyleTags(mes, { prefix: '.mes_text ' });
-
-    return mes;
+    return messageFormattingCore(mes, ch_name, isSystem, isUser, messageId, sanitizerOverrides, isReasoning);
 }
 
 /**
@@ -1997,44 +1842,6 @@ export function extractMessageBias(message) {
     } catch {
         return '';
     }
-}
-
-/**
- * Removes impersonated group member lines from the group member messages.
- * Doesn't do anything if group reply trimming is disabled.
- * @param {string} getMessage Group message
- * @returns Cleaned-up group message
- */
-function cleanGroupMessage(getMessage) {
-    if (power_user.disable_group_trimming) {
-        return getMessage;
-    }
-
-    const group = groups.find((x) => x.id == selected_group);
-
-    if (group && Array.isArray(group.members) && group.members) {
-        for (let member of group.members) {
-            const character = characters.find(x => x.avatar == member);
-
-            if (!character) {
-                continue;
-            }
-
-            const name = character.name;
-
-            // Skip current speaker.
-            if (name === name2) {
-                continue;
-            }
-
-            const regex = new RegExp(`(^|\n)${escapeRegex(name)}:`);
-            const nameMatch = getMessage.match(regex);
-            if (nameMatch) {
-                getMessage = getMessage.substring(0, nameMatch.index);
-            }
-        }
-    }
-    return getMessage;
 }
 
 function addPersonaDescriptionExtensionPrompt() {
@@ -3815,157 +3622,8 @@ function extractMultiSwipes(data, type) {
  *
  * @returns {string} The formatted message
  */
-export function cleanUpMessage({ getMessage, isImpersonate, isContinue, displayIncompleteSentences = false, stoppingStrings = null, includeUserPromptBias = true, trimNames = true, trimWrongNames = true } = {}) {
-    if (arguments.length > 0 && typeof arguments[0] !== 'object') {
-        console.trace('cleanUpMessage called with positional arguments. Please use an object instead.');
-        [getMessage, isImpersonate, isContinue, displayIncompleteSentences, stoppingStrings, includeUserPromptBias, trimNames, trimWrongNames] = arguments;
-    }
-
-    if (!getMessage) {
-        return '';
-    }
-
-    // Add the prompt bias before anything else
-    if (
-        includeUserPromptBias &&
-        power_user.user_prompt_bias &&
-        !isImpersonate &&
-        !isContinue &&
-        power_user.user_prompt_bias.length !== 0
-    ) {
-        getMessage = substituteParams(power_user.user_prompt_bias) + getMessage;
-    }
-
-    // Allow for caching of stopping strings. getStoppingStrings is an expensive function, especially with macros
-    // enabled, so for streaming, we call it once and then pass it into each cleanUpMessage call.
-    if (!stoppingStrings) {
-        stoppingStrings = getStoppingStrings(isImpersonate, isContinue);
-    }
-
-    for (const stoppingString of stoppingStrings) {
-        if (stoppingString.length) {
-            for (let j = stoppingString.length; j > 0; j--) {
-                if (getMessage.slice(-j) === stoppingString.slice(0, j)) {
-                    getMessage = getMessage.slice(0, -j);
-                    break;
-                }
-            }
-        }
-    }
-
-    // Regex uses vars, so add before formatting
-    getMessage = getRegexedString(getMessage, isImpersonate ? regex_placement.USER_INPUT : regex_placement.AI_OUTPUT);
-
-    if (power_user.collapse_newlines) {
-        getMessage = collapseNewlines(getMessage);
-    }
-
-    // trailing invisible whitespace before every newlines, on a multiline string
-    // "trailing whitespace on newlines       \nevery line of the string    \n?sample text" ->
-    // "trailing whitespace on newlines\nevery line of the string\nsample text"
-    getMessage = getMessage.replace(/[^\S\r\n]+$/gm, '');
-
-    if (trimWrongNames) {
-        // If this is an impersonation, delete the entire response if it starts with "{{char}}:"
-        // If this isn't an impersonation, delete the entire response if it starts with "{{user}}:"
-        // Also delete any trailing text that starts with the wrong name.
-        // This only occurs if the corresponding "power_user.allow_nameX_display" is false.
-
-        let wrongName = isImpersonate
-            ? (!power_user.allow_name2_display ? name2 : '')  // char
-            : (!power_user.allow_name1_display ? name1 : '');  // user
-
-        if (wrongName) {
-            // If the message starts with the wrong name, delete the entire response
-            let startIndex = getMessage.indexOf(`${wrongName}:`);
-            if (startIndex === 0) {
-                getMessage = '';
-                console.debug(`Message started with the wrong name: "${wrongName}" - response was deleted.`);
-            }
-
-            // If there is trailing text starting with the wrong name, trim it off.
-            startIndex = getMessage.indexOf(`\n${wrongName}:`);
-            if (startIndex >= 0) {
-                getMessage = getMessage.substring(0, startIndex);
-            }
-        }
-    }
-
-    if (getMessage.indexOf('<|endoftext|>') != -1) {
-        getMessage = getMessage.substring(0, getMessage.indexOf('<|endoftext|>'));
-    }
-    const isInstruct = power_user.instruct.enabled && main_api !== 'openai';
-    const isNotEmpty = (str) => str && str.trim() !== '';
-    if (isInstruct && power_user.instruct.stop_sequence) {
-        if (getMessage.indexOf(power_user.instruct.stop_sequence) != -1) {
-            getMessage = getMessage.substring(0, getMessage.indexOf(power_user.instruct.stop_sequence));
-        }
-    }
-    // Hana: Only use the first sequence (should be <|model|>)
-    // of the prompt before <|user|> (as KoboldAI Lite does it).
-    if (isInstruct && isNotEmpty(power_user.instruct.input_sequence)) {
-        if (getMessage.indexOf(power_user.instruct.input_sequence) != -1) {
-            getMessage = getMessage.substring(0, getMessage.indexOf(power_user.instruct.input_sequence));
-        }
-    }
-
-    // Remove instruct sequences leaking to the output
-    if (isInstruct && power_user.instruct.sequences_as_stop_strings) {
-        const sequences = [
-            { value: power_user.instruct.input_sequence, apply: isImpersonate && isNotEmpty(power_user.instruct.input_sequence) },
-            { value: power_user.instruct.output_sequence, apply: !isImpersonate && isNotEmpty(power_user.instruct.output_sequence) },
-            { value: power_user.instruct.last_output_sequence, apply: !isImpersonate && isNotEmpty(power_user.instruct.last_output_sequence) },
-        ];
-        for (const seq of sequences.filter(s => s.apply)) {
-            seq.value.split('\n').filter(line => line.trim() !== '').forEach(line => { getMessage = getMessage.replaceAll(line, ''); });
-        }
-    }
-
-    // clean-up group message from excessive generations
-    if (selected_group) {
-        getMessage = cleanGroupMessage(getMessage);
-    }
-
-    if (!power_user.allow_name2_display) {
-        const name2Escaped = escapeRegex(name2);
-        getMessage = getMessage.replace(new RegExp(`(^|\n)${name2Escaped}:\\s*`, 'g'), '$1');
-    }
-
-    if (isImpersonate) {
-        getMessage = getMessage.trim();
-    }
-
-    if (power_user.auto_fix_generated_markdown) {
-        getMessage = fixMarkdown(getMessage, false);
-    }
-
-    if (trimNames) {
-        // If this is an impersonation, trim "{{user}}:" from the beginning
-        // If this isn't an impersonation, trim "{{char}}:" from the beginning.
-        // Only applied when the corresponding "power_user.allow_nameX_display" is false.
-        const nameToTrim2 = isImpersonate
-            ? (!power_user.allow_name1_display ? name1 : '')  // user
-            : (!power_user.allow_name2_display ? name2 : '');  // char
-
-        if (nameToTrim2 && getMessage.startsWith(nameToTrim2 + ':')) {
-            getMessage = getMessage.replace(nameToTrim2 + ':', '');
-            getMessage = getMessage.trimStart();
-        }
-    }
-
-    if (isImpersonate) {
-        getMessage = getMessage.trim();
-    }
-
-    if (!displayIncompleteSentences && power_user.trim_sentences) {
-        getMessage = trimToEndSentence(getMessage);
-    }
-
-    if (power_user.trim_spaces && !PromptReasoning.getLatestPrefix()) {
-        getMessage = getMessage.trim();
-    }
-
-    return getMessage;
+export function cleanUpMessage(...args) {
+    return cleanUpMessageCore(...args);
 }
 
 /**

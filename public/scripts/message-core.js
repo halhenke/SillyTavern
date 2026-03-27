@@ -1,22 +1,27 @@
-import { addOneMessage, appendMediaToMessage, chat, extractMessageBias, formatSwipeCounter, reloadCurrentChat, saveChatConditional } from './chat-operations-core.js';
+import { DOMPurify } from '../lib.js';
+import { main_api } from './api-core.js';
+import { characters } from './character-core.js';
+import { addOneMessage, appendMediaToMessage, chat, extractMessageBias, formatSwipeCounter, reloadCurrentChat, saveChatConditional, systemUserName } from './chat-operations-core.js';
+import { decodeStyleTags, encodeStyleTags } from './chats.js';
 import { chat_metadata, name1, name2, this_chid } from './chat-core.js';
 import { event_types, eventSource } from './events.js';
 import { getRegexedString, regex_placement } from './extensions/regex/engine.js';
-import { is_group_generating, selected_group } from './group-chats.js';
+import { groups, is_group_generating, selected_group } from './group-chats.js';
 import { t } from './i18n.js';
-import { removeMacros, substituteParams } from './parser-core.js';
+import { converter, removeMacros, substituteParams } from './parser-core.js';
 import { POPUP_TYPE, callGenericPopup } from './popup.js';
-import { power_user } from './power-user.js';
+import { collapseNewlines, fixMarkdown, power_user } from './power-user.js';
+import { PromptReasoning } from './reasoning.js';
+import { COMMENT_NAME_DEFAULT } from './slash-commands.js';
 import { system_message_types } from './system-messages.js';
 import { getTokenCountAsync } from './tokenizers.js';
 import { animation_duration, animation_easing, is_send_press } from './ui-core.js';
-import { copyText } from './utils.js';
+import { copyText, escapeHtml, escapeRegex, trimToEndSentence } from './utils.js';
 
-let cleanUpMessageImpl = null;
-let messageFormattingImpl = null;
 let saveChatDebouncedImpl = null;
 let addCopyToCodeBlocksImpl = null;
 let generateImpl = null;
+let getStoppingStringsImpl = null;
 let isHordeGenerationNotAllowedImpl = null;
 let setSendButtonStateImpl = null;
 let stopStreamingIfNeededImpl = null;
@@ -35,11 +40,10 @@ function throwUnbound(name) {
 /**
  * Binds legacy message-related implementations to standalone wrappers.
  * @param {{
- *   cleanUpMessage: (...args: any[]) => any,
- *   messageFormatting: (...args: any[]) => any,
  *   saveChatDebounced: (...args: any[]) => any,
  *   addCopyToCodeBlocks: (...args: any[]) => any,
  *   Generate: (...args: any[]) => Promise<any>,
+ *   getStoppingStrings: (...args: any[]) => string[],
  *   isHordeGenerationNotAllowed: (...args: any[]) => boolean,
  *   setSendButtonState: (...args: any[]) => any,
  *   stopStreamingIfNeeded: (...args: any[]) => any,
@@ -48,32 +52,15 @@ function throwUnbound(name) {
  * }} impl Implementations to bind
  */
 export function bindMessageCore(impl) {
-    cleanUpMessageImpl = impl?.cleanUpMessage ?? null;
-    messageFormattingImpl = impl?.messageFormatting ?? null;
     saveChatDebouncedImpl = impl?.saveChatDebounced ?? null;
     addCopyToCodeBlocksImpl = impl?.addCopyToCodeBlocks ?? null;
     generateImpl = impl?.Generate ?? null;
+    getStoppingStringsImpl = impl?.getStoppingStrings ?? null;
     isHordeGenerationNotAllowedImpl = impl?.isHordeGenerationNotAllowed ?? null;
     setSendButtonStateImpl = impl?.setSendButtonState ?? null;
     stopStreamingIfNeededImpl = impl?.stopStreamingIfNeeded ?? null;
     unblockGenerationImpl = impl?.unblockGeneration ?? null;
     updateReasoningUIImpl = impl?.updateReasoningUI ?? null;
-}
-
-export function cleanUpMessage(...args) {
-    if (!cleanUpMessageImpl) {
-        throwUnbound('cleanUpMessage');
-    }
-
-    return cleanUpMessageImpl(...args);
-}
-
-export function messageFormatting(...args) {
-    if (!messageFormattingImpl) {
-        throwUnbound('messageFormatting');
-    }
-
-    return messageFormattingImpl(...args);
 }
 
 export function saveChatDebounced(...args) {
@@ -264,6 +251,313 @@ export function hideSwipeButtons() {
     chatElement.find('.swipe_right').hide();
     chatElement.find('.last_mes .swipes-counter').hide();
     chatElement.find('.swipe_left').hide();
+}
+
+/**
+ * Formats the message text into an HTML string using Markdown and other formatting.
+ * @param {string} mes Message text
+ * @param {string} ch_name Character name
+ * @param {boolean} isSystem If the message was sent by the system
+ * @param {boolean} isUser If the message was sent by the user
+ * @param {number} messageId Message index in chat array
+ * @param {object} [sanitizerOverrides] DOMPurify sanitizer option overrides
+ * @param {boolean} [isReasoning] If the message is reasoning output
+ * @returns {string} HTML string
+ */
+export function messageFormatting(mes, ch_name, isSystem, isUser, messageId, sanitizerOverrides = {}, isReasoning = false) {
+    if (!mes) {
+        return '';
+    }
+
+    if (Number(messageId) === 0 && !isSystem && !isUser && !isReasoning) {
+        const mesBeforeReplace = mes;
+        const chatMessage = chat[messageId];
+        mes = substituteParams(mes, undefined, ch_name);
+        if (chatMessage && chatMessage.mes === mesBeforeReplace && chatMessage.extra?.display_text !== mesBeforeReplace) {
+            chatMessage.mes = mes;
+        }
+    }
+
+    if (ch_name === COMMENT_NAME_DEFAULT && isSystem && !isUser) {
+        isSystem = false;
+    }
+
+    if (isSystem && ch_name !== systemUserName) {
+        isSystem = false;
+    }
+
+    const replacedPromptBias = power_user.user_prompt_bias && substituteParams(power_user.user_prompt_bias);
+    if (!power_user.show_user_prompt_bias && ch_name && !isUser && !isSystem && replacedPromptBias && mes.startsWith(replacedPromptBias)) {
+        mes = mes.slice(replacedPromptBias.length);
+    }
+
+    if (!isSystem) {
+        function getRegexPlacement() {
+            try {
+                if (isReasoning) {
+                    return regex_placement.REASONING;
+                }
+                if (isUser) {
+                    return regex_placement.USER_INPUT;
+                } else if (chat[messageId]?.extra?.type === 'narrator') {
+                    return regex_placement.SLASH_COMMAND;
+                } else {
+                    return regex_placement.AI_OUTPUT;
+                }
+            } catch {
+                return regex_placement.AI_OUTPUT;
+            }
+        }
+
+        const regexPlacement = getRegexPlacement();
+        const usableMessages = chat.map((x, index) => ({ message: x, index: index })).filter(x => !x.message.is_system);
+        const indexOf = usableMessages.findIndex(x => x.index === Number(messageId));
+        const depth = messageId >= 0 && indexOf !== -1 ? (usableMessages.length - indexOf - 1) : undefined;
+
+        mes = getRegexedString(mes, regexPlacement, {
+            characterOverride: ch_name,
+            isMarkdown: true,
+            depth,
+        });
+    }
+
+    if (power_user.auto_fix_generated_markdown) {
+        mes = fixMarkdown(mes, true);
+    }
+
+    if (!isSystem && power_user.encode_tags) {
+        mes = mes.replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+    }
+
+    [power_user.reasoning.prefix, power_user.reasoning.suffix].forEach((reasoningString) => {
+        if (!reasoningString || !reasoningString.trim().length) {
+            return;
+        }
+        if (mes.includes(reasoningString)) {
+            mes = mes.replace(reasoningString, escapeHtml(reasoningString));
+        }
+    });
+
+    if (!isSystem) {
+        if (!power_user.encode_tags) {
+            mes = mes.replace(/<([^>]+)>/g, function (_, contents) {
+                return '<' + contents.replace(/"/g, '\ufffe') + '>';
+            });
+        }
+
+        mes = mes.replace(
+            /<style>[\s\S]*?<\/style>|```[\s\S]*?```|~~~[\s\S]*?~~~|``[\s\S]*?``|`[\s\S]*?`|(".*?")|(\u201C.*?\u201D)|(\u00AB.*?\u00BB)|(\u300C.*?\u300D)|(\u300E.*?\u300F)|(\uFF02.*?\uFF02)/gim,
+            function (match, p1, p2, p3, p4, p5, p6) {
+                if (p1) return `<q>"${p1.slice(1, -1)}"</q>`;
+                if (p2) return `<q>“${p2.slice(1, -1)}”</q>`;
+                if (p3) return `<q>«${p3.slice(1, -1)}»</q>`;
+                if (p4) return `<q>「${p4.slice(1, -1)}」</q>`;
+                if (p5) return `<q>『${p5.slice(1, -1)}』</q>`;
+                if (p6) return `<q>＂${p6.slice(1, -1)}＂</q>`;
+                return match;
+            },
+        );
+
+        if (!power_user.encode_tags) {
+            mes = mes.replace(/\ufffe/g, '"');
+        }
+
+        mes = mes.replaceAll('\\begin{align*}', '$$');
+        mes = mes.replaceAll('\\end{align*}', '$$');
+        mes = converter.makeHtml(mes);
+
+        mes = mes.replace(/<code(.*)>[\s\S]*?<\/code>/g, function (match) {
+            return match.replace(/\n/gm, '\u0000');
+        });
+        mes = mes.replace(/\u0000/g, '\n');
+        mes = mes.trim();
+
+        mes = mes.replace(/<code(.*)>[\s\S]*?<\/code>/g, function (match) {
+            return match.replace(/&amp;/g, '&');
+        });
+    }
+
+    if (!power_user.allow_name2_display && ch_name && !isUser && !isSystem) {
+        mes = mes.replace(new RegExp(`(^|\n)${escapeRegex(ch_name)}:`, 'g'), '$1');
+    }
+
+    /** @type {import('dompurify').Config & { RETURN_DOM_FRAGMENT: false; RETURN_DOM: false }} */
+    const config = {
+        RETURN_DOM: false,
+        RETURN_DOM_FRAGMENT: false,
+        RETURN_TRUSTED_TYPE: false,
+        MESSAGE_SANITIZE: true,
+        ADD_TAGS: ['custom-style'],
+        ...sanitizerOverrides,
+    };
+    mes = encodeStyleTags(mes);
+    mes = DOMPurify.sanitize(mes, config);
+    mes = decodeStyleTags(mes, { prefix: '.mes_text ' });
+
+    return mes;
+}
+
+function cleanGroupMessage(getMessage) {
+    if (power_user.disable_group_trimming) {
+        return getMessage;
+    }
+
+    const group = groups.find((x) => x.id == selected_group);
+
+    if (group && Array.isArray(group.members) && group.members) {
+        for (const member of group.members) {
+            const character = characters.find(x => x.avatar == member);
+
+            if (!character) {
+                continue;
+            }
+
+            const name = character.name;
+            if (name === name2) {
+                continue;
+            }
+
+            const regex = new RegExp(`(^|\n)${escapeRegex(name)}:`);
+            const nameMatch = getMessage.match(regex);
+            if (nameMatch) {
+                getMessage = getMessage.substring(0, nameMatch.index);
+            }
+        }
+    }
+
+    return getMessage;
+}
+
+export function cleanUpMessage({ getMessage, isImpersonate, isContinue, displayIncompleteSentences = false, stoppingStrings = null, includeUserPromptBias = true, trimNames = true, trimWrongNames = true } = {}) {
+    if (arguments.length > 0 && typeof arguments[0] !== 'object') {
+        console.trace('cleanUpMessage called with positional arguments. Please use an object instead.');
+        [getMessage, isImpersonate, isContinue, displayIncompleteSentences, stoppingStrings, includeUserPromptBias, trimNames, trimWrongNames] = arguments;
+    }
+
+    if (!getMessage) {
+        return '';
+    }
+    if (!getStoppingStringsImpl) {
+        throwUnbound('getStoppingStrings');
+    }
+
+    if (includeUserPromptBias && power_user.user_prompt_bias && !isImpersonate && !isContinue && power_user.user_prompt_bias.length !== 0) {
+        getMessage = substituteParams(power_user.user_prompt_bias) + getMessage;
+    }
+
+    if (!stoppingStrings) {
+        stoppingStrings = getStoppingStringsImpl(isImpersonate, isContinue);
+    }
+
+    for (const stoppingString of stoppingStrings) {
+        if (stoppingString.length) {
+            for (let j = stoppingString.length; j > 0; j--) {
+                if (getMessage.slice(-j) === stoppingString.slice(0, j)) {
+                    getMessage = getMessage.slice(0, -j);
+                    break;
+                }
+            }
+        }
+    }
+
+    getMessage = getRegexedString(getMessage, isImpersonate ? regex_placement.USER_INPUT : regex_placement.AI_OUTPUT);
+
+    if (power_user.collapse_newlines) {
+        getMessage = collapseNewlines(getMessage);
+    }
+
+    getMessage = getMessage.replace(/[^\S\r\n]+$/gm, '');
+
+    if (trimWrongNames) {
+        let wrongName = isImpersonate
+            ? (!power_user.allow_name2_display ? name2 : '')
+            : (!power_user.allow_name1_display ? name1 : '');
+
+        if (wrongName) {
+            let startIndex = getMessage.indexOf(`${wrongName}:`);
+            if (startIndex === 0) {
+                getMessage = '';
+                console.debug(`Message started with the wrong name: "${wrongName}" - response was deleted.`);
+            }
+
+            startIndex = getMessage.indexOf(`\n${wrongName}:`);
+            if (startIndex >= 0) {
+                getMessage = getMessage.substring(0, startIndex);
+            }
+        }
+    }
+
+    if (getMessage.indexOf('<|endoftext|>') !== -1) {
+        getMessage = getMessage.substring(0, getMessage.indexOf('<|endoftext|>'));
+    }
+
+    const isInstruct = power_user.instruct.enabled && main_api !== 'openai';
+    const isNotEmpty = (str) => str && str.trim() !== '';
+
+    if (isInstruct && power_user.instruct.stop_sequence) {
+        if (getMessage.indexOf(power_user.instruct.stop_sequence) !== -1) {
+            getMessage = getMessage.substring(0, getMessage.indexOf(power_user.instruct.stop_sequence));
+        }
+    }
+
+    if (isInstruct && isNotEmpty(power_user.instruct.input_sequence)) {
+        if (getMessage.indexOf(power_user.instruct.input_sequence) !== -1) {
+            getMessage = getMessage.substring(0, getMessage.indexOf(power_user.instruct.input_sequence));
+        }
+    }
+
+    if (isInstruct && power_user.instruct.sequences_as_stop_strings) {
+        const sequences = [
+            { value: power_user.instruct.input_sequence, apply: isImpersonate && isNotEmpty(power_user.instruct.input_sequence) },
+            { value: power_user.instruct.output_sequence, apply: !isImpersonate && isNotEmpty(power_user.instruct.output_sequence) },
+            { value: power_user.instruct.last_output_sequence, apply: !isImpersonate && isNotEmpty(power_user.instruct.last_output_sequence) },
+        ];
+        for (const seq of sequences.filter(s => s.apply)) {
+            seq.value.split('\n').filter(line => line.trim() !== '').forEach(line => { getMessage = getMessage.replaceAll(line, ''); });
+        }
+    }
+
+    if (selected_group) {
+        getMessage = cleanGroupMessage(getMessage);
+    }
+
+    if (!power_user.allow_name2_display) {
+        const name2Escaped = escapeRegex(name2);
+        getMessage = getMessage.replace(new RegExp(`(^|\n)${name2Escaped}:\\s*`, 'g'), '$1');
+    }
+
+    if (isImpersonate) {
+        getMessage = getMessage.trim();
+    }
+
+    if (power_user.auto_fix_generated_markdown) {
+        getMessage = fixMarkdown(getMessage, false);
+    }
+
+    if (trimNames) {
+        const nameToTrim2 = isImpersonate
+            ? (!power_user.allow_name1_display ? name1 : '')
+            : (!power_user.allow_name2_display ? name2 : '');
+
+        if (nameToTrim2 && getMessage.startsWith(`${nameToTrim2}:`)) {
+            getMessage = getMessage.replace(`${nameToTrim2}:`, '');
+            getMessage = getMessage.trimStart();
+        }
+    }
+
+    if (isImpersonate) {
+        getMessage = getMessage.trim();
+    }
+
+    if (!displayIncompleteSentences && power_user.trim_sentences) {
+        getMessage = trimToEndSentence(getMessage);
+    }
+
+    if (power_user.trim_spaces && !PromptReasoning.getLatestPrefix()) {
+        getMessage = getMessage.trim();
+    }
+
+    return getMessage;
 }
 
 /**
@@ -1147,9 +1441,6 @@ export async function deleteEditedMessage(trigger, customData = {}) {
 }
 
 export function updateMessageBlock(...args) {
-    if (!messageFormattingImpl) {
-        throwUnbound('messageFormatting');
-    }
     if (!addCopyToCodeBlocksImpl) {
         throwUnbound('addCopyToCodeBlocks');
     }
@@ -1161,7 +1452,7 @@ export function updateMessageBlock(...args) {
     const messageElement = $(`#chat [mesid="${messageId}"]`);
     if (rerenderMessage) {
         const text = message?.extra?.display_text ?? message.mes;
-        messageElement.find('.mes_text').html(messageFormattingImpl(text, message.name, message.is_system, message.is_user, messageId, {}, false));
+        messageElement.find('.mes_text').html(messageFormatting(text, message.name, message.is_system, message.is_user, messageId, {}, false));
     }
 
     updateReasoningUIImpl(messageElement);

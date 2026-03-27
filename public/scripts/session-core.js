@@ -1,20 +1,23 @@
 import { isChatSaving, menu_type, setMenuType } from './app-state-core.js';
-import { characters, create_save, depth_prompt_depth_default, depth_prompt_role_default, getRequestHeaders, talkativeness_default, updateFavButtonState } from './character-core.js';
+import { characters, create_save, depth_prompt_depth_default, depth_prompt_role_default, getRequestHeaders, openCharacterWorldPopup, processDroppedFiles, renameCharacter, talkativeness_default, updateFavButtonState } from './character-core.js';
 import { chat_metadata, default_avatar, getCurrentChatId, name2, setCharacterId as setChatCharacterId, setCharacterName as setChatCharacterName, this_chid, syncChatMetadata, syncName2, syncThisChid } from './chat-core.js';
-import { chat, clearChat, getChat, getCurrentChatDetails, reloadCurrentChat, saveChatConditional, systemUserName } from './chat-operations-core.js';
+import { chat, clearChat, getChat, getCurrentChatDetails, openCharacterChat, reloadCurrentChat, saveChatConditional, systemUserName } from './chat-operations-core.js';
+import { event_types, eventSource } from './events.js';
 import { Generate } from './generation-core.js';
 import { t } from './i18n.js';
 import { hideLoader, showLoader } from './loader.js';
 import { editedMessageId } from './message-core.js';
 import { getThumbnailUrl } from './network-core.js';
-import { POPUP_TYPE, callGenericPopup } from './popup.js';
+import { POPUP_TYPE, Popup, callGenericPopup } from './popup.js';
 import { humanizedDateTime } from './RossAscends-mods.js';
-import { saveSettingsDebounced } from './settings-core.js';
+import { saveCharacterDebounced, saveSettingsDebounced } from './settings-core.js';
 import { SAFETY_CHAT } from './system-messages.js';
+import { tag_import_setting } from './tags.js';
 import { animation_duration, animation_easing, is_send_press } from './ui-core.js';
 import { accountStorage } from './util/AccountStorage.js';
-import { delay, equalsIgnoreCaseAndAccents, flashHighlight, waitUntilCondition } from './utils.js';
+import { delay, equalsIgnoreCaseAndAccents, flashHighlight, isValidUrl, waitUntilCondition } from './utils.js';
 import { debounce_timeout } from './constants.js';
+import { importEmbeddedWorldInfo } from './world-info.js';
 
 let cancelTtsPlayImpl = null;
 let checkEmbeddedWorldImpl = null;
@@ -756,6 +759,81 @@ export function setScenarioOverride(...args) {
     }
 
     return setScenarioOverrideImpl(...args);
+}
+
+/**
+ * @param {{
+ *   getCharacterSource: (characterId?: number) => string|undefined,
+ *   importTags: (character: Character, options?: { importSetting?: any }) => Promise<boolean|void>,
+ * }} deps
+ */
+export function initCharacterManagementDropdownBindings({ getCharacterSource, importTags }) {
+    $('#char-management-dropdown').on('change', async (e) => {
+        const targetElement = /** @type {HTMLSelectElement} */ (e.target);
+        const target = $(targetElement.selectedOptions).attr('id');
+
+        switch (target) {
+            case 'set_character_world':
+                await openCharacterWorldPopup();
+                break;
+            case 'set_chat_scenario':
+                await setScenarioOverride();
+                break;
+            case 'renameCharButton':
+                await renameCharacter();
+                break;
+            case 'import_character_info':
+                await importEmbeddedWorldInfo();
+                saveCharacterDebounced();
+                break;
+            case 'character_source': {
+                const source = getCharacterSource(this_chid);
+                if (source && isValidUrl(source)) {
+                    const url = new URL(source);
+                    const confirm = await Popup.show.confirm('Open Source', `<span>Do you want to open the link to ${url.hostname} in a new tab?</span><var>${url}</var>`);
+                    if (confirm) {
+                        window.open(source, '_blank');
+                    }
+                } else {
+                    toastr.info('This character doesn\'t seem to have a source.');
+                }
+                break;
+            }
+            case 'replace_update': {
+                const confirm = await Popup.show.confirm('Replace Character', '<p>Choose a new character card to replace this character with.</p>All chats, assets and group memberships will be preserved, but local changes to the character data will be lost.<br />Proceed?');
+                if (confirm) {
+                    async function uploadReplacementCard(e) {
+                        const file = e.target.files[0];
+
+                        if (!file) {
+                            return;
+                        }
+
+                        try {
+                            const chatFile = characters[this_chid].chat;
+                            const data = new Map();
+                            data.set(file, characters[this_chid].avatar);
+                            await processDroppedFiles([file], data);
+                            await openCharacterChat(chatFile);
+                            await fetch(getThumbnailUrl('avatar', characters[this_chid].avatar), { cache: 'reload' });
+                        } catch {
+                            toastr.error('Failed to replace the character card.', 'Something went wrong');
+                        }
+                    }
+
+                    $('#character_replace_file').off('change').on('change', uploadReplacementCard).trigger('click');
+                }
+                break;
+            }
+            case 'import_tags':
+                await importTags(characters[this_chid], { importSetting: tag_import_setting.ASK });
+                break;
+            default:
+                await eventSource.emit(event_types.CHARACTER_MANAGEMENT_DROPDOWN, target);
+        }
+
+        $('#char-management-dropdown').prop('selectedIndex', 0);
+    });
 }
 
 export function unshallowCharacter(...args) {

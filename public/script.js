@@ -268,7 +268,7 @@ import { TempResponseLength, bindGenerationCore, buildCombinedPrompt as buildCom
 import { beginMessageEdit as beginMessageEditCore, bindMessageCore, cancelDeleteMode as cancelDeleteModeCore, cancelMessageEdit as cancelMessageEditCore, closeMessageEditor as closeMessageEditorCore, confirmDeleteMode as confirmDeleteModeCore, copyEditedMessage as copyEditedMessageCore, deleteEditedMessage as deleteEditedMessageCore, deleteSwipe as deleteSwipeCore, editedMessageId as editedMessageIdCore, getFirstDisplayedMessageId as getFirstDisplayedMessageIdCore, hideSwipeButtons as hideSwipeButtonsCore, initMessageCopyBinding as initMessageCopyBindingCore, isDeleteMode as isDeleteModeCore, messageEditAuto as messageEditAutoCore, messageEditDone as messageEditDoneCore, moveEditedMessageDown as moveEditedMessageDownCore, moveEditedMessageUp as moveEditedMessageUpCore, openMessageDelete as openMessageDeleteCore, selectMessageDeleteTarget as selectMessageDeleteTargetCore, setEditedMessageId as setEditedMessageIdCore, showSwipeButtons as showSwipeButtonsCore, syncMesToSwipe as syncMesToSwipeCore, syncSwipeToMes as syncSwipeToMesCore, updateEditArrowClasses as updateEditArrowClassesCore, updateMessageBlock as updateMessageBlockCore, updateViewMessageIds as updateViewMessageIdsCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
-import { bindSessionCore, doNewChat as doNewChatCore, handleDeleteChat as handleDeleteChatCore, newAssistantChat as newAssistantChatCore, renameGroupOrCharacterChat as renameGroupOrCharacterChatCore, resetChatState as resetChatStateCore, selectRightMenuWithAnimation as selectRightMenuWithAnimationCore, select_rm_characters as selectRmCharactersCore, select_rm_create as selectRmCreateCore, select_rm_info as selectRmInfoCore, select_selected_character as selectSelectedCharacterCore, sendTextareaMessage as sendTextareaMessageCore, setExternalAbortController as setExternalAbortControllerCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes, updateRemoteChatName as updateRemoteChatNameCore } from './scripts/session-core.js';
+import { bindSessionCore, doNewChat as doNewChatCore, handleDeleteChat as handleDeleteChatCore, initCharacterManagementDropdownBindings as initCharacterManagementDropdownBindingsCore, newAssistantChat as newAssistantChatCore, renameGroupOrCharacterChat as renameGroupOrCharacterChatCore, resetChatState as resetChatStateCore, selectRightMenuWithAnimation as selectRightMenuWithAnimationCore, select_rm_characters as selectRmCharactersCore, select_rm_create as selectRmCreateCore, select_rm_info as selectRmInfoCore, select_selected_character as selectSelectedCharacterCore, sendTextareaMessage as sendTextareaMessageCore, setExternalAbortController as setExternalAbortControllerCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes, updateRemoteChatName as updateRemoteChatNameCore } from './scripts/session-core.js';
 import { bindSettingsCore } from './scripts/settings-core.js';
 import { activateSendButtons as activateSendButtonsCore, bindUiCore, deactivateSendButtons as deactivateSendButtonsCore, doDrawerOpenClick as doDrawerOpenClickCore, doNavbarIconClick as doNavbarIconClickCore, fixViewport as fixViewportCore, getSlideToggleOptions as getSlideToggleOptionsCore, hideStopButton as hideStopButtonCore, initEditTextareaAutoFit as initEditTextareaAutoFitCore, initExecutionControlBindings as initExecutionControlBindingsCore, initInlineDrawerBindings as initInlineDrawerBindingsCore, initOptionsMenu as initOptionsMenuCore, initRangeInputBindings as initRangeInputBindingsCore, initSendTextareaFocusRetention as initSendTextareaFocusRetentionCore, initStandaloneMode as initStandaloneModeCore, reloadMarkdownProcessor as reloadMarkdownProcessorCore, setAnimationDuration as setAnimationDurationCore, setSendButtonState as setSendButtonStateCore, showStopButton as showStopButtonCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
 import { accountStorage } from './scripts/util/AccountStorage.js';
@@ -6705,76 +6705,7 @@ jQuery(async function () {
         }
     });
 
-    $('#char-management-dropdown').on('change', async (e) => {
-        const targetElement = /** @type {HTMLSelectElement} */ (e.target);
-        const target = $(targetElement.selectedOptions).attr('id');
-        switch (target) {
-            case 'set_character_world':
-                await openCharacterWorldPopup();
-                break;
-            case 'set_chat_scenario':
-                await setScenarioOverride();
-                break;
-            case 'renameCharButton':
-                await renameCharacter();
-                break;
-            case 'import_character_info':
-                await importEmbeddedWorldInfo();
-                saveCharacterDebounced();
-                break;
-            case 'character_source': {
-                const source = getCharacterSource(this_chid);
-                if (source && isValidUrl(source)) {
-                    const url = new URL(source);
-                    const confirm = await Popup.show.confirm('Open Source', `<span>Do you want to open the link to ${url.hostname} in a new tab?</span><var>${url}</var>`);
-                    if (confirm) {
-                        window.open(source, '_blank');
-                    }
-                } else {
-                    toastr.info('This character doesn\'t seem to have a source.');
-                }
-            } break;
-            case 'replace_update': {
-                const confirm = await Popup.show.confirm('Replace Character', '<p>Choose a new character card to replace this character with.</p>All chats, assets and group memberships will be preserved, but local changes to the character data will be lost.<br />Proceed?');
-                if (confirm) {
-                    async function uploadReplacementCard(e) {
-                        const file = e.target.files[0];
-
-                        if (!file) {
-                            return;
-                        }
-
-                        try {
-                            const chatFile = characters[this_chid]['chat'];
-                            const data = new Map();
-                            data.set(file, characters[this_chid].avatar);
-                            await processDroppedFiles([file], data);
-                            await openCharacterChat(chatFile);
-                            await fetch(getThumbnailUrl('avatar', characters[this_chid].avatar), { cache: 'reload' });
-                        } catch {
-                            toastr.error('Failed to replace the character card.', 'Something went wrong');
-                        }
-                    }
-                    $('#character_replace_file').off('change').on('change', uploadReplacementCard).trigger('click');
-                }
-            } break;
-            case 'import_tags': {
-                await importTags(characters[this_chid], { importSetting: tag_import_setting.ASK });
-            } break;
-            /*case 'delete_button':
-                popup_type = "del_ch";
-                callPopup(`
-                        <h3>Delete the character?</h3>
-                        <b>THIS IS PERMANENT!<br><br>
-                        THIS WILL ALSO DELETE ALL<br>
-                        OF THE CHARACTER'S CHAT FILES.<br><br></b>`
-                );
-                break;*/
-            default:
-                await eventSource.emit(event_types.CHARACTER_MANAGEMENT_DROPDOWN, target);
-        }
-        $('#char-management-dropdown').prop('selectedIndex', 0);
-    });
+    initCharacterManagementDropdownBindingsCore({ getCharacterSource, importTags });
 
     $(window).on('beforeunload', () => {
         cancelTtsPlay();

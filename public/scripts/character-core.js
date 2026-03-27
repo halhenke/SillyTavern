@@ -562,6 +562,18 @@ export function initCharacterDeleteBinding() {
     });
 }
 
+export function initCharacterPanelBindings() {
+    $(document).on('click', '.open_alternate_greetings', openAlternateGreetings);
+
+    $('#charListGridToggle').on('click', async () => {
+        doCharListDisplaySwitch();
+    });
+
+    $('#hideCharPanelAvatarButton').on('click', () => {
+        $('#avatar-and-name-block').slideToggle();
+    });
+}
+
 export function toggleAdvancedCharacterPopup() {
     if (!isAdvancedCharOpen) {
         isAdvancedCharOpen = true;

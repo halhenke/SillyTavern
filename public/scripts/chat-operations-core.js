@@ -8,9 +8,11 @@ import { event_types, eventSource } from './events.js';
 import { getRegexedString, regex_placement } from './extensions/regex/engine.js';
 import { groups, selected_group } from './group-chats.js';
 import { getRequestHeaders, getThumbnailUrl } from './network-core.js';
+import { POPUP_TYPE, callGenericPopup } from './popup.js';
 import { saveTokenCache } from './tokenizers.js';
-import { debounce, humanFileSize, sortMoments, timestampToMoment, waitUntilCondition, uuidv4 } from './utils.js';
+import { debounce, delay, download, humanFileSize, sortMoments, timestampToMoment, waitUntilCondition, uuidv4 } from './utils.js';
 import { humanizedDateTime } from './RossAscends-mods.js';
+import { renderTemplateAsync } from './templates.js';
 
 let activateSendButtonsImpl = null;
 let appendMediaToMessageImpl = null;
@@ -207,6 +209,70 @@ export function syncSystemAvatar(value) {
 export function activateSendButtons(...args) {
     if (!activateSendButtonsImpl) throwUnbound('activateSendButtons');
     return activateSendButtonsImpl(...args);
+}
+
+export function initChatManagementBindings() {
+    $(document).on('click', '.renameChatButton', async function (e) {
+        e.stopPropagation();
+        const oldFileNameFull = $(this).closest('.select_chat_block_wrapper').find('.select_chat_block_filename').text();
+        const oldFileName = oldFileNameFull.replace('.jsonl', '');
+
+        const popupText = await renderTemplateAsync('chatRename');
+        const newName = await callGenericPopup(popupText, POPUP_TYPE.INPUT, oldFileName);
+
+        if (!newName || typeof newName !== 'string' || newName == oldFileName) {
+            console.log('no new name found, aborting');
+            return;
+        }
+
+        await renameChat(oldFileName, newName);
+
+        await delay(250);
+        $('#option_select_chat').trigger('click');
+        $('#options').hide();
+    });
+
+    $(document).on('click', '.exportChatButton, .exportRawChatButton', async function (e) {
+        e.stopPropagation();
+        const format = $(this).data('format') || 'txt';
+        await saveChatConditional();
+        const filenamefull = $(this).closest('.select_chat_block_wrapper').find('.select_chat_block_filename').text();
+        console.log(`exporting ${filenamefull} in ${format} format`);
+
+        const filename = filenamefull.replace('.jsonl', '');
+        const body = {
+            is_group: !!selected_group,
+            avatar_url: characters[this_chid]?.avatar,
+            file: `${filename}.jsonl`,
+            exportfilename: `${filename}.${format}`,
+            format: format,
+        };
+        console.log(body);
+        try {
+            const response = await fetch('/api/chats/export', {
+                method: 'POST',
+                body: JSON.stringify(body),
+                headers: getRequestHeaders(),
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                console.log(data.message);
+                await delay(250);
+                toastr.error(`Error: ${data.message}`);
+                return;
+            }
+
+            const mimeType = format == 'txt' ? 'text/plain' : 'application/octet-stream';
+            console.log(data);
+            await delay(250);
+            toastr.success(data.message);
+            download(data.result, body.exportfilename, mimeType);
+        } catch (error) {
+            console.log(`An error has occurred: ${error.message}`);
+            await delay(250);
+            toastr.error(`Error: ${error.message}`);
+        }
+    });
 }
 
 export function addOneMessage(...args) {

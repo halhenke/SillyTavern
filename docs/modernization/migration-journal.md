@@ -3207,3 +3207,25 @@
 ### Next
 1. Reassess whether the next best move in this area is the delete/import/export character UI cluster or a separate chat-management block.
 2. Keep pulling listener setup toward the module that already owns the underlying edited state when that ownership is clear.
+
+## 2026-03-27 - Monolith Reduction Wave 62 (Chat Management Binding Move)
+
+### Completed
+- Moved the chat rename/export button handlers out of `public/script.js` into `public/scripts/chat-operations-core.js` as `initChatManagementBindings()`.
+- Relocated the full interaction blocks intact:
+  - `.renameChatButton` popup/rename/reopen flow
+  - `.exportChatButton` and `.exportRawChatButton` export flow
+- Kept the existing startup behavior by replacing the monolith-local handlers with one init call in the jQuery-ready block.
+- Verified syntax for the touched files with `node --check` via `mise`.
+
+### Measurable Impact
+- `public/script.js` lost another medium-sized chat-management block from the DOM-ready section.
+- `chat-operations-core.js` now owns more of the chat list/session management UI behavior that already depended on chat state, current selection, and remote chat operations.
+
+### Insights
+- This was a natural move into `chat-operations-core` because the handlers depend on `selected_group`, current chat selection, `saveChatConditional()`, and `renameChat()`, all of which already live close to chat-operations ownership.
+- Keeping the two handlers together as one init helper was cleaner than splitting rename and export into separate partial moves, because they operate on the same chat-list surface and supporting state.
+
+### Next
+1. Reassess whether the next cohesive move is the remaining character import/export/delete UI cluster or another chat-list/popup interaction nearby.
+2. Keep preferring modules that already own the state and remote operations used by the moved listeners.

@@ -3254,3 +3254,26 @@
 ### Next
 1. Reassess whether the next move in this area should be the remaining delete-character popup flow or another nearby chat/session interaction.
 2. Keep relocating full listener clusters when they already sit on top of state and operations owned by the destination module.
+
+## 2026-03-27 - Monolith Reduction Wave 64 (Character Delete Binding Move)
+
+### Completed
+- Moved the delete-character confirmation binding out of `public/script.js` into `public/scripts/character-core.js` as `initCharacterDeleteBinding()`.
+- Relocated the full interaction intact:
+  - selected-character existence check
+  - delete-chats checkbox capture from the confirmation popup
+  - final `deleteCharacter(...)` call with the selected character avatar
+- Replaced the monolith-local listener registration with one startup call into `character-core`.
+- Verified syntax for the touched files with `node --check` via `mise`.
+
+### Measurable Impact
+- `public/script.js` lost another character-management listener block from the DOM-ready section.
+- `character-core.js` now owns the delete-button UI setup in addition to the underlying delete flow it already implemented.
+
+### Insights
+- This was an especially clean move because the destination module already owned both the current-character state and the actual deletion behavior.
+- Keeping the popup wiring with the delete flow makes the ownership story simpler for future upstream comparison than leaving the UI trigger in the monolith.
+
+### Next
+1. Continue with the adjacent character/chat management listener clusters, especially chat import and nearby control buttons.
+2. Keep moving UI triggers toward the module that already owns the invoked behavior when that mapping is straightforward.

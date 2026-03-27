@@ -542,6 +542,26 @@ export function initCharacterImportExportBindings({ exportPopper } = {}) {
     });
 }
 
+export function initCharacterDeleteBinding() {
+    $('#delete_button').on('click', async function () {
+        if (this_chid === undefined || !characters[this_chid]) {
+            toastr.warning('No character selected.');
+            return;
+        }
+
+        let deleteChats = false;
+
+        const confirm = await Popup.show.confirm(t`Delete the character?`, await renderTemplateAsync('deleteConfirm'), {
+            onClose: () => { deleteChats = !!$('#del_char_checkbox').prop('checked'); },
+        });
+        if (!confirm) {
+            return;
+        }
+
+        await deleteCharacter(characters[this_chid].avatar, { deleteChats });
+    });
+}
+
 export function toggleAdvancedCharacterPopup() {
     if (!isAdvancedCharOpen) {
         isAdvancedCharOpen = true;

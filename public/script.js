@@ -270,7 +270,7 @@ import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumb
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
 import { bindSessionCore, doNewChat as doNewChatCore, handleDeleteChat as handleDeleteChatCore, newAssistantChat as newAssistantChatCore, renameGroupOrCharacterChat as renameGroupOrCharacterChatCore, resetChatState as resetChatStateCore, selectRightMenuWithAnimation as selectRightMenuWithAnimationCore, select_rm_characters as selectRmCharactersCore, select_rm_create as selectRmCreateCore, select_rm_info as selectRmInfoCore, select_selected_character as selectSelectedCharacterCore, sendTextareaMessage as sendTextareaMessageCore, setExternalAbortController as setExternalAbortControllerCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes, updateRemoteChatName as updateRemoteChatNameCore } from './scripts/session-core.js';
 import { bindSettingsCore } from './scripts/settings-core.js';
-import { activateSendButtons as activateSendButtonsCore, bindUiCore, deactivateSendButtons as deactivateSendButtonsCore, doDrawerOpenClick as doDrawerOpenClickCore, doNavbarIconClick as doNavbarIconClickCore, fixViewport as fixViewportCore, getSlideToggleOptions as getSlideToggleOptionsCore, hideStopButton as hideStopButtonCore, initEditTextareaAutoFit as initEditTextareaAutoFitCore, initExecutionControlBindings as initExecutionControlBindingsCore, initInlineDrawerBindings as initInlineDrawerBindingsCore, initOptionsMenu as initOptionsMenuCore, initSendTextareaFocusRetention as initSendTextareaFocusRetentionCore, initStandaloneMode as initStandaloneModeCore, reloadMarkdownProcessor as reloadMarkdownProcessorCore, setAnimationDuration as setAnimationDurationCore, setSendButtonState as setSendButtonStateCore, showStopButton as showStopButtonCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
+import { activateSendButtons as activateSendButtonsCore, bindUiCore, deactivateSendButtons as deactivateSendButtonsCore, doDrawerOpenClick as doDrawerOpenClickCore, doNavbarIconClick as doNavbarIconClickCore, fixViewport as fixViewportCore, getSlideToggleOptions as getSlideToggleOptionsCore, hideStopButton as hideStopButtonCore, initEditTextareaAutoFit as initEditTextareaAutoFitCore, initExecutionControlBindings as initExecutionControlBindingsCore, initInlineDrawerBindings as initInlineDrawerBindingsCore, initOptionsMenu as initOptionsMenuCore, initRangeInputBindings as initRangeInputBindingsCore, initSendTextareaFocusRetention as initSendTextareaFocusRetentionCore, initStandaloneMode as initStandaloneModeCore, reloadMarkdownProcessor as reloadMarkdownProcessorCore, setAnimationDuration as setAnimationDurationCore, setSendButtonState as setSendButtonStateCore, showStopButton as showStopButtonCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
 import { accountStorage } from './scripts/util/AccountStorage.js';
 import { initWelcomeScreen, openPermanentAssistantChat, openPermanentAssistantCard, getPermanentAssistantAvatar } from './scripts/welcome-screen.js';
 import { initDataMaid } from './scripts/data-maid.js';
@@ -6784,70 +6784,7 @@ jQuery(async function () {
         }
     });
 
-
-    var isManualInput = false;
-    var valueBeforeManualInput;
-
-    $(document).on('input', '.range-block-counter input, .neo-range-input', function () {
-        valueBeforeManualInput = $(this).val();
-        console.log(valueBeforeManualInput);
-    });
-
-    $(document).on('change', '.range-block-counter input, .neo-range-input', function (e) {
-        if (!(e.target instanceof HTMLElement)) {
-            return;
-        }
-        e.target.focus();
-        e.target.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
-    });
-
-    $(document).on('keydown', '.range-block-counter input, .neo-range-input', function (e) {
-        const masterSelector = '#' + $(this).data('for');
-        const masterElement = $(masterSelector);
-        if (e.key === 'Enter') {
-            let manualInput = Number($(this).val());
-            if (isManualInput) {
-                //disallow manual inputs outside acceptable range
-                if (manualInput >= Number($(this).attr('min')) && manualInput <= Number($(this).attr('max'))) {
-                    //if value is ok, assign to slider and update handle text and position
-                    //newSlider.val(manualInput)
-                    //handleSlideEvent.call(newSlider, null, { value: parseFloat(manualInput) }, 'manual');
-                    valueBeforeManualInput = manualInput;
-                    $(masterElement).val($(this).val()).trigger('input', { forced: true });
-                } else {
-                    //if value not ok, warn and reset to last known valid value
-                    toastr.warning(`Invalid value. Must be between ${$(this).attr('min')} and ${$(this).attr('max')}`);
-                    //newSlider.val(valueBeforeManualInput)
-                    $(this).val(valueBeforeManualInput);
-                }
-            }
-        }
-    });
-
-    $(document).on('keyup', '.range-block-counter input, .neo-range-input', function () {
-        valueBeforeManualInput = $(this).val();
-        isManualInput = true;
-    });
-
-    //trigger slider changes when user clicks away
-    $(document).on('mouseup blur', '.range-block-counter input, .neo-range-input', function () {
-        const masterSelector = '#' + $(this).data('for');
-        const masterElement = $(masterSelector);
-        let manualInput = Number($(this).val());
-        if (isManualInput) {
-            //if value is between correct range for the slider
-            if (manualInput >= Number($(this).attr('min')) && manualInput <= Number($(this).attr('max'))) {
-                valueBeforeManualInput = manualInput;
-                //set the slider value to input value
-                $(masterElement).val($(this).val()).trigger('input', { forced: true });
-            } else {
-                //if value not ok, warn and reset to last known valid value
-                toastr.warning(`Invalid value. Must be between ${$(this).attr('min')} and ${$(this).attr('max')}`);
-                $(this).val(valueBeforeManualInput);
-            }
-        }
-        isManualInput = false;
-    });
+    initRangeInputBindingsCore();
 
     $('.user_stats_button').on('click', function () {
         userStatsHandler();

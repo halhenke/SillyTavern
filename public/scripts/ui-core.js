@@ -424,6 +424,62 @@ export function initExecutionControlBindings() {
     });
 }
 
+export function initRangeInputBindings() {
+    let isManualInput = false;
+    let valueBeforeManualInput;
+
+    $(document).on('input', '.range-block-counter input, .neo-range-input', function () {
+        valueBeforeManualInput = $(this).val();
+        console.log(valueBeforeManualInput);
+    });
+
+    $(document).on('change', '.range-block-counter input, .neo-range-input', function (e) {
+        if (!(e.target instanceof HTMLElement)) {
+            return;
+        }
+        e.target.focus();
+        e.target.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
+    });
+
+    $(document).on('keydown', '.range-block-counter input, .neo-range-input', function (e) {
+        const masterSelector = '#' + $(this).data('for');
+        const masterElement = $(masterSelector);
+        if (e.key === 'Enter') {
+            const manualInput = Number($(this).val());
+            if (isManualInput) {
+                if (manualInput >= Number($(this).attr('min')) && manualInput <= Number($(this).attr('max'))) {
+                    valueBeforeManualInput = manualInput;
+                    $(masterElement).val($(this).val()).trigger('input', { forced: true });
+                } else {
+                    toastr.warning(`Invalid value. Must be between ${$(this).attr('min')} and ${$(this).attr('max')}`);
+                    $(this).val(valueBeforeManualInput);
+                }
+            }
+        }
+    });
+
+    $(document).on('keyup', '.range-block-counter input, .neo-range-input', function () {
+        valueBeforeManualInput = $(this).val();
+        isManualInput = true;
+    });
+
+    $(document).on('mouseup blur', '.range-block-counter input, .neo-range-input', function () {
+        const masterSelector = '#' + $(this).data('for');
+        const masterElement = $(masterSelector);
+        const manualInput = Number($(this).val());
+        if (isManualInput) {
+            if (manualInput >= Number($(this).attr('min')) && manualInput <= Number($(this).attr('max'))) {
+                valueBeforeManualInput = manualInput;
+                $(masterElement).val($(this).val()).trigger('input', { forced: true });
+            } else {
+                toastr.warning(`Invalid value. Must be between ${$(this).attr('min')} and ${$(this).attr('max')}`);
+                $(this).val(valueBeforeManualInput);
+            }
+        }
+        isManualInput = false;
+    });
+}
+
 export function showStopButton() {
     document.getElementById('mes_stop')?.style.setProperty('display', 'flex');
 }

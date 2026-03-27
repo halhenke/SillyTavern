@@ -9,6 +9,7 @@ import { POPUP_TYPE, callGenericPopup } from './popup.js';
 import { power_user } from './power-user.js';
 import { system_message_types } from './system-messages.js';
 import { is_send_press } from './ui-core.js';
+import { copyText } from './utils.js';
 
 let cleanUpMessageImpl = null;
 let messageFormattingImpl = null;
@@ -65,6 +66,21 @@ export function saveChatDebounced(...args) {
     }
 
     return saveChatDebouncedImpl(...args);
+}
+
+export function initMessageCopyBinding() {
+    $(document).on('pointerup', '.mes_copy', async function () {
+        if (this_chid !== undefined || selected_group || name2 === neutralCharacterName) {
+            try {
+                const messageId = $(this).closest('.mes').attr('mesid');
+                const text = chat[messageId]['mes'];
+                await copyText(text);
+                toastr.info('Copied!', '', { timeOut: 2000 });
+            } catch (err) {
+                console.error('Failed to copy: ', err);
+            }
+        }
+    });
 }
 
 export function setEditedMessageId(value) {

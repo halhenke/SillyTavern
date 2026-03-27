@@ -58,6 +58,7 @@ export let talkativeness_default = 0.5;
 let saveCharactersPage = 0;
 const CHARACTER_LIST_PAGE_DEFAULT = 50;
 let isAdvancedCharOpen = false;
+let isExportPopupOpen = false;
 
 function throwUnbound(name) {
     throw new Error(`[character-core] ${name} was called before bindings were initialized`);
@@ -453,6 +454,90 @@ export function initCharacterEditorBindings() {
         updateFavButtonState(!fav_ch_checked);
         if (menu_type != 'create') {
             saveCharacterDebounced();
+        }
+    });
+}
+
+export function initCharacterImportExportBindings({ exportPopper } = {}) {
+    $('#character_import_button').on('click', function () {
+        $('#character_import_file').trigger('click');
+    });
+
+    $('#character_import_file').on('change', async function (e) {
+        $('#rm_info_avatar').html('');
+
+        if (!(e.target instanceof HTMLInputElement)) {
+            return;
+        }
+
+        if (!e.target.files.length) {
+            return;
+        }
+
+        const avatarFileNames = [];
+        for (const file of e.target.files) {
+            const avatarFileName = await importCharacter(file);
+            if (avatarFileName !== undefined) {
+                avatarFileNames.push(avatarFileName);
+            }
+        }
+
+        if (avatarFileNames.length > 0) {
+            await importCharactersTags(avatarFileNames);
+            selectImportedChar(avatarFileNames[avatarFileNames.length - 1]);
+        }
+
+        e.target.value = '';
+    });
+
+    $('#export_button').on('click', function () {
+        isExportPopupOpen = !isExportPopupOpen;
+        $('#export_format_popup').toggle(isExportPopupOpen);
+        exportPopper?.update();
+    });
+
+    $(document).on('click', '.export_format', async function () {
+        const format = $(this).data('format');
+
+        if (!format) {
+            return;
+        }
+
+        $('#export_format_popup').hide();
+        isExportPopupOpen = false;
+        exportPopper?.update();
+
+        await createOrEditCharacter();
+        const body = { format, avatar_url: characters[this_chid].avatar };
+
+        const response = await fetch('/api/characters/export', {
+            method: 'POST',
+            headers: getRequestHeaders(),
+            body: JSON.stringify(body),
+        });
+
+        if (response.ok) {
+            const filename = characters[this_chid].avatar.replace('.png', `.${format}`);
+            const blob = await response.blob();
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.setAttribute('download', filename);
+            document.body.appendChild(a);
+            a.click();
+            URL.revokeObjectURL(a.href);
+            document.body.removeChild(a);
+        }
+    });
+
+    $('html').on('touchstart mousedown', async function (e) {
+        const clickTarget = $(e.target);
+
+        if (isExportPopupOpen
+            && clickTarget.closest('#export_button').length == 0
+            && clickTarget.closest('#export_format_popup').length == 0) {
+            $('#export_format_popup').hide();
+            isExportPopupOpen = false;
+            exportPopper?.update();
         }
     });
 }

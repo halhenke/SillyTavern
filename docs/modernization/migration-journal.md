@@ -3229,3 +3229,28 @@
 ### Next
 1. Reassess whether the next cohesive move is the remaining character import/export/delete UI cluster or another chat-list/popup interaction nearby.
 2. Keep preferring modules that already own the state and remote operations used by the moved listeners.
+
+## 2026-03-27 - Monolith Reduction Wave 63 (Character Import/Export Binding Move)
+
+### Completed
+- Moved the character import/export UI listener block out of `public/script.js` into `public/scripts/character-core.js` as `initCharacterImportExportBindings(...)`.
+- Relocated the full interaction block intact:
+  - `#character_import_button` file-picker trigger
+  - `#character_import_file` import flow
+  - `#export_button` export-popup toggle
+  - `.export_format` export action
+  - export-popup outside-click dismissal
+- Kept the existing Popper instance in `script.js` and passed it into the new init helper rather than creating a new global or moving unrelated popup bootstrap state.
+- Verified syntax for the touched files with `node --check` via `mise`.
+
+### Measurable Impact
+- `public/script.js` lost another large character-management block from the DOM-ready section.
+- `character-core.js` now owns more of the import/export surface that already depended on character state, character save flow, and current selection.
+
+### Insights
+- This was a cleaner fit for `character-core` than `ui-core`, because the logic is not just popup chrome; it directly uses character import/export operations and current character state.
+- Passing `exportPopper` as an argument preserved the current bootstrap shape while still removing the implementation body from the monolith.
+
+### Next
+1. Reassess whether the next move in this area should be the remaining delete-character popup flow or another nearby chat/session interaction.
+2. Keep relocating full listener clusters when they already sit on top of state and operations owned by the destination module.

@@ -3301,3 +3301,25 @@
 ### Next
 1. Reassess whether the next adjacent move should be the group/duplicate/stop control bindings or a more generic UI cluster like inline drawers.
 2. Keep moving complete import/export listener clusters together when they operate on the same area of state and remote behavior.
+
+## 2026-03-27 - Monolith Reduction Wave 66 (Inline Drawer UI Move)
+
+### Completed
+- Moved the inline-drawer toggle/maximize interaction block out of `public/script.js` into `public/scripts/ui-core.js` as `initInlineDrawerBindings()`.
+- Relocated both interaction blocks intact:
+  - `.inline-drawer-toggle` open/close behavior, including icon state updates and auto-height refresh for textarea content
+  - `.inline-drawer-maximize` maximize/restore behavior, including reset of movable panel styles
+- Extended `bindUiCore(...)` with `resetMovableStyles(...)`, which was the only remaining legacy helper this moved UI block still needed.
+- Verified syntax for the touched files with `node --check` via `mise`.
+
+### Measurable Impact
+- `public/script.js` lost another non-trivial UI interaction block from the DOM-ready section.
+- `ui-core.js` now owns a more complete set of drawer/panel interactions instead of splitting drawer chrome across multiple files and the monolith.
+
+### Insights
+- This was a good continuation of the earlier drawer/options moves because the logic is local UI state plus a couple of helper calls, not domain behavior.
+- Passing `resetMovableStyles(...)` through `bindUiCore(...)` kept the move consistent with the existing UI-core seam instead of hard-importing more legacy modules into the core.
+
+### Next
+1. Reassess whether one more nearby UI/control cluster is worth moving before switching back to a denser feature seam.
+2. Keep bundling drawer/panel chrome behavior together in `ui-core` when the moved logic is mostly DOM interaction and local UI state.

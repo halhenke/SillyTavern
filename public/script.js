@@ -270,7 +270,7 @@ import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumb
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
 import { bindSessionCore, doNewChat as doNewChatCore, handleDeleteChat as handleDeleteChatCore, newAssistantChat as newAssistantChatCore, renameGroupOrCharacterChat as renameGroupOrCharacterChatCore, resetChatState as resetChatStateCore, selectRightMenuWithAnimation as selectRightMenuWithAnimationCore, select_rm_characters as selectRmCharactersCore, select_rm_create as selectRmCreateCore, select_rm_info as selectRmInfoCore, select_selected_character as selectSelectedCharacterCore, sendTextareaMessage as sendTextareaMessageCore, setExternalAbortController as setExternalAbortControllerCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes, updateRemoteChatName as updateRemoteChatNameCore } from './scripts/session-core.js';
 import { bindSettingsCore } from './scripts/settings-core.js';
-import { activateSendButtons as activateSendButtonsCore, bindUiCore, deactivateSendButtons as deactivateSendButtonsCore, doDrawerOpenClick as doDrawerOpenClickCore, doNavbarIconClick as doNavbarIconClickCore, fixViewport as fixViewportCore, getSlideToggleOptions as getSlideToggleOptionsCore, hideStopButton as hideStopButtonCore, initEditTextareaAutoFit as initEditTextareaAutoFitCore, initOptionsMenu as initOptionsMenuCore, initSendTextareaFocusRetention as initSendTextareaFocusRetentionCore, initStandaloneMode as initStandaloneModeCore, reloadMarkdownProcessor as reloadMarkdownProcessorCore, setAnimationDuration as setAnimationDurationCore, setSendButtonState as setSendButtonStateCore, showStopButton as showStopButtonCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
+import { activateSendButtons as activateSendButtonsCore, bindUiCore, deactivateSendButtons as deactivateSendButtonsCore, doDrawerOpenClick as doDrawerOpenClickCore, doNavbarIconClick as doNavbarIconClickCore, fixViewport as fixViewportCore, getSlideToggleOptions as getSlideToggleOptionsCore, hideStopButton as hideStopButtonCore, initEditTextareaAutoFit as initEditTextareaAutoFitCore, initInlineDrawerBindings as initInlineDrawerBindingsCore, initOptionsMenu as initOptionsMenuCore, initSendTextareaFocusRetention as initSendTextareaFocusRetentionCore, initStandaloneMode as initStandaloneModeCore, reloadMarkdownProcessor as reloadMarkdownProcessorCore, setAnimationDuration as setAnimationDurationCore, setSendButtonState as setSendButtonStateCore, showStopButton as showStopButtonCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
 import { accountStorage } from './scripts/util/AccountStorage.js';
 import { initWelcomeScreen, openPermanentAssistantChat, openPermanentAssistantCard, getPermanentAssistantAvatar } from './scripts/welcome-screen.js';
 import { initDataMaid } from './scripts/data-maid.js';
@@ -794,6 +794,7 @@ bindUiCore({
     debounce,
     delay,
     favsToHotswap,
+    resetMovableStyles,
     resetScrollHeight,
     scrollChatToBottom,
     showBookmarksButtons,
@@ -6600,39 +6601,7 @@ jQuery(async function () {
         }
     });
 
-    $(document).on('click', '.inline-drawer-toggle', async function (e) {
-        if ($(e.target).hasClass('text_pole')) {
-            return;
-        }
-        const drawer = $(this).closest('.inline-drawer');
-        const icon = drawer.find('>.inline-drawer-header .inline-drawer-icon');
-        const drawerContent = drawer.find('>.inline-drawer-content');
-        icon.toggleClass('down up');
-        icon.toggleClass('fa-circle-chevron-down fa-circle-chevron-up');
-        drawer.trigger('inline-drawer-toggle');
-        drawerContent.stop().slideToggle({
-            complete: () => {
-                $(this).css('height', '');
-            },
-        });
-
-        // Set the height of "autoSetHeight" textareas within the inline-drawer to their scroll height
-        if (!CSS.supports('field-sizing', 'content')) {
-            const textareas = drawerContent.find('textarea.autoSetHeight');
-            for (const textarea of textareas) {
-                await resetScrollHeight($(textarea));
-            }
-        }
-    });
-
-    $(document).on('click', '.inline-drawer-maximize', function () {
-        const icon = $(this).find('.inline-drawer-icon, .floating_panel_maximize');
-        icon.toggleClass('fa-window-maximize fa-window-restore');
-        const drawerContent = $(this).closest('.drawer-content');
-        drawerContent.toggleClass('maximized');
-        const drawerId = drawerContent.attr('id');
-        resetMovableStyles(drawerId);
-    });
+    initInlineDrawerBindingsCore();
 
     $(document).on('click', '.mes .avatar', function () {
         const messageElement = $(this).closest('.mes');

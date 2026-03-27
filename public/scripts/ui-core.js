@@ -12,6 +12,7 @@ let debounceImpl = null;
 let delayImpl = null;
 let favsToHotswapImpl = null;
 let resetScrollHeightImpl = null;
+let resetMovableStylesImpl = null;
 let scrollChatToBottomImpl = null;
 let showBookmarksButtonsImpl = null;
 
@@ -33,6 +34,7 @@ function throwUnbound(name) {
  *   debounce: (...args: any[]) => any,
  *   delay: (...args: any[]) => Promise<any>,
  *   favsToHotswap: (...args: any[]) => any,
+ *   resetMovableStyles: (...args: any[]) => any,
  *   resetScrollHeight: (...args: any[]) => Promise<any>,
  *   scrollChatToBottom: (...args: any[]) => any,
  *   showBookmarksButtons: (...args: any[]) => any,
@@ -44,6 +46,7 @@ export function bindUiCore(impl) {
     debounceImpl = impl?.debounce ?? null;
     delayImpl = impl?.delay ?? null;
     favsToHotswapImpl = impl?.favsToHotswap ?? null;
+    resetMovableStylesImpl = impl?.resetMovableStyles ?? null;
     resetScrollHeightImpl = impl?.resetScrollHeight ?? null;
     scrollChatToBottomImpl = impl?.scrollChatToBottom ?? null;
     showBookmarksButtonsImpl = impl?.showBookmarksButtons ?? null;
@@ -115,6 +118,14 @@ function resetScrollHeightBound(...args) {
     }
 
     return resetScrollHeightImpl(...args);
+}
+
+function resetMovableStylesBound(...args) {
+    if (!resetMovableStylesImpl) {
+        throwUnbound('resetMovableStyles');
+    }
+
+    return resetMovableStylesImpl(...args);
 }
 
 function showBookmarksButtonsBound(...args) {
@@ -324,6 +335,41 @@ export function initEditTextareaAutoFit({ chatElement, debounceMs }) {
         } else {
             autoFitEditTextAreaDebounced(event.target);
         }
+    });
+}
+
+export function initInlineDrawerBindings() {
+    $(document).on('click', '.inline-drawer-toggle', async function (e) {
+        if ($(e.target).hasClass('text_pole')) {
+            return;
+        }
+        const drawer = $(this).closest('.inline-drawer');
+        const icon = drawer.find('>.inline-drawer-header .inline-drawer-icon');
+        const drawerContent = drawer.find('>.inline-drawer-content');
+        icon.toggleClass('down up');
+        icon.toggleClass('fa-circle-chevron-down fa-circle-chevron-up');
+        drawer.trigger('inline-drawer-toggle');
+        drawerContent.stop().slideToggle({
+            complete: () => {
+                $(this).css('height', '');
+            },
+        });
+
+        if (!CSS.supports('field-sizing', 'content')) {
+            const textareas = drawerContent.find('textarea.autoSetHeight');
+            for (const textarea of textareas) {
+                await resetScrollHeightBound($(textarea));
+            }
+        }
+    });
+
+    $(document).on('click', '.inline-drawer-maximize', function () {
+        const icon = $(this).find('.inline-drawer-icon, .floating_panel_maximize');
+        icon.toggleClass('fa-window-maximize fa-window-restore');
+        const drawerContent = $(this).closest('.drawer-content');
+        drawerContent.toggleClass('maximized');
+        const drawerId = drawerContent.attr('id');
+        resetMovableStylesBound(drawerId);
     });
 }
 

@@ -257,7 +257,7 @@ import { extractReasoningFromData, initReasoning, PromptReasoning, removeReasoni
 import { bindAppStateCore, setMenuType as setMenuTypeCore, syncDefaultPrintTimeout, syncEntitiesFilter, syncIsChatSaving, syncMenuType } from './scripts/app-state-core.js';
 import { getClientVersion as getClientVersionCore, syncClientVersion, syncConnectApiMap, syncMainApi, syncNaiSettings } from './scripts/api-core.js';
 import { bindBackendStatusCore, cancelStatusCheck as cancelStatusCheckCore, displayOnlineStatus as displayOnlineStatusCore, resultCheckStatus as resultCheckStatusCore, setAbortStatusCheck, setOnlineStatus as setOnlineStatusCore, startStatusLoading as startStatusLoadingCore, stopStatusLoading as stopStatusLoadingCore } from './scripts/backend-status-core.js';
-import { bindCharacterCore, characterToEntity as characterToEntityCore, closeAdvancedCharacterPopup as closeAdvancedCharacterPopupCore, createOrEditCharacter as createOrEditCharacterCore, deleteCharacter as deleteCharacterCore, doCharListDisplaySwitch as doCharListDisplaySwitchCore, getEntitiesList as getEntitiesListCore, getOneCharacter as getOneCharacterCore, groupToEntity as groupToEntityCore, importCharacter as importCharacterCore, importCharactersTags as importCharactersTagsCore, initCharacterDeleteBinding as initCharacterDeleteBindingCore, initCharacterEditorBindings as initCharacterEditorBindingsCore, initCharacterImportExportBindings as initCharacterImportExportBindingsCore, initCharacterPanelBindings as initCharacterPanelBindingsCore, initCharacterSearch as initCharacterSearchCore, openAlternateGreetings as openAlternateGreetingsCore, openCharacterWorldPopup as openCharacterWorldPopupCore, printCharacters as printCharactersCore, processDroppedFiles as processDroppedFilesCore, renameCharacter as characterCoreRename, selectImportedChar as selectImportedCharCore, syncCharacterGroupOverlay, syncCharacters, syncCreateSave as syncCharacterCreateSave, syncCropData, syncDepthPromptDepthDefault as syncCharacterDepthPromptDepthDefault, syncDepthPromptRoleDefault as syncCharacterDepthPromptRoleDefault, syncPrintCharactersDebounced, syncTalkativenessDefault as syncCharacterTalkativenessDefault, tagToEntity as tagToEntityCore, toggleAdvancedCharacterPopup as toggleAdvancedCharacterPopupCore } from './scripts/character-core.js';
+import { bindCharacterCore, buildAvatarList as buildAvatarListCore, characterToEntity as characterToEntityCore, closeAdvancedCharacterPopup as closeAdvancedCharacterPopupCore, createOrEditCharacter as createOrEditCharacterCore, deleteCharacter as deleteCharacterCore, doCharListDisplaySwitch as doCharListDisplaySwitchCore, getCharacters as getCharactersCore, getCharacterSource as getCharacterSourceCore, getEntitiesList as getEntitiesListCore, getOneCharacter as getOneCharacterCore, groupToEntity as groupToEntityCore, importCharacter as importCharacterCore, importCharactersTags as importCharactersTagsCore, initCharacterDeleteBinding as initCharacterDeleteBindingCore, initCharacterEditorBindings as initCharacterEditorBindingsCore, initCharacterImportExportBindings as initCharacterImportExportBindingsCore, initCharacterPanelBindings as initCharacterPanelBindingsCore, initCharacterSearch as initCharacterSearchCore, openAlternateGreetings as openAlternateGreetingsCore, openCharacterWorldPopup as openCharacterWorldPopupCore, printCharacters as printCharactersCore, processDroppedFiles as processDroppedFilesCore, renameCharacter as characterCoreRename, selectImportedChar as selectImportedCharCore, syncCharacterGroupOverlay, syncCharacters, syncCreateSave as syncCharacterCreateSave, syncCropData, syncDepthPromptDepthDefault as syncCharacterDepthPromptDepthDefault, syncDepthPromptRoleDefault as syncCharacterDepthPromptRoleDefault, syncPrintCharactersDebounced, syncTalkativenessDefault as syncCharacterTalkativenessDefault, tagToEntity as tagToEntityCore, toggleAdvancedCharacterPopup as toggleAdvancedCharacterPopupCore } from './scripts/character-core.js';
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
 import { addOneMessage as addOneMessageCore, bindChatOperationsCore, clearChat as clearChatCore, delChat as delChatCore, deleteCharacterChatByName as deleteCharacterChatByNameCore, displayPastChats as displayPastChatsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, getCurrentChatDetails as getCurrentChatDetailsCore, getFirstMessage as getFirstMessageCore, getPastCharacterChats as getPastCharacterChatsCore, importCharacterChat as importCharacterChatCore, initChatImportBindings as initChatImportBindingsCore, initChatManagementBindings as initChatManagementBindingsCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, replaceCurrentChat as replaceCurrentChatCore, saveChat as saveChatCore, saveChatConditional as saveChatConditionalCore, saveReply as saveReplyCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { importExternalContent as importExternalContentCore, importFromURL as importFromURLCore } from './scripts/content-import-core.js';
@@ -471,7 +471,6 @@ bindDebugCore({
     getSettings: () => settings,
 });
 bindCharacterCore({
-    buildAvatarList,
     characterToEntity,
     clearChat,
     createTagMapFromList,
@@ -480,7 +479,6 @@ bindCharacterCore({
     getChat: () => chat,
     getCurrentChatId,
     getFirstMessage: getFirstMessageCore,
-    getCharacters,
     getPastCharacterChats,
     groupToEntity,
     preserveNeutralChat,
@@ -1352,94 +1350,11 @@ export async function getOneCharacter(avatarUrl) {
 }
 
 function getCharacterSource(chId = this_chid) {
-    const character = characters[chId];
-
-    if (!character) {
-        return '';
-    }
-
-    const chubId = characters[chId]?.data?.extensions?.chub?.full_path;
-
-    if (chubId) {
-        return `https://chub.ai/characters/${chubId}`;
-    }
-
-    const pygmalionId = characters[chId]?.data?.extensions?.pygmalion_id;
-
-    if (pygmalionId) {
-        return `https://pygmalion.chat/${pygmalionId}`;
-    }
-
-    const githubRepo = characters[chId]?.data?.extensions?.github_repo;
-
-    if (githubRepo) {
-        return `https://github.com/${githubRepo}`;
-    }
-
-    const sourceUrl = characters[chId]?.data?.extensions?.source_url;
-
-    if (sourceUrl) {
-        return sourceUrl;
-    }
-
-    const risuId = characters[chId]?.data?.extensions?.risuai?.source;
-
-    if (Array.isArray(risuId) && risuId.length && typeof risuId[0] === 'string' && risuId[0].startsWith('risurealm:')) {
-        const realmId = risuId[0].split(':')[1];
-        return `https://realm.risuai.net/character/${realmId}`;
-    }
-
-    const perchanceSlug = characters[chId]?.data?.extensions?.perchance_data?.slug;
-
-    if (perchanceSlug) {
-        return `https://perchance.org/ai-character-chat?data=${perchanceSlug}`;
-    }
-
-    return '';
+    return getCharacterSourceCore(chId);
 }
 
 export async function getCharacters() {
-    const response = await fetch('/api/characters/all', {
-        method: 'POST',
-        headers: getRequestHeaders(),
-        body: JSON.stringify({}),
-    });
-    if (response.ok) {
-        const previousAvatar = this_chid !== undefined ? characters[this_chid]?.avatar : null;
-        characters.splice(0, characters.length);
-        const getData = await response.json();
-        for (let i = 0; i < getData.length; i++) {
-            characters[i] = getData[i];
-            characters[i]['name'] = DOMPurify.sanitize(characters[i]['name']);
-
-            // For dropped-in cards
-            if (!characters[i]['chat']) {
-                characters[i]['chat'] = `${characters[i]['name']} - ${humanizedDateTime()}`;
-            }
-
-            characters[i]['chat'] = String(characters[i]['chat']);
-        }
-
-        if (previousAvatar) {
-            const newCharacterId = characters.findIndex(x => x.avatar === previousAvatar);
-            if (newCharacterId >= 0) {
-                setCharacterId(newCharacterId);
-                await selectCharacterById(newCharacterId, { switchMenu: false });
-            } else {
-                await Popup.show.text(t`ERROR: The active character is no longer available.`, t`The page will be refreshed to prevent data loss. Press "OK" to continue.`);
-                return location.reload();
-            }
-        }
-
-        await getGroups();
-        await printCharacters(true);
-    } else {
-        console.error('Failed to fetch characters:', response.statusText);
-        const errorData = await response.json();
-        if (errorData?.overflow) {
-            await Popup.show.text(t`Character data length limit reached`, t`To resolve this, set "performance.lazyLoadCharacters" to "true" in config.yaml and restart the server.`);
-        }
-    }
+    return getCharactersCore();
 }
 
 async function delChat(chatfile) {
@@ -3226,54 +3141,7 @@ export function getThumbnailUrl(type, file, t = false) {
 }
 
 export function buildAvatarList(block, entities, { templateId = 'inline_avatar_template', empty = true, interactable = false, highlightFavs = true } = {}) {
-    if (empty) {
-        block.empty();
-    }
-
-    for (const entity of entities) {
-        const id = entity.id;
-
-        // Populate the template
-        const avatarTemplate = $(`#${templateId} .avatar`).clone();
-
-        let this_avatar = default_avatar;
-        if (entity.item.avatar !== undefined && entity.item.avatar != 'none') {
-            this_avatar = getThumbnailUrl('avatar', entity.item.avatar);
-        }
-
-        avatarTemplate.attr('data-type', entity.type);
-        avatarTemplate.attr('data-chid', id);
-        avatarTemplate.find('img').attr('src', this_avatar).attr('alt', entity.item.name);
-        avatarTemplate.attr('title', `[Character] ${entity.item.name}\nFile: ${entity.item.avatar}`);
-        if (highlightFavs) {
-            avatarTemplate.toggleClass('is_fav', entity.item.fav || entity.item.fav == 'true');
-            avatarTemplate.find('.ch_fav').val(entity.item.fav);
-        }
-
-        // If this is a group, we need to hack slightly. We still want to keep most of the css classes and layout, but use a group avatar instead.
-        if (entity.type === 'group') {
-            const grpTemplate = getGroupAvatar(entity.item);
-
-            avatarTemplate.addClass(grpTemplate.attr('class'));
-            avatarTemplate.empty();
-            avatarTemplate.append(grpTemplate.children());
-            avatarTemplate.attr({ 'data-grid': id, 'data-chid': null });
-            avatarTemplate.attr('title', `[Group] ${entity.item.name}`);
-        }
-        else if (entity.type === 'persona') {
-            avatarTemplate.attr({ 'data-pid': id, 'data-chid': null });
-            avatarTemplate.find('img').attr('src', getThumbnailUrl('persona', entity.item.avatar));
-            avatarTemplate.attr('title', `[Persona] ${entity.item.name}\nFile: ${entity.item.avatar}`);
-        }
-
-        if (interactable) {
-            avatarTemplate.addClass(INTERACTABLE_CONTROL_CLASS);
-            avatarTemplate.toggleClass('character_select', entity.type === 'character');
-            avatarTemplate.toggleClass('group_select', entity.type === 'group');
-        }
-
-        block.append(avatarTemplate);
-    }
+    return buildAvatarListCore(block, entities, { templateId, empty, interactable, highlightFavs });
 }
 
 /**

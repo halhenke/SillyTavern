@@ -3367,3 +3367,9 @@ This batch continued the same relocation-first generation move instead of wideni
 The intent here was to keep the generation seam coherent. Once `Generate()` and `StreamingProcessor` were already core-owned, leaving prompt construction and non-streaming request dispatch in `script.js` would have kept generation split across too many files for little benefit. This move stays traceable because the public names and top-level call flow are preserved, but the actual ownership now sits with the same generation module that already executes the rest of the request lifecycle.
 
 Manual verification in the browser covered normal generation plus a legacy-UI streaming send after enabling streaming there. Static verification was `node --check` via `mise` on the touched files.
+
+### 2026-03-28: Wave 69 - moved character list refresh/render ownership out of `script.js`
+
+This batch shifted another meaningful chunk of character management into `public/scripts/character-core.js`. The core now owns `getCharacters()`, `buildAvatarList()`, and `getCharacterSource()`, with `script.js` reduced to thin compatibility wrappers. I also updated the character-core internals that still called the old bound `getCharacters` seam so they now use the core-owned function directly.
+
+This stayed relocation-first rather than rewriting the character list flow. The moved code still preserves active-character restoration, post-refresh selection, and the existing source URL precedence rules; the main change is that character list fetch/render ownership is now in the same module that already owned most character CRUD and list behavior.

@@ -686,6 +686,7 @@ bindGenerationCore({
     normalizeReasoningText: (reasoning) => getRegexedString(reasoning, regex_placement.REASONING),
     parseMesExamples,
     parseAndSaveLogprobs,
+    parseTokenCounts,
     pingServer: pingServerCore,
     playMessageSound,
     removeDepthPrompts,

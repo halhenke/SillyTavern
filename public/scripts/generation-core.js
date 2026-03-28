@@ -145,6 +145,7 @@ let adjustHordeGenerationParamsImpl = null;
 let adjustNovelInstructionPromptImpl = null;
 let parseMesExamplesImpl = null;
 let parseAndSaveLogprobsImpl = null;
+let parseTokenCountsImpl = null;
 let playMessageSoundImpl = null;
 let prepareOpenAIMessagesImpl = null;
 let renderStoryStringImpl = null;
@@ -447,6 +448,7 @@ export function bindGenerationCore(impl) {
     normalizeReasoningTextImpl = impl?.normalizeReasoningText ?? null;
     parseMesExamplesImpl = impl?.parseMesExamples ?? null;
     parseAndSaveLogprobsImpl = impl?.parseAndSaveLogprobs ?? null;
+    parseTokenCountsImpl = impl?.parseTokenCounts ?? null;
     pingServerImpl = impl?.pingServer ?? null;
     playMessageSoundImpl = impl?.playMessageSound ?? null;
     renderStoryStringImpl = impl?.renderStoryString ?? null;
@@ -561,6 +563,9 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
     }
     if (!getOpenAiContinuePostfixImpl) {
         throwUnbound('getOpenAiContinuePostfix');
+    }
+    if (!parseTokenCountsImpl) {
+        throwUnbound('parseTokenCounts');
     }
     if (!setSendButtonStateImpl) {
         throwUnbound('setSendButtonState');
@@ -868,7 +873,7 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
     });
 
     if (openAiCounts) {
-        parseTokenCounts(openAiCounts, thisPromptBits);
+        parseTokenCountsImpl(openAiCounts, thisPromptBits);
     }
 
     if (main_api === 'openai' && !dryRun) {

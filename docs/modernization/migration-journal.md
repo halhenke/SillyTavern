@@ -3373,3 +3373,7 @@ Manual verification in the browser covered normal generation plus a legacy-UI st
 This batch shifted another meaningful chunk of character management into `public/scripts/character-core.js`. The core now owns `getCharacters()`, `buildAvatarList()`, and `getCharacterSource()`, with `script.js` reduced to thin compatibility wrappers. I also updated the character-core internals that still called the old bound `getCharacters` seam so they now use the core-owned function directly.
 
 This stayed relocation-first rather than rewriting the character list flow. The moved code still preserves active-character restoration, post-refresh selection, and the existing source URL precedence rules; the main change is that character list fetch/render ownership is now in the same module that already owned most character CRUD and list behavior.
+
+### 2026-03-28: Wave 70 - moved character card prompt field shaping into `character-core`
+
+The next adjacent move kept the same approach and moved `getCharacterCardFields()` into `public/scripts/character-core.js`. That logic already depends on character state, group-card overrides, and chat metadata, so leaving it in `script.js` was mostly historical. `script.js` now just forwards to the core-owned implementation.

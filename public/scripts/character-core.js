@@ -2,12 +2,13 @@ import { DOMPurify } from '../lib.js';
 import { entitiesFilter, menu_type } from './app-state-core.js';
 import { event_types, eventSource } from './events.js';
 import { extension_settings } from './extensions.js';
-import { default_avatar } from './chat-core.js';
+import { default_avatar, name1, name2 } from './chat-core.js';
 import { FILTER_STATES, FILTER_TYPES, isFilterState } from './filters.js';
-import { is_group_generating, selected_group, groups, getGroupAvatar, getGroupBlock, getGroups } from './group-chats.js';
+import { is_group_generating, selected_group, groups, getGroupAvatar, getGroupBlock, getGroupCharacterCards, getGroups } from './group-chats.js';
 import { t } from './i18n.js';
 import { INTERACTABLE_CONTROL_CLASS } from './keyboard.js';
 import { getThumbnailUrl, getRequestHeaders } from './network-core.js';
+import { baseChatReplace } from './parser-core.js';
 import { updatePersonaConnectionsAvatarList } from './personas.js';
 import { POPUP_RESULT, POPUP_TYPE, Popup, callGenericPopup } from './popup.js';
 import { power_user, sortEntitiesList } from './power-user.js';
@@ -354,6 +355,69 @@ export async function getCharacters() {
             await Popup.show.text(t`Character data length limit reached`, t`To resolve this, set "performance.lazyLoadCharacters" to "true" in config.yaml and restart the server.`);
         }
     }
+}
+
+/**
+ * Returns the character card fields for the current character.
+ * @param {object} [options]
+ * @param {number} [options.chid] Optional character index
+ * @returns {{
+ *   system: string,
+ *   mesExamples: string,
+ *   description: string,
+ *   personality: string,
+ *   persona: string,
+ *   scenario: string,
+ *   jailbreak: string,
+ *   version: string,
+ *   charDepthPrompt: string,
+ *   creatorNotes: string,
+ * }}
+ */
+export function getCharacterCardFields({ chid = null } = {}) {
+    const currentChid = chid ?? this_chid;
+
+    const result = {
+        system: '',
+        mesExamples: '',
+        description: '',
+        personality: '',
+        persona: '',
+        scenario: '',
+        jailbreak: '',
+        version: '',
+        charDepthPrompt: '',
+        creatorNotes: '',
+    };
+    result.persona = baseChatReplace(power_user.persona_description?.trim(), name1, name2);
+
+    const character = characters[currentChid];
+    if (!character) {
+        return result;
+    }
+
+    const scenarioText = chat_metadata.scenario || character.scenario || '';
+    result.description = baseChatReplace(character.description?.trim(), name1, name2);
+    result.personality = baseChatReplace(character.personality?.trim(), name1, name2);
+    result.scenario = baseChatReplace(scenarioText.trim(), name1, name2);
+    result.mesExamples = baseChatReplace(character.mes_example?.trim(), name1, name2);
+    result.system = power_user.prefer_character_prompt ? baseChatReplace(character.data?.system_prompt?.trim(), name1, name2) : '';
+    result.jailbreak = power_user.prefer_character_jailbreak ? baseChatReplace(character.data?.post_history_instructions?.trim(), name1, name2) : '';
+    result.version = character.data?.character_version ?? '';
+    result.charDepthPrompt = baseChatReplace(character.data?.extensions?.depth_prompt?.prompt?.trim(), name1, name2);
+    result.creatorNotes = baseChatReplace(character.data?.creator_notes?.trim(), name1, name2);
+
+    if (selected_group) {
+        const groupCards = getGroupCharacterCards(selected_group, Number(currentChid));
+        if (groupCards) {
+            result.description = groupCards.description;
+            result.personality = groupCards.personality;
+            result.scenario = groupCards.scenario;
+            result.mesExamples = groupCards.mesExamples;
+        }
+    }
+
+    return result;
 }
 
 /**

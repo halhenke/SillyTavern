@@ -1,14 +1,19 @@
 import { main_api } from './api-core.js';
 import { characters } from './character-core.js';
+import { appendMediaToMessage, formatGenerationTimer } from './chat-operations-core.js';
 import { name1, name2, this_chid } from './chat-core.js';
 import { event_types, eventSource } from './events.js';
-import { cleanUpMessage } from './message-core.js';
+import { cleanUpMessage, messageFormatting, syncMesToSwipe } from './message-core.js';
 import { getRequestHeaders } from './network-core.js';
 import { baseChatReplace, extractJsonFromData, extractMessageFromData, getBiasStrings, removeMacros, substituteParams } from './parser-core.js';
+import { parseReasoningInSwipes, ReasoningHandler } from './reasoning.js';
 import { chat } from './chat-operations-core.js';
+import { addCopyToCodeBlocks, scrollChatToBottom } from './ui-core.js';
+import { Stopwatch, countOccurrences, delay, isOdd } from './utils.js';
 
 let addChatsPreambleImpl = null;
 let addChatsSeparatorImpl = null;
+let activateSendButtonsImpl = null;
 let appendFileContentImpl = null;
 let collapseNewlinesImpl = null;
 let deleteLastMessageImpl = null;
@@ -41,6 +46,7 @@ let getDepthPromptIdImpl = null;
 let getDepthPromptIndexIdImpl = null;
 let getExtensionPromptRoleByNameImpl = null;
 let getExtensionPromptImpl = null;
+let getMessageTokenCountEnabledImpl = null;
 let getTrimSpacesEnabledImpl = null;
 let getInChatPromptTypeImpl = null;
 let getInPromptPromptTypeImpl = null;
@@ -62,6 +68,8 @@ let getOpenAiContinuePostfixImpl = null;
 let getPromptMetadataExtrasImpl = null;
 let getItemizedPromptsImpl = null;
 let getSelectedPresetNameImpl = null;
+let getScrollLockImpl = null;
+let getStreamingFpsImpl = null;
 let getSyspromptConfigImpl = null;
 let getTextareaTextImpl = null;
 let getTokenCountImpl = null;
@@ -152,6 +160,7 @@ let renderStoryStringImpl = null;
 let runGenerationInterceptorsImpl = null;
 let saveChatConditionalImpl = null;
 let saveFunctionToolInvocationsImpl = null;
+let saveLogprobsForActiveMessageImpl = null;
 let saveReplyImpl = null;
 let setGeneratedTitleImpl = null;
 let getGenerationStartedImpl = null;
@@ -167,7 +176,10 @@ let emitGenerationStartedImpl = null;
 let emitGenerationAfterCommandsImpl = null;
 let pingServerImpl = null;
 let setGenerationStartedImpl = null;
+let setScrollLockImpl = null;
 let unshallowCharacterImpl = null;
+let processImageAttachmentImpl = null;
+let shouldAutoSwipeStreamingResultImpl = null;
 
 export let amount_gen = 0;
 export let depth_prompt_depth_default = 0;
@@ -340,6 +352,7 @@ export function bindGenerationCore(impl) {
     adjustNovelInstructionPromptImpl = impl?.adjustNovelInstructionPrompt ?? null;
     addPersonaDescriptionExtensionPromptImpl = impl?.addPersonaDescriptionExtensionPrompt ?? null;
     appendFileContentImpl = impl?.appendFileContent ?? null;
+    activateSendButtonsImpl = impl?.activateSendButtons ?? null;
     deleteLastMessageImpl = impl?.deleteLastMessage ?? null;
     emitGenerationAfterCommandsImpl = impl?.emitGenerationAfterCommands ?? null;
     emitGenerationStartedImpl = impl?.emitGenerationStarted ?? null;
@@ -369,6 +382,7 @@ export function bindGenerationCore(impl) {
     getExtensionPromptImpl = impl?.getExtensionPrompt ?? null;
     getExtensionPromptsImpl = impl?.getExtensionPrompts ?? null;
     getExtensionPromptRoleByNameImpl = impl?.getExtensionPromptRoleByName ?? null;
+    getMessageTokenCountEnabledImpl = impl?.getMessageTokenCountEnabled ?? null;
     getForceOutputSequencesImpl = impl?.getForceOutputSequences ?? null;
     getGenerationTriggerImpl = impl?.getGenerationTrigger ?? null;
     getGenerationStartedImpl = impl?.getGenerationStarted ?? null;
@@ -400,7 +414,9 @@ export function bindGenerationCore(impl) {
     getOpenAiMessagesCountImpl = impl?.getOpenAiMessagesCount ?? null;
     getItemizedPromptsImpl = impl?.getItemizedPrompts ?? null;
     getPromptMetadataExtrasImpl = impl?.getPromptMetadataExtras ?? null;
+    getScrollLockImpl = impl?.getScrollLock ?? null;
     getSelectedPresetNameImpl = impl?.getSelectedPresetName ?? null;
+    getStreamingFpsImpl = impl?.getStreamingFps ?? null;
     getSyspromptConfigImpl = impl?.getSyspromptConfig ?? null;
     getNovelGenerationDataImpl = impl?.getNovelGenerationData ?? null;
     getNovelSettingsConfigImpl = impl?.getNovelSettingsConfig ?? null;
@@ -451,6 +467,7 @@ export function bindGenerationCore(impl) {
     parseTokenCountsImpl = impl?.parseTokenCounts ?? null;
     pingServerImpl = impl?.pingServer ?? null;
     playMessageSoundImpl = impl?.playMessageSound ?? null;
+    processImageAttachmentImpl = impl?.processImageAttachment ?? null;
     renderStoryStringImpl = impl?.renderStoryString ?? null;
     sendMessageAsUserImpl = impl?.sendMessageAsUser ?? null;
     sendGenerationRequestImpl = impl?.sendGenerationRequest ?? null;
@@ -459,6 +476,7 @@ export function bindGenerationCore(impl) {
     sendStreamingRequestImpl = impl?.sendStreamingRequest ?? null;
     saveChatConditionalImpl = impl?.saveChatConditional ?? null;
     saveFunctionToolInvocationsImpl = impl?.saveFunctionToolInvocations ?? null;
+    saveLogprobsForActiveMessageImpl = impl?.saveLogprobsForActiveMessage ?? null;
     saveReplyImpl = impl?.saveReply ?? null;
     setAbortControllerImpl = impl?.setAbortController ?? null;
     setCharacterIdImpl = impl?.setCharacterId ?? null;
@@ -472,6 +490,7 @@ export function bindGenerationCore(impl) {
     setOpenAiMaxTokensImpl = impl?.setOpenAiMaxTokens ?? null;
     setGenerationParamsFromPresetImpl = impl?.setGenerationParamsFromPreset ?? null;
     setGenerationProgressImpl = impl?.setGenerationProgress ?? null;
+    setScrollLockImpl = impl?.setScrollLock ?? null;
     setInContextMessagesImpl = impl?.setInContextMessages ?? null;
     setQuietPromptImpl = impl?.setQuietPrompt ?? null;
     setSendButtonStateImpl = impl?.setSendButtonState ?? null;
@@ -483,6 +502,7 @@ export function bindGenerationCore(impl) {
     clearStoryStringPromptImpl = impl?.clearStoryStringPrompt ?? null;
     shouldIncludePersonaInStoryStringImpl = impl?.shouldIncludePersonaInStoryString ?? null;
     shouldAutoSwipeResultImpl = impl?.shouldAutoSwipeResult ?? null;
+    shouldAutoSwipeStreamingResultImpl = impl?.shouldAutoSwipeStreamingResult ?? null;
     showApiErrorImpl = impl?.showApiError ?? null;
     showKoboldStreamingUnsupportedImpl = impl?.showKoboldStreamingUnsupported ?? null;
     showStopButtonImpl = impl?.showStopButton ?? null;
@@ -952,6 +972,387 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
 
     function onError(exception) {
         return handleGenerationError({ exception, type });
+    }
+}
+
+export class StreamingProcessor {
+    /**
+     * @param {string} type
+     * @param {boolean} forceName2
+     * @param {Date} timeStarted
+     * @param {string} continueMessage
+     * @param {import('./reasoning.js').PromptReasoning} promptReasoning
+     */
+    constructor(type, forceName2, timeStarted, continueMessage, promptReasoning) {
+        this.result = '';
+        this.messageId = -1;
+        /** @type {HTMLElement} */
+        this.messageDom = null;
+        /** @type {HTMLElement} */
+        this.messageTextDom = null;
+        /** @type {HTMLElement} */
+        this.messageTimerDom = null;
+        /** @type {HTMLElement} */
+        this.messageTokenCounterDom = null;
+        /** @type {HTMLTextAreaElement} */
+        this.sendTextarea = document.querySelector('#send_textarea');
+        this.type = type;
+        this.force_name2 = forceName2;
+        this.isStopped = false;
+        this.isFinished = false;
+        this.generator = this.nullStreamingGeneration;
+        this.abortController = new AbortController();
+        this.firstMessageText = '...';
+        this.timeStarted = timeStarted;
+        /** @type {number?} */
+        this.timeToFirstToken = null;
+        this.createdAt = new Date();
+        this.continueMessage = type === 'continue' ? continueMessage : '';
+        this.swipes = [];
+        /** @type {import('./logprobs.js').TokenLogprobs[]} */
+        this.messageLogprobs = [];
+        this.toolCalls = [];
+        this.reasoningHandler = new ReasoningHandler(timeStarted);
+        this.promptReasoning = promptReasoning;
+        this.image = '';
+    }
+
+    async #checkDomElements(messageId, continueOnReasoning = null) {
+        if (this.messageDom === null || this.messageTextDom === null) {
+            this.messageDom = document.querySelector(`#chat .mes[mesid="${messageId}"]`);
+            this.messageTextDom = this.messageDom?.querySelector('.mes_text');
+            this.messageTimerDom = this.messageDom?.querySelector('.mes_timer');
+            this.messageTokenCounterDom = this.messageDom?.querySelector('.tokenCounterDisplay');
+        }
+        if (continueOnReasoning) {
+            await this.reasoningHandler.process(messageId, false, this.promptReasoning);
+        }
+        this.reasoningHandler.updateDom(messageId);
+    }
+
+    #updateMessageBlockVisibility() {
+        if (this.messageDom instanceof HTMLElement && Array.isArray(this.toolCalls) && this.toolCalls.length > 0) {
+            const shouldHide = ['', '...'].includes(this.result) && !this.reasoningHandler.reasoning;
+            this.messageDom.classList.toggle('displayNone', shouldHide);
+        }
+    }
+
+    markUIGenStarted() {
+        if (!deactivateSendButtonsImpl) {
+            throwUnbound('deactivateSendButtons');
+        }
+        deactivateSendButtonsImpl();
+    }
+
+    markUIGenStopped() {
+        if (!activateSendButtonsImpl) {
+            throwUnbound('activateSendButtons');
+        }
+        activateSendButtonsImpl();
+    }
+
+    async onStartStreaming(text) {
+        if (!saveReplyImpl) {
+            throwUnbound('saveReply');
+        }
+        if (!hideSwipeButtonsImpl) {
+            throwUnbound('hideSwipeButtons');
+        }
+
+        const continueOnReasoning = !!(this.type === 'continue' && this.promptReasoning.prefixReasoning);
+        if (continueOnReasoning) {
+            this.reasoningHandler.initContinue(this.promptReasoning);
+        }
+
+        let messageId = -1;
+
+        if (this.type == 'impersonate') {
+            this.sendTextarea.value = '';
+            this.sendTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+        } else {
+            await saveReplyImpl({ type: this.type, getMessage: text, fromStreaming: true });
+            messageId = chat.length - 1;
+            await this.#checkDomElements(messageId, continueOnReasoning);
+            this.markUIGenStarted();
+        }
+        hideSwipeButtonsImpl();
+        scrollChatToBottom();
+        return messageId;
+    }
+
+    async onProgressStreaming(messageId, text, isFinal) {
+        if (!getMessageTokenCountEnabledImpl) {
+            throwUnbound('getMessageTokenCountEnabled');
+        }
+        if (!getTokenCountAsyncImpl) {
+            throwUnbound('getTokenCountAsync');
+        }
+        if (!getScrollLockImpl) {
+            throwUnbound('getScrollLock');
+        }
+
+        const isImpersonate = this.type == 'impersonate';
+        const isContinue = this.type == 'continue';
+
+        if (!isImpersonate && !isContinue && Array.isArray(this.swipes) && this.swipes.length > 0) {
+            for (let i = 0; i < this.swipes.length; i++) {
+                this.swipes[i] = cleanUpMessage({
+                    getMessage: this.swipes[i],
+                    isImpersonate: false,
+                    isContinue: false,
+                    displayIncompleteSentences: true,
+                    stoppingStrings: this.stoppingStrings,
+                });
+            }
+        }
+
+        let processedText = cleanUpMessage({
+            getMessage: text,
+            isImpersonate,
+            isContinue,
+            displayIncompleteSentences: !isFinal,
+            stoppingStrings: this.stoppingStrings,
+        });
+
+        const charsToBalance = ['*', '"', '```', '~~~'];
+        for (const char of charsToBalance) {
+            if (!isFinal && isOdd(countOccurrences(processedText, char))) {
+                const separator = char.length > 1 ? '\n' : '';
+                processedText = processedText.trimEnd() + separator + char;
+            }
+        }
+
+        if (isImpersonate) {
+            this.sendTextarea.value = processedText;
+            this.sendTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+        } else {
+            const mesChanged = chat[messageId]['mes'] !== processedText;
+            await this.#checkDomElements(messageId);
+            this.#updateMessageBlockVisibility();
+            const currentTime = new Date();
+            chat[messageId]['mes'] = processedText;
+            chat[messageId]['gen_started'] = this.timeStarted;
+            chat[messageId]['gen_finished'] = currentTime;
+            if (!chat[messageId]['extra']) {
+                chat[messageId]['extra'] = {};
+            }
+            chat[messageId]['extra']['time_to_first_token'] = this.timeToFirstToken;
+
+            await this.reasoningHandler.process(messageId, mesChanged, this.promptReasoning);
+            processedText = chat[messageId]['mes'];
+
+            const tokenCountText = this.reasoningHandler.reasoning + processedText;
+            const currentTokenCount = isFinal && getMessageTokenCountEnabledImpl() ? await getTokenCountAsyncImpl(tokenCountText, 0) : 0;
+            if (currentTokenCount) {
+                chat[messageId]['extra']['token_count'] = currentTokenCount;
+                if (this.messageTokenCounterDom instanceof HTMLElement) {
+                    this.messageTokenCounterDom.textContent = `${currentTokenCount}t`;
+                }
+            }
+
+            if ((this.type == 'swipe' || this.type === 'continue') && Array.isArray(chat[messageId]['swipes'])) {
+                chat[messageId]['swipes'][chat[messageId]['swipe_id']] = processedText;
+                chat[messageId]['swipe_info'][chat[messageId]['swipe_id']] = {
+                    'send_date': chat[messageId]['send_date'],
+                    'gen_started': chat[messageId]['gen_started'],
+                    'gen_finished': chat[messageId]['gen_finished'],
+                    'extra': structuredClone(chat[messageId]['extra']),
+                };
+            }
+
+            const formattedText = messageFormatting(
+                processedText,
+                chat[messageId].name,
+                chat[messageId].is_system,
+                chat[messageId].is_user,
+                messageId,
+                {},
+                false,
+            );
+            if (this.messageTextDom instanceof HTMLElement) {
+                this.messageTextDom.innerHTML = formattedText;
+            }
+
+            const timePassed = formatGenerationTimer(this.timeStarted, currentTime, currentTokenCount, this.reasoningHandler.getDuration(), this.timeToFirstToken);
+            if (this.messageTimerDom instanceof HTMLElement) {
+                this.messageTimerDom.textContent = timePassed.timerValue;
+                this.messageTimerDom.title = timePassed.timerTitle;
+            }
+
+            this.setFirstSwipe(messageId);
+        }
+
+        if (!getScrollLockImpl()) {
+            scrollChatToBottom();
+        }
+    }
+
+    async onFinishStreaming(messageId, text) {
+        if (!processImageAttachmentImpl) {
+            throwUnbound('processImageAttachment');
+        }
+        if (!saveLogprobsForActiveMessageImpl) {
+            throwUnbound('saveLogprobsForActiveMessage');
+        }
+        if (!saveChatConditionalImpl) {
+            throwUnbound('saveChatConditional');
+        }
+        if (!shouldAutoSwipeStreamingResultImpl) {
+            throwUnbound('shouldAutoSwipeStreamingResult');
+        }
+        if (!swipeRightImpl) {
+            throwUnbound('swipeRight');
+        }
+        if (!playMessageSoundImpl) {
+            throwUnbound('playMessageSound');
+        }
+        if (!unblockGenerationImpl) {
+            throwUnbound('unblockGeneration');
+        }
+
+        this.markUIGenStopped();
+        await this.onProgressStreaming(messageId, text, true);
+        addCopyToCodeBlocks($(`#chat .mes[mesid="${messageId}"]`));
+
+        await this.reasoningHandler.finish(messageId);
+
+        if (Array.isArray(this.swipes) && this.swipes.length > 0) {
+            const message = chat[messageId];
+            const swipeInfoExtra = structuredClone(message.extra ?? {});
+            delete swipeInfoExtra.token_count;
+            delete swipeInfoExtra.reasoning;
+            delete swipeInfoExtra.reasoning_duration;
+            const swipeInfo = {
+                send_date: message.send_date,
+                gen_started: message.gen_started,
+                gen_finished: message.gen_finished,
+                extra: swipeInfoExtra,
+            };
+            const swipeInfoArray = Array(this.swipes.length).fill().map(() => structuredClone(swipeInfo));
+            parseReasoningInSwipes(this.swipes, swipeInfoArray, message.extra?.reasoning_duration);
+            chat[messageId].swipes.push(...this.swipes);
+            chat[messageId].swipe_info.push(...swipeInfoArray);
+        }
+
+        if (this.image) {
+            await processImageAttachmentImpl(chat[messageId], { imageUrl: this.image });
+            appendMediaToMessage(chat[messageId], $(this.messageDom));
+        }
+
+        if (this.type !== 'impersonate') {
+            await eventSource.emit(event_types.MESSAGE_RECEIVED, this.messageId, this.type);
+            await eventSource.emit(event_types.CHARACTER_MESSAGE_RENDERED, this.messageId, this.type);
+        } else {
+            await eventSource.emit(event_types.IMPERSONATE_READY, text);
+        }
+
+        syncMesToSwipe(messageId);
+        saveLogprobsForActiveMessageImpl(this.messageLogprobs.filter(Boolean), this.continueMessage);
+        await saveChatConditionalImpl();
+        unblockGenerationImpl();
+
+        if (shouldAutoSwipeStreamingResultImpl(text, this.abortController.signal)) {
+            return swipeRightImpl();
+        }
+
+        playMessageSoundImpl();
+    }
+
+    onErrorStreaming() {
+        if (!unblockGenerationImpl) {
+            throwUnbound('unblockGeneration');
+        }
+
+        this.abortController.abort();
+        this.isStopped = true;
+
+        this.markUIGenStopped();
+        unblockGenerationImpl();
+
+        const noEmitTypes = ['swipe', 'impersonate', 'continue'];
+        if (!noEmitTypes.includes(this.type)) {
+            eventSource.emit(event_types.MESSAGE_RECEIVED, this.messageId, this.type);
+            eventSource.emit(event_types.CHARACTER_MESSAGE_RENDERED, this.messageId, this.type);
+        }
+    }
+
+    setFirstSwipe(messageId) {
+        if (this.type !== 'swipe' && this.type !== 'impersonate') {
+            if (Array.isArray(chat[messageId]['swipes']) && chat[messageId]['swipes'].length === 1 && chat[messageId]['swipe_id'] === 0) {
+                chat[messageId]['swipes'][0] = chat[messageId]['mes'];
+                chat[messageId]['swipe_info'][0] = {
+                    'send_date': chat[messageId]['send_date'],
+                    'gen_started': chat[messageId]['gen_started'],
+                    'gen_finished': chat[messageId]['gen_finished'],
+                    'extra': structuredClone(chat[messageId]['extra']),
+                };
+            }
+        }
+    }
+
+    onStopStreaming() {
+        this.abortController.abort();
+        this.isFinished = true;
+    }
+
+    *nullStreamingGeneration() {
+        throw new Error('Generation function for streaming is not hooked up');
+    }
+
+    async generate() {
+        if (!getStreamingFpsImpl) {
+            throwUnbound('getStreamingFps');
+        }
+        if (!setScrollLockImpl) {
+            throwUnbound('setScrollLock');
+        }
+
+        if (this.messageId == -1) {
+            this.messageId = await this.onStartStreaming(this.firstMessageText);
+            await delay(1);
+            setScrollLockImpl(false);
+        }
+
+        const isImpersonate = this.type == 'impersonate';
+        const isContinue = this.type == 'continue';
+        this.stoppingStrings = getStoppingStrings(isImpersonate, isContinue);
+
+        try {
+            const sw = new Stopwatch(1000 / getStreamingFpsImpl());
+            const timestamps = [];
+            for await (const { text, swipes, logprobs, toolCalls, state } of this.generator()) {
+                const now = Date.now();
+                timestamps.push(now);
+                if (!this.timeToFirstToken) {
+                    this.timeToFirstToken = now - this.createdAt.getTime();
+                }
+                if (this.isStopped || this.abortController.signal.aborted) {
+                    return this.result;
+                }
+
+                this.toolCalls = toolCalls;
+                this.result = text;
+                this.swipes = Array.from(swipes ?? []);
+                if (logprobs) {
+                    this.messageLogprobs.push(...(Array.isArray(logprobs) ? logprobs : [logprobs]));
+                }
+                this.reasoningHandler.updateReasoning(this.messageId, state?.reasoning);
+                this.image = state?.image ?? '';
+                await eventSource.emit(event_types.STREAM_TOKEN_RECEIVED, text);
+                await sw.tick(async () => await this.onProgressStreaming(this.messageId, this.continueMessage + text));
+            }
+            const seconds = (timestamps[timestamps.length - 1] - timestamps[0]) / 1000;
+            console.warn(`Stream stats: ${timestamps.length} tokens, ${seconds.toFixed(2)} seconds, rate: ${Number(timestamps.length / seconds).toFixed(2)} TPS`);
+        } catch (err) {
+            if (!this.isFinished) {
+                console.error(err);
+                this.onErrorStreaming();
+            }
+            return this.result;
+        }
+
+        this.isFinished = true;
+        return this.result;
     }
 }
 

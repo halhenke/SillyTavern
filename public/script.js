@@ -159,7 +159,6 @@ import {
     onlyUnique,
     getBase64Async,
     humanFileSize,
-    Stopwatch,
     isValidUrl,
     ensureImageFormatSupported,
     flashHighlight,
@@ -254,7 +253,7 @@ import { initServerHistory } from './scripts/server-history.js';
 import { initSettingsSearch } from './scripts/setting-search.js';
 import { initBulkEdit } from './scripts/bulk-edit.js';
 import { getContext } from './scripts/st-context.js';
-import { extractReasoningFromData, initReasoning, parseReasoningInSwipes, PromptReasoning, ReasoningHandler, removeReasoningFromString, updateReasoningUI } from './scripts/reasoning.js';
+import { extractReasoningFromData, initReasoning, PromptReasoning, removeReasoningFromString, updateReasoningUI } from './scripts/reasoning.js';
 import { bindAppStateCore, setMenuType as setMenuTypeCore, syncDefaultPrintTimeout, syncEntitiesFilter, syncIsChatSaving, syncMenuType } from './scripts/app-state-core.js';
 import { getClientVersion as getClientVersionCore, syncClientVersion, syncConnectApiMap, syncMainApi, syncNaiSettings } from './scripts/api-core.js';
 import { bindBackendStatusCore, cancelStatusCheck as cancelStatusCheckCore, displayOnlineStatus as displayOnlineStatusCore, resultCheckStatus as resultCheckStatusCore, setAbortStatusCheck, setOnlineStatus as setOnlineStatusCore, startStatusLoading as startStatusLoadingCore, stopStatusLoading as stopStatusLoadingCore } from './scripts/backend-status-core.js';
@@ -264,7 +263,7 @@ import { addOneMessage as addOneMessageCore, bindChatOperationsCore, clearChat a
 import { importExternalContent as importExternalContentCore, importFromURL as importFromURLCore } from './scripts/content-import-core.js';
 import { addDebugFunctions as addDebugFunctionsCore, bindDebugCore } from './scripts/debug-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
-import { TempResponseLength, Generate as GenerateCore, bindGenerationCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
+import { TempResponseLength, Generate as GenerateCore, StreamingProcessor as StreamingProcessorCore, bindGenerationCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
 import { beginMessageEdit as beginMessageEditCore, bindMessageCore, cancelDeleteMode as cancelDeleteModeCore, cancelMessageEdit as cancelMessageEditCore, cleanUpMessage as cleanUpMessageCore, closeMessageEditor as closeMessageEditorCore, confirmDeleteMode as confirmDeleteModeCore, copyEditedMessage as copyEditedMessageCore, deleteEditedMessage as deleteEditedMessageCore, deleteSwipe as deleteSwipeCore, editedMessageId as editedMessageIdCore, getFirstDisplayedMessageId as getFirstDisplayedMessageIdCore, hideSwipeButtons as hideSwipeButtonsCore, initMessageCopyBinding as initMessageCopyBindingCore, isDeleteMode as isDeleteModeCore, messageEditAuto as messageEditAutoCore, messageEditDone as messageEditDoneCore, messageFormatting as messageFormattingCore, moveEditedMessageDown as moveEditedMessageDownCore, moveEditedMessageUp as moveEditedMessageUpCore, openMessageDelete as openMessageDeleteCore, selectMessageDeleteTarget as selectMessageDeleteTargetCore, setEditedMessageId as setEditedMessageIdCore, showSwipeButtons as showSwipeButtonsCore, swipe_left as swipeLeftCore, swipe_right as swipeRightCore, syncMesToSwipe as syncMesToSwipeCore, syncSwipeToMes as syncSwipeToMesCore, updateEditArrowClasses as updateEditArrowClassesCore, updateMessageBlock as updateMessageBlockCore, updateViewMessageIds as updateViewMessageIdsCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
@@ -422,7 +421,7 @@ let dialogueResolve = null;
 let dialogueCloseStop = false;
 export let chat_metadata = {};
 syncChatMetadata(chat_metadata);
-/** @type {StreamingProcessor} */
+/** @type {StreamingProcessorCore|null} */
 export let streamingProcessor = null;
 syncStreamingProcessor(streamingProcessor);
 let crop_data = undefined;
@@ -539,6 +538,7 @@ bindGenerationCore({
     adjustHordeGenerationParams,
     adjustNovelInstructionPrompt,
     addPersonaDescriptionExtensionPrompt,
+    activateSendButtons,
     appendFileContent,
     deleteLastMessage,
     emitGenerationAfterCommands: (type, options, dryRun) => eventSource.emit(event_types.GENERATION_AFTER_COMMANDS, type, options, dryRun),
@@ -549,7 +549,7 @@ bindGenerationCore({
     collapseNewlines,
     createPromptReasoning: () => new PromptReasoning(),
     createRawPrompt,
-    createStreamingProcessor: (type, forceName2, generationStarted, continueMag, promptReasoning) => new StreamingProcessor(type, forceName2, generationStarted, continueMag, promptReasoning),
+    createStreamingProcessor: (type, forceName2, generationStarted, continueMag, promptReasoning) => new StreamingProcessorCore(type, forceName2, generationStarted, continueMag, promptReasoning),
     deactivateSendButtons,
     doChatInject,
     executeSlashCommandsOnChatInput,
@@ -576,6 +576,7 @@ bindGenerationCore({
     getExtensionPrompt,
     getExtensionPrompts: () => extension_prompts,
     getExtensionPromptRoleByName,
+    getMessageTokenCountEnabled: () => power_user.message_token_count_enabled,
     getForceOutputSequences: () => ({
         first: force_output_sequence.FIRST,
         last: force_output_sequence.LAST,
@@ -635,7 +636,9 @@ bindGenerationCore({
         smartContextString: extension_prompts['chromadb']?.value || '',
         summarizeString: extension_prompts['1_memory']?.value || '',
     }),
+    getScrollLock: () => scrollLock,
     getSelectedPresetName: () => getPresetManager()?.getSelectedPresetName() || '',
+    getStreamingFps: () => power_user.streaming_fps,
     getStoryStringConfig: () => ({
         position: power_user.context.story_string_position,
         depth: power_user.context.story_string_depth ?? 1,
@@ -689,11 +692,13 @@ bindGenerationCore({
     parseTokenCounts,
     pingServer: pingServerCore,
     playMessageSound,
+    processImageAttachment,
     removeDepthPrompts,
     removeReasoningFromString,
     renderStoryString,
     saveChatConditional,
     saveFunctionToolInvocations: (...args) => ToolManager.saveFunctionToolInvocations(...args),
+    saveLogprobsForActiveMessage,
     saveReply,
     sendMessageAsUser,
     sendGenerationRequest,
@@ -712,6 +717,7 @@ bindGenerationCore({
     setOpenAiMaxTokens: (value) => oai_settings.openai_max_tokens = value,
     setGenerationParamsFromPreset,
     setGenerationProgress,
+    setScrollLock: (value) => scrollLock = value,
     setInContextMessages,
     setQuietPrompt: (value) => setExtensionPrompt(inject_ids.QUIET_PROMPT, value, extension_prompt_types.IN_PROMPT, 0, true),
     setSendButtonState,
@@ -726,6 +732,7 @@ bindGenerationCore({
     clearStoryStringPrompt: () => setExtensionPrompt(inject_ids.STORY_STRING, '', extension_prompt_types.IN_CHAT, 0),
     shouldIncludePersonaInStoryString: () => power_user.persona_description_position == persona_description_positions.IN_PROMPT,
     shouldAutoSwipeResult: (message) => !abortController?.signal?.aborted && power_user.auto_swipe && generatedTextFiltered(message),
+    shouldAutoSwipeStreamingResult: (message, signal) => !signal?.aborted && power_user.auto_swipe && generatedTextFiltered(message),
     showApiError: (message) => toastr.error(message, t`API Error`, { preventDuplicates: true }),
     showKoboldStreamingUnsupported: () => toastr.error(t`Streaming is enabled, but the version of Kobold used does not support token streaming.`, undefined, { timeOut: 10000, preventDuplicates: true }),
     showStopButton,
@@ -2178,351 +2185,6 @@ function showStopButton() {
 
 function hideStopButton() {
     return hideStopButtonCore();
-}
-
-class StreamingProcessor {
-    /**
-     * Creates a new streaming processor.
-     * @param {string} type Generation type
-     * @param {boolean} forceName2 If true, force the use of name2
-     * @param {Date} timeStarted Date when generation was started
-     * @param {string} continueMessage Previous message if the type is 'continue'
-     * @param {PromptReasoning} promptReasoning Prompt reasoning instance
-     */
-    constructor(type, forceName2, timeStarted, continueMessage, promptReasoning) {
-        this.result = '';
-        this.messageId = -1;
-        /** @type {HTMLElement} */
-        this.messageDom = null;
-        /** @type {HTMLElement} */
-        this.messageTextDom = null;
-        /** @type {HTMLElement} */
-        this.messageTimerDom = null;
-        /** @type {HTMLElement} */
-        this.messageTokenCounterDom = null;
-        /** @type {HTMLTextAreaElement} */
-        this.sendTextarea = document.querySelector('#send_textarea');
-        this.type = type;
-        this.force_name2 = forceName2;
-        this.isStopped = false;
-        this.isFinished = false;
-        this.generator = this.nullStreamingGeneration;
-        this.abortController = new AbortController();
-        this.firstMessageText = '...';
-        this.timeStarted = timeStarted;
-        /** @type {number?} */
-        this.timeToFirstToken = null;
-        this.createdAt = new Date();
-        this.continueMessage = type === 'continue' ? continueMessage : '';
-        this.swipes = [];
-        /** @type {import('./scripts/logprobs.js').TokenLogprobs[]} */
-        this.messageLogprobs = [];
-        this.toolCalls = [];
-        // Initialize reasoning in its own handler
-        this.reasoningHandler = new ReasoningHandler(timeStarted);
-        /** @type {PromptReasoning} */
-        this.promptReasoning = promptReasoning;
-        /** @type {string} */
-        this.image = '';
-    }
-
-    /**
-     * Initializes DOM elements for the current message.
-     * @param {number} messageId Current message ID
-     * @param {boolean?} continueOnReasoning If continuing on reasoning
-     */
-    async #checkDomElements(messageId, continueOnReasoning = null) {
-        if (this.messageDom === null || this.messageTextDom === null) {
-            this.messageDom = document.querySelector(`#chat .mes[mesid="${messageId}"]`);
-            this.messageTextDom = this.messageDom?.querySelector('.mes_text');
-            this.messageTimerDom = this.messageDom?.querySelector('.mes_timer');
-            this.messageTokenCounterDom = this.messageDom?.querySelector('.tokenCounterDisplay');
-        }
-        if (continueOnReasoning) {
-            await this.reasoningHandler.process(messageId, false, this.promptReasoning);
-        }
-        this.reasoningHandler.updateDom(messageId);
-    }
-
-    #updateMessageBlockVisibility() {
-        if (this.messageDom instanceof HTMLElement && Array.isArray(this.toolCalls) && this.toolCalls.length > 0) {
-            const shouldHide = ['', '...'].includes(this.result) && !this.reasoningHandler.reasoning;
-            this.messageDom.classList.toggle('displayNone', shouldHide);
-        }
-    }
-
-    markUIGenStarted() {
-        deactivateSendButtons();
-    }
-
-    markUIGenStopped() {
-        activateSendButtons();
-    }
-
-    async onStartStreaming(text) {
-        const continueOnReasoning = !!(this.type === 'continue' && this.promptReasoning.prefixReasoning);
-        if (continueOnReasoning) {
-            this.reasoningHandler.initContinue(this.promptReasoning);
-        }
-
-        let messageId = -1;
-
-        if (this.type == 'impersonate') {
-            this.sendTextarea.value = '';
-            this.sendTextarea.dispatchEvent(new Event('input', { bubbles: true }));
-        } else {
-            await saveReply({ type: this.type, getMessage: text, fromStreaming: true });
-            messageId = chat.length - 1;
-            await this.#checkDomElements(messageId, continueOnReasoning);
-            this.markUIGenStarted();
-        }
-        hideSwipeButtons();
-        scrollChatToBottom();
-        return messageId;
-    }
-
-    async onProgressStreaming(messageId, text, isFinal) {
-        const isImpersonate = this.type == 'impersonate';
-        const isContinue = this.type == 'continue';
-
-        if (!isImpersonate && !isContinue && Array.isArray(this.swipes) && this.swipes.length > 0) {
-            for (let i = 0; i < this.swipes.length; i++) {
-                this.swipes[i] = cleanUpMessage({
-                    getMessage: this.swipes[i],
-                    isImpersonate: false,
-                    isContinue: false,
-                    displayIncompleteSentences: true,
-                    stoppingStrings: this.stoppingStrings,
-                });
-            }
-        }
-
-        let processedText = cleanUpMessage({
-            getMessage: text,
-            isImpersonate: isImpersonate,
-            isContinue: isContinue,
-            displayIncompleteSentences: !isFinal,
-            stoppingStrings: this.stoppingStrings,
-        });
-
-        const charsToBalance = ['*', '"', '```', '~~~'];
-        for (const char of charsToBalance) {
-            if (!isFinal && isOdd(countOccurrences(processedText, char))) {
-                const separator = char.length > 1 ? '\n' : '';
-                processedText = processedText.trimEnd() + separator + char;
-            }
-        }
-
-        if (isImpersonate) {
-            this.sendTextarea.value = processedText;
-            this.sendTextarea.dispatchEvent(new Event('input', { bubbles: true }));
-        } else {
-            const mesChanged = chat[messageId]['mes'] !== processedText;
-            await this.#checkDomElements(messageId);
-            this.#updateMessageBlockVisibility();
-            const currentTime = new Date();
-            chat[messageId]['mes'] = processedText;
-            chat[messageId]['gen_started'] = this.timeStarted;
-            chat[messageId]['gen_finished'] = currentTime;
-            if (!chat[messageId]['extra']) {
-                chat[messageId]['extra'] = {};
-            }
-            chat[messageId]['extra']['time_to_first_token'] = this.timeToFirstToken;
-
-            // Update reasoning
-            await this.reasoningHandler.process(messageId, mesChanged, this.promptReasoning);
-            processedText = chat[messageId]['mes'];
-
-            // Token count update.
-            const tokenCountText = this.reasoningHandler.reasoning + processedText;
-            const currentTokenCount = isFinal && power_user.message_token_count_enabled ? await getTokenCountAsync(tokenCountText, 0) : 0;
-            if (currentTokenCount) {
-                chat[messageId]['extra']['token_count'] = currentTokenCount;
-                if (this.messageTokenCounterDom instanceof HTMLElement) {
-                    this.messageTokenCounterDom.textContent = `${currentTokenCount}t`;
-                }
-            }
-
-            if ((this.type == 'swipe' || this.type === 'continue') && Array.isArray(chat[messageId]['swipes'])) {
-                chat[messageId]['swipes'][chat[messageId]['swipe_id']] = processedText;
-                chat[messageId]['swipe_info'][chat[messageId]['swipe_id']] = {
-                    'send_date': chat[messageId]['send_date'],
-                    'gen_started': chat[messageId]['gen_started'],
-                    'gen_finished': chat[messageId]['gen_finished'],
-                    'extra': structuredClone(chat[messageId]['extra']),
-                };
-            }
-
-            const formattedText = messageFormatting(
-                processedText,
-                chat[messageId].name,
-                chat[messageId].is_system,
-                chat[messageId].is_user,
-                messageId,
-                {},
-                false,
-            );
-            if (this.messageTextDom instanceof HTMLElement) {
-                this.messageTextDom.innerHTML = formattedText;
-            }
-
-            const timePassed = formatGenerationTimer(this.timeStarted, currentTime, currentTokenCount, this.reasoningHandler.getDuration(), this.timeToFirstToken);
-            if (this.messageTimerDom instanceof HTMLElement) {
-                this.messageTimerDom.textContent = timePassed.timerValue;
-                this.messageTimerDom.title = timePassed.timerTitle;
-            }
-
-            this.setFirstSwipe(messageId);
-        }
-
-        if (!scrollLock) {
-            scrollChatToBottom();
-        }
-    }
-
-    async onFinishStreaming(messageId, text) {
-        this.markUIGenStopped();
-        await this.onProgressStreaming(messageId, text, true);
-        addCopyToCodeBlocks($(`#chat .mes[mesid="${messageId}"]`));
-
-        await this.reasoningHandler.finish(messageId);
-
-        if (Array.isArray(this.swipes) && this.swipes.length > 0) {
-            const message = chat[messageId];
-            const swipeInfoExtra = structuredClone(message.extra ?? {});
-            delete swipeInfoExtra.token_count;
-            delete swipeInfoExtra.reasoning;
-            delete swipeInfoExtra.reasoning_duration;
-            const swipeInfo = {
-                send_date: message.send_date,
-                gen_started: message.gen_started,
-                gen_finished: message.gen_finished,
-                extra: swipeInfoExtra,
-            };
-            const swipeInfoArray = Array(this.swipes.length).fill().map(() => structuredClone(swipeInfo));
-            parseReasoningInSwipes(this.swipes, swipeInfoArray, message.extra?.reasoning_duration);
-            chat[messageId].swipes.push(...this.swipes);
-            chat[messageId].swipe_info.push(...swipeInfoArray);
-        }
-
-        if (this.image) {
-            await processImageAttachment(chat[messageId], { imageUrl: this.image });
-            appendMediaToMessage(chat[messageId], $(this.messageDom));
-        }
-
-        if (this.type !== 'impersonate') {
-            await eventSource.emit(event_types.MESSAGE_RECEIVED, this.messageId, this.type);
-            await eventSource.emit(event_types.CHARACTER_MESSAGE_RENDERED, this.messageId, this.type);
-        } else {
-            await eventSource.emit(event_types.IMPERSONATE_READY, text);
-        }
-
-        syncMesToSwipe(messageId);
-        saveLogprobsForActiveMessage(this.messageLogprobs.filter(Boolean), this.continueMessage);
-        await saveChatConditional();
-        unblockGeneration();
-
-        const isAborted = this.abortController.signal.aborted;
-        if (!isAborted && power_user.auto_swipe && generatedTextFiltered(text)) {
-            return swipe_right();
-        }
-
-        playMessageSound();
-    }
-
-    onErrorStreaming() {
-        this.abortController.abort();
-        this.isStopped = true;
-
-        this.markUIGenStopped();
-        unblockGeneration();
-
-        const noEmitTypes = ['swipe', 'impersonate', 'continue'];
-        if (!noEmitTypes.includes(this.type)) {
-            eventSource.emit(event_types.MESSAGE_RECEIVED, this.messageId, this.type);
-            eventSource.emit(event_types.CHARACTER_MESSAGE_RENDERED, this.messageId, this.type);
-        }
-    }
-
-    setFirstSwipe(messageId) {
-        if (this.type !== 'swipe' && this.type !== 'impersonate') {
-            if (Array.isArray(chat[messageId]['swipes']) && chat[messageId]['swipes'].length === 1 && chat[messageId]['swipe_id'] === 0) {
-                chat[messageId]['swipes'][0] = chat[messageId]['mes'];
-                chat[messageId]['swipe_info'][0] = {
-                    'send_date': chat[messageId]['send_date'],
-                    'gen_started': chat[messageId]['gen_started'],
-                    'gen_finished': chat[messageId]['gen_finished'],
-                    'extra': structuredClone(chat[messageId]['extra']),
-                };
-            }
-        }
-    }
-
-    onStopStreaming() {
-        this.abortController.abort();
-        this.isFinished = true;
-    }
-
-    /**
-     * @returns {Generator<{ text: string, swipes: string[], logprobs: import('./scripts/logprobs.js').TokenLogprobs, toolCalls: any[], state: any }, void, void>}
-     */
-    *nullStreamingGeneration() {
-        throw new Error('Generation function for streaming is not hooked up');
-    }
-
-    async generate() {
-        if (this.messageId == -1) {
-            this.messageId = await this.onStartStreaming(this.firstMessageText);
-            await delay(1); // delay for message to be rendered
-            scrollLock = false;
-        }
-
-        // Stopping strings are expensive to calculate, especially with macros enabled. To remove stopping strings
-        // when streaming, we cache the result of getStoppingStrings instead of calling it once per token.
-        const isImpersonate = this.type == 'impersonate';
-        const isContinue = this.type == 'continue';
-        this.stoppingStrings = getStoppingStrings(isImpersonate, isContinue);
-
-        try {
-            const sw = new Stopwatch(1000 / power_user.streaming_fps);
-            const timestamps = [];
-            for await (const { text, swipes, logprobs, toolCalls, state } of this.generator()) {
-                const now = Date.now();
-                timestamps.push(now);
-                if (!this.timeToFirstToken) {
-                    this.timeToFirstToken = now - this.createdAt.getTime();
-                }
-                if (this.isStopped || this.abortController.signal.aborted) {
-                    return this.result;
-                }
-
-                this.toolCalls = toolCalls;
-                this.result = text;
-                this.swipes = Array.from(swipes ?? []);
-                if (logprobs) {
-                    this.messageLogprobs.push(...(Array.isArray(logprobs) ? logprobs : [logprobs]));
-                }
-                // Get the updated reasoning string into the handler
-                this.reasoningHandler.updateReasoning(this.messageId, state?.reasoning);
-                this.image = state?.image ?? '';
-                await eventSource.emit(event_types.STREAM_TOKEN_RECEIVED, text);
-                await sw.tick(async () => await this.onProgressStreaming(this.messageId, this.continueMessage + text));
-            }
-            const seconds = (timestamps[timestamps.length - 1] - timestamps[0]) / 1000;
-            console.warn(`Stream stats: ${timestamps.length} tokens, ${seconds.toFixed(2)} seconds, rate: ${Number(timestamps.length / seconds).toFixed(2)} TPS`);
-        }
-        catch (err) {
-            // in the case of a self-inflicted abort, we have already cleaned up
-            if (!this.isFinished) {
-                console.error(err);
-                this.onErrorStreaming();
-            }
-            return this.result;
-        }
-
-        this.isFinished = true;
-        return this.result;
-    }
 }
 
 /**

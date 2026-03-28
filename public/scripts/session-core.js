@@ -433,6 +433,8 @@ export async function selectCharacterById(id, { switchMenu = true } = {}) {
         throwUnbound('unshallowCharacter');
     }
 
+    const selectedGroup = getSelectedGroupImpl?.();
+
     if (characters[id] === undefined) {
         return;
     }
@@ -442,11 +444,11 @@ export async function selectCharacterById(id, { switchMenu = true } = {}) {
         return;
     }
 
-    if (selected_group && is_group_generating) {
+    if (selectedGroup && is_group_generating) {
         return;
     }
 
-    if (selected_group || String(this_chid) !== String(id)) {
+    if (selectedGroup || String(this_chid) !== String(id)) {
         if (!is_send_press) {
             await clearChat();
             cancelTtsPlayImpl?.();

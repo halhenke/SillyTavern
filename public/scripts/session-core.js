@@ -47,6 +47,7 @@ let setWorldInfoButtonClassImpl = null;
 let setActiveCharacterImpl = null;
 let setActiveGroupImpl = null;
 let setChatMetadataImpl = null;
+let setSelectedButtonImpl = null;
 let setCharacterIdImpl = null;
 let setCharacterNameImpl = null;
 let setEditedMessageIdImpl = null;
@@ -95,6 +96,7 @@ function throwUnbound(name) {
  *   setActiveCharacter: (...args: any[]) => any,
  *   setActiveGroup: (...args: any[]) => any,
  *   setChatMetadata: (value: any) => any,
+ *   setSelectedButton: (value: string) => any,
  *   setCharacterId: (...args: any[]) => any,
  *   setCharacterName: (...args: any[]) => any,
  *   setEditedMessageId: (...args: any[]) => any,
@@ -130,6 +132,7 @@ export function bindSessionCore(impl) {
     setActiveCharacterImpl = impl?.setActiveCharacter ?? null;
     setActiveGroupImpl = impl?.setActiveGroup ?? null;
     setChatMetadataImpl = impl?.setChatMetadata ?? null;
+    setSelectedButtonImpl = impl?.setSelectedButton ?? null;
     setCharacterIdImpl = impl?.setCharacterId ?? null;
     setCharacterNameImpl = impl?.setCharacterName ?? null;
     setEditedMessageIdImpl = impl?.setEditedMessageId ?? null;

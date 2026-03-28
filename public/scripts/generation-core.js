@@ -3212,9 +3212,6 @@ export async function executeStreamingGenerationRequest({
     if (!setStreamingProcessorImpl) {
         throwUnbound('setStreamingProcessor');
     }
-    if (!sendStreamingRequestImpl) {
-        throwUnbound('sendStreamingRequest');
-    }
     if (!hideSwipeButtonsImpl) {
         throwUnbound('hideSwipeButtons');
     }
@@ -3226,7 +3223,7 @@ export async function executeStreamingGenerationRequest({
         processor.firstMessageText = '';
     }
 
-    processor.generator = await sendStreamingRequestImpl(type, generateData);
+    processor.generator = await sendStreamingRequest(type, generateData);
 
     hideSwipeButtonsImpl();
     let getMessage = await processor.generate();

@@ -529,6 +529,9 @@ bindSessionCore({
         chat_metadata = value;
         syncChatMetadata(chat_metadata);
     },
+    setSelectedButton: (value) => {
+        selected_button = value;
+    },
     setCharacterId,
     setCharacterName,
     setEditedMessageId,

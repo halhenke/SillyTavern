@@ -1412,11 +1412,10 @@ export async function getChat() {
 }
 
 export async function openCharacterChat(file_name) {
-    if (!clearChatImpl) throwUnbound('clearChat');
     if (!createOrEditCharacterImpl) throwUnbound('createOrEditCharacter');
 
     await waitUntilCondition(() => !isChatSaving, debounce_timeout.extended, 10);
-    await clearChatImpl();
+    await clearChat();
     characters[this_chid].chat = file_name;
     chat.length = 0;
     syncChatMetadata({});

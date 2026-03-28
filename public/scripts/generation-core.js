@@ -18,13 +18,13 @@ let appendFileContentImpl = null;
 let collapseNewlinesImpl = null;
 let deleteLastMessageImpl = null;
 let createPromptReasoningImpl = null;
-let createRawPromptImpl = null;
 let generateHordeImpl = null;
+let generateKoboldWithStreamingImpl = null;
 let getKoboldGenerationDataImpl = null;
 let getKoboldSettingsConfigImpl = null;
-let getGenerateUrlImpl = null;
 let getGroupsImpl = null;
 let getNovelGenerationDataImpl = null;
+let generateNovelWithStreamingImpl = null;
 let getNovelSettingsConfigImpl = null;
 let getOpenAiMaxTokensImpl = null;
 let getAnimationDurationImpl = null;
@@ -74,6 +74,7 @@ let getSyspromptConfigImpl = null;
 let getTextareaTextImpl = null;
 let getTokenCountImpl = null;
 let getTokenCountAsyncImpl = null;
+let generateTextGenWithStreamingImpl = null;
 let getTextGenGenerationDataImpl = null;
 let getTokenizerNameImpl = null;
 let getToolRecurseLimitImpl = null;
@@ -120,7 +121,6 @@ let canPerformToolCallsImpl = null;
 let normalizeReasoningTextImpl = null;
 let createStreamingProcessorImpl = null;
 let sendMessageAsUserImpl = null;
-let sendGenerationRequestImpl = null;
 let sendOpenAIRequestImpl = null;
 let sendSystemMessageImpl = null;
 let sendStreamingRequestImpl = null;
@@ -201,7 +201,6 @@ function throwUnbound(name) {
  *   appendFileContent: (...args: any[]) => Promise<string>,
   *   collapseNewlines: (...args: any[]) => string,
   *   createPromptReasoning: () => any,
-  *   createRawPrompt: (...args: any[]) => string|object[],
  *   emitGenerationAfterCommands: (...args: any[]) => Promise<any>,
  *   emitGenerationStarted: (...args: any[]) => Promise<any>,
  *   generateHorde: (...args: any[]) => Promise<any>,
@@ -213,6 +212,9 @@ function throwUnbound(name) {
  *   executeSlashCommandsOnChatInput: (...args: any[]) => Promise<any>,
  *   createStreamingProcessor: (...args: any[]) => any,
  *   doChatInject: (...args: any[]) => Promise<number[]>,
+ *   generateKoboldWithStreaming: (...args: any[]) => Promise<any>,
+ *   generateNovelWithStreaming: (...args: any[]) => Promise<any>,
+ *   generateTextGenWithStreaming: (...args: any[]) => Promise<any>,
  *   getAnimationDuration: () => number,
  *   getAllExtensionPrompts: () => Promise<string>,
  *   getBeforePromptType: () => number,
@@ -236,7 +238,6 @@ function throwUnbound(name) {
  *   getKoboldSettingsConfig: () => { kaiSettings?: any, kaiFlags?: any, koboldaiSettings?: any, koboldaiSettingNames?: any },
  *   getAbortController: () => AbortController|null|undefined,
  *   getAutoContinueConfig: () => { enabled?: boolean, target_length?: number, allow_chat_completions?: boolean },
- *   getGenerateUrl: (...args: any[]) => string,
  *   getGroups: () => any[],
  *   getConsoleLogPromptsEnabled: () => boolean,
  *   getGuidanceScale: () => any,
@@ -304,7 +305,6 @@ function throwUnbound(name) {
  *   saveChatConditional: () => Promise<any>,
  *   saveReply: (...args: any[]) => Promise<any>,
  *   sendMessageAsUser: (...args: any[]) => Promise<any>,
- *   sendGenerationRequest: (...args: any[]) => Promise<any>,
  *   sendOpenAIRequest: (...args: any[]) => Promise<any>,
  *   sendSystemMessage: (...args: any[]) => any,
  *   sendStreamingRequest: (...args: any[]) => Promise<any>,
@@ -361,10 +361,12 @@ export function bindGenerationCore(impl) {
     addChatsSeparatorImpl = impl?.addChatsSeparator ?? null;
     collapseNewlinesImpl = impl?.collapseNewlines ?? null;
     createPromptReasoningImpl = impl?.createPromptReasoning ?? null;
-    createRawPromptImpl = impl?.createRawPrompt ?? null;
     createStreamingProcessorImpl = impl?.createStreamingProcessor ?? null;
     doChatInjectImpl = impl?.doChatInject ?? null;
     generateHordeImpl = impl?.generateHorde ?? null;
+    generateKoboldWithStreamingImpl = impl?.generateKoboldWithStreaming ?? null;
+    generateNovelWithStreamingImpl = impl?.generateNovelWithStreaming ?? null;
+    generateTextGenWithStreamingImpl = impl?.generateTextGenWithStreaming ?? null;
     executeSlashCommandsOnChatInputImpl = impl?.executeSlashCommandsOnChatInput ?? null;
     deactivateSendButtonsImpl = impl?.deactivateSendButtons ?? null;
     getAnimationDurationImpl = impl?.getAnimationDuration ?? null;
@@ -398,7 +400,6 @@ export function bindGenerationCore(impl) {
     getKoboldSettingsConfigImpl = impl?.getKoboldSettingsConfig ?? null;
     getAbortControllerImpl = impl?.getAbortController ?? null;
     getAutoContinueConfigImpl = impl?.getAutoContinueConfig ?? null;
-    getGenerateUrlImpl = impl?.getGenerateUrl ?? null;
     getGroupsImpl = impl?.getGroups ?? null;
     getConsoleLogPromptsEnabledImpl = impl?.getConsoleLogPromptsEnabled ?? null;
     getIsGroupGeneratingImpl = impl?.getIsGroupGenerating ?? null;
@@ -470,7 +471,6 @@ export function bindGenerationCore(impl) {
     processImageAttachmentImpl = impl?.processImageAttachment ?? null;
     renderStoryStringImpl = impl?.renderStoryString ?? null;
     sendMessageAsUserImpl = impl?.sendMessageAsUser ?? null;
-    sendGenerationRequestImpl = impl?.sendGenerationRequest ?? null;
     sendOpenAIRequestImpl = impl?.sendOpenAIRequest ?? null;
     sendSystemMessageImpl = impl?.sendSystemMessage ?? null;
     sendStreamingRequestImpl = impl?.sendStreamingRequest ?? null;
@@ -1484,12 +1484,19 @@ export async function generateQuietPrompt({ quietPrompt = '', quietToLoud = fals
     }
 }
 
-export function getGenerateUrl(...args) {
-    if (!getGenerateUrlImpl) {
-        throwUnbound('getGenerateUrl');
+export function getGenerateUrl(api) {
+    switch (api) {
+        case 'kobold':
+            return '/api/backends/kobold/generate';
+        case 'koboldhorde':
+            return '/api/backends/koboldhorde/generate';
+        case 'textgenerationwebui':
+            return '/api/backends/text-completions/generate';
+        case 'novel':
+            return '/api/novelai/generate';
+        default:
+            throw new Error(`Unknown API: ${api}`);
     }
-
-    return getGenerateUrlImpl(...args);
 }
 
 export function getGeneratingApi() {
@@ -3391,9 +3398,6 @@ export async function executeGenerationRequestFlow({
     if (!isStreamingEnabledImpl) {
         throwUnbound('isStreamingEnabled');
     }
-    if (!sendGenerationRequestImpl) {
-        throwUnbound('sendGenerationRequest');
-    }
     if (!unblockGenerationImpl) {
         throwUnbound('unblockGeneration');
     }
@@ -3480,7 +3484,7 @@ export async function executeGenerationRequestFlow({
         return streamResult;
     }
 
-    const data = await sendGenerationRequestImpl(type, generateData, { jsonSchema });
+    const data = await sendGenerationRequest(type, generateData, { jsonSchema });
     const result = await finalizeGenerationResponse({
         canPerformToolCalls,
         continueMag,
@@ -3718,10 +3722,83 @@ export function isStreamingEnabled(...args) {
     return isStreamingEnabledImpl(...args);
 }
 
-export async function generateRaw({ prompt = '', api = null, instructOverride = false, quietToLoud = false, systemPrompt = '', responseLength = null, trimNames = true, prefill = '', jsonSchema = null } = {}) {
-    if (!createRawPromptImpl) {
-        throwUnbound('createRawPrompt');
+/**
+ * Constructs a prompt to be used for either Text Completion or Chat Completion. Input is format-agnostic.
+ * @param {string | object[]} prompt Input prompt. Can be a string or an array of chat-style messages, i.e. [{role: '', content: ''}, ...]
+ * @param {string} api API to use.
+ * @param {boolean} instructOverride true to override instruct mode, false to use the default value
+ * @param {boolean} quietToLoud true to generate a message in system mode, false to generate a message in character mode
+ * @param {string} [systemPrompt] System prompt to use.
+ * @param {string} [prefill] Prefill for the prompt.
+ * @returns {string | object[]} Prompt ready for use in generation. If using TC, this will be a string. If using CC, this will be an array of chat-style messages.
+ */
+export function createRawPrompt(prompt, api, instructOverride, quietToLoud, systemPrompt, prefill) {
+    if (!getIsInstructEnabledImpl) {
+        throwUnbound('getIsInstructEnabled');
     }
+    if (!formatInstructModeChatImpl) {
+        throwUnbound('formatInstructModeChat');
+    }
+    if (!formatInstructModeStoryStringImpl) {
+        throwUnbound('formatInstructModeStoryString');
+    }
+    if (!formatInstructModePromptImpl) {
+        throwUnbound('formatInstructModePrompt');
+    }
+    if (!adjustNovelInstructionPromptImpl) {
+        throwUnbound('adjustNovelInstructionPrompt');
+    }
+
+    const isInstruct = getIsInstructEnabledImpl() && api !== 'openai' && api !== 'novel' && !instructOverride;
+
+    if (typeof prompt === 'string') {
+        const message = api === 'openai'
+            ? { role: 'user', content: prompt.trim() }
+            : { role: 'system', content: prompt };
+        prompt = [message];
+    } else {
+        if (prompt.length === 0 && !systemPrompt) {
+            throw Error('No messages provided');
+        }
+    }
+
+    prefill = substituteParams(prefill ?? '');
+
+    for (const message of prompt) {
+        let name = '';
+        if (message.role === 'user') name = message.name ?? name1;
+        if (message.role === 'assistant') name = message.name ?? name2;
+        if (message.role === 'system') name = message.name ?? '';
+        const prefix = isInstruct || api === 'openai' ? '' : (name ? `${name}: ` : '');
+        message.content = prefix + substituteParams(message.content ?? '');
+        if (isInstruct) {
+            const isUser = message.role === 'user';
+            const isNarrator = message.role === 'system';
+            message.content = formatInstructModeChatImpl(name, message.content, isUser, isNarrator, '', name1, name2, false);
+        }
+    }
+
+    if (systemPrompt) {
+        systemPrompt = substituteParams(systemPrompt);
+        systemPrompt = isInstruct ? (formatInstructModeStoryStringImpl(systemPrompt) + '\n') : systemPrompt.trim();
+        prompt.unshift({ role: 'system', content: systemPrompt });
+    }
+
+    if (api === 'openai' && prefill) {
+        prompt.push({ role: 'assistant', content: prefill });
+    }
+
+    if (api !== 'openai') {
+        const joiner = isInstruct ? '' : '\n';
+        prompt = prompt.map(message => message.content).join(joiner);
+        prompt = api === 'novel' ? adjustNovelInstructionPromptImpl(prompt) : prompt;
+        prompt = prompt + (isInstruct ? formatInstructModePromptImpl(name2, false, prefill, name1, name2, true, quietToLoud) : `\n${prefill}`);
+    }
+
+    return prompt;
+}
+
+export async function generateRaw({ prompt = '', api = null, instructOverride = false, quietToLoud = false, systemPrompt = '', responseLength = null, trimNames = true, prefill = '', jsonSchema = null } = {}) {
     if (!getKoboldGenerationDataImpl) {
         throwUnbound('getKoboldGenerationData');
     }
@@ -3756,7 +3833,7 @@ export async function generateRaw({ prompt = '', api = null, instructOverride = 
     const responseLengthCustomized = typeof responseLength === 'number' && responseLength > 0;
     let eventHook = () => { };
 
-    prompt = createRawPromptImpl(prompt, api, instructOverride, quietToLoud, systemPrompt, prefill);
+    prompt = createRawPrompt(prompt, api, instructOverride, quietToLoud, systemPrompt, prefill);
 
     try {
         if (responseLengthCustomized) {
@@ -3849,20 +3926,75 @@ export async function generateRaw({ prompt = '', api = null, instructOverride = 
     }
 }
 
-export function sendGenerationRequest(...args) {
-    if (!sendGenerationRequestImpl) {
-        throwUnbound('sendGenerationRequest');
+export async function sendGenerationRequest(type, data, options = {}) {
+    if (!getAbortControllerImpl) {
+        throwUnbound('getAbortController');
+    }
+    if (!sendOpenAIRequestImpl) {
+        throwUnbound('sendOpenAIRequest');
+    }
+    if (!generateHordeImpl) {
+        throwUnbound('generateHorde');
     }
 
-    return sendGenerationRequestImpl(...args);
+    const abortSignal = getAbortControllerImpl()?.signal;
+
+    if (main_api === 'openai') {
+        return await sendOpenAIRequestImpl(type, data.prompt, abortSignal, options);
+    }
+
+    if (main_api === 'koboldhorde') {
+        return await generateHordeImpl(data.prompt, data, abortSignal, true);
+    }
+
+    const response = await fetch(getGenerateUrl(main_api), {
+        method: 'POST',
+        headers: getRequestHeaders(),
+        cache: 'no-cache',
+        body: JSON.stringify(data),
+        signal: abortSignal,
+    });
+
+    if (!response.ok) {
+        throw await response.json();
+    }
+
+    return await response.json();
 }
 
-export function sendStreamingRequest(...args) {
-    if (!sendStreamingRequestImpl) {
-        throwUnbound('sendStreamingRequest');
+export async function sendStreamingRequest(type, data, options = {}) {
+    if (!getAbortControllerImpl) {
+        throwUnbound('getAbortController');
+    }
+    if (!sendOpenAIRequestImpl) {
+        throwUnbound('sendOpenAIRequest');
+    }
+    if (!generateTextGenWithStreamingImpl) {
+        throwUnbound('generateTextGenWithStreaming');
+    }
+    if (!generateNovelWithStreamingImpl) {
+        throwUnbound('generateNovelWithStreaming');
+    }
+    if (!generateKoboldWithStreamingImpl) {
+        throwUnbound('generateKoboldWithStreaming');
     }
 
-    return sendStreamingRequestImpl(...args);
+    if (getAbortControllerImpl()?.signal?.aborted) {
+        throw new Error('Generation was aborted.');
+    }
+
+    switch (main_api) {
+        case 'openai':
+            return await sendOpenAIRequestImpl(type, data.prompt, streamingProcessor.abortController.signal, options);
+        case 'textgenerationwebui':
+            return await generateTextGenWithStreamingImpl(data, streamingProcessor.abortController.signal);
+        case 'novel':
+            return await generateNovelWithStreamingImpl(data, streamingProcessor.abortController.signal);
+        case 'kobold':
+            return await generateKoboldWithStreamingImpl(data, streamingProcessor.abortController.signal);
+        default:
+            throw new Error('Streaming is enabled, but the current API does not support streaming.');
+    }
 }
 
 export function setGenerationParamsFromPreset(...args) {

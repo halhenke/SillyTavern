@@ -3359,3 +3359,11 @@ The main constraint here was import-cycle risk. A direct `settings-core -> opena
 This wave moved the main `Generate()` orchestration path into `public/scripts/generation-core.js`. The implementation already depended on generation-core helpers for most of its work, so the move was done by relocating the orchestration body and extending `bindGenerationCore(...)` with the remaining script-owned hooks it still needed: generation-start timestamp ownership, itemized/extension prompt stores, tool-calling recursion helpers, and `deleteLastMessage()`.
 
 `script.js` now keeps a thin `Generate(...)` compatibility wrapper. A small related cleanup fixed `generation-core` to call a bound `deleteLastMessage` implementation in tool-call cleanup paths instead of relying on an unresolved free reference.
+
+### 2026-03-28: Wave 68 - generation-core now owns streaming plus prompt/request helpers
+
+This batch continued the same relocation-first generation move instead of widening into a redesign. `StreamingProcessor` was moved out of `public/script.js` into `public/scripts/generation-core.js`, and the follow-up browser check exposed one moved-path regression (`getStoppingStringsImpl` inside the streaming flow) that was fixed before continuing. After that, the adjacent prompt/request helpers were moved too: `createRawPrompt()`, `getGenerateUrl()`, `sendGenerationRequest()`, and `sendStreamingRequest()` now live in `generation-core`, while `script.js` keeps thin compatibility wrappers.
+
+The intent here was to keep the generation seam coherent. Once `Generate()` and `StreamingProcessor` were already core-owned, leaving prompt construction and non-streaming request dispatch in `script.js` would have kept generation split across too many files for little benefit. This move stays traceable because the public names and top-level call flow are preserved, but the actual ownership now sits with the same generation module that already executes the rest of the request lifecycle.
+
+Manual verification in the browser covered normal generation plus a legacy-UI streaming send after enabling streaming there. Static verification was `node --check` via `mise` on the touched files.

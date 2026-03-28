@@ -263,7 +263,7 @@ import { addOneMessage as addOneMessageCore, bindChatOperationsCore, clearChat a
 import { importExternalContent as importExternalContentCore, importFromURL as importFromURLCore } from './scripts/content-import-core.js';
 import { addDebugFunctions as addDebugFunctionsCore, bindDebugCore } from './scripts/debug-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
-import { TempResponseLength, Generate as GenerateCore, StreamingProcessor as StreamingProcessorCore, bindGenerationCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
+import { TempResponseLength, Generate as GenerateCore, StreamingProcessor as StreamingProcessorCore, bindGenerationCore, createRawPrompt as createRawPromptCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGenerateUrl as getGenerateUrlCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, sendGenerationRequest as sendGenerationRequestCore, sendStreamingRequest as sendStreamingRequestCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
 import { beginMessageEdit as beginMessageEditCore, bindMessageCore, cancelDeleteMode as cancelDeleteModeCore, cancelMessageEdit as cancelMessageEditCore, cleanUpMessage as cleanUpMessageCore, closeMessageEditor as closeMessageEditorCore, confirmDeleteMode as confirmDeleteModeCore, copyEditedMessage as copyEditedMessageCore, deleteEditedMessage as deleteEditedMessageCore, deleteSwipe as deleteSwipeCore, editedMessageId as editedMessageIdCore, getFirstDisplayedMessageId as getFirstDisplayedMessageIdCore, hideSwipeButtons as hideSwipeButtonsCore, initMessageCopyBinding as initMessageCopyBindingCore, isDeleteMode as isDeleteModeCore, messageEditAuto as messageEditAutoCore, messageEditDone as messageEditDoneCore, messageFormatting as messageFormattingCore, moveEditedMessageDown as moveEditedMessageDownCore, moveEditedMessageUp as moveEditedMessageUpCore, openMessageDelete as openMessageDeleteCore, selectMessageDeleteTarget as selectMessageDeleteTargetCore, setEditedMessageId as setEditedMessageIdCore, showSwipeButtons as showSwipeButtonsCore, swipe_left as swipeLeftCore, swipe_right as swipeRightCore, syncMesToSwipe as syncMesToSwipeCore, syncSwipeToMes as syncSwipeToMesCore, updateEditArrowClasses as updateEditArrowClassesCore, updateMessageBlock as updateMessageBlockCore, updateViewMessageIds as updateViewMessageIdsCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
@@ -548,7 +548,6 @@ bindGenerationCore({
     addChatsSeparator,
     collapseNewlines,
     createPromptReasoning: () => new PromptReasoning(),
-    createRawPrompt,
     createStreamingProcessor: (type, forceName2, generationStarted, continueMag, promptReasoning) => new StreamingProcessorCore(type, forceName2, generationStarted, continueMag, promptReasoning),
     deactivateSendButtons,
     doChatInject,
@@ -585,7 +584,6 @@ bindGenerationCore({
     getGenerationStarted: () => generation_started,
     getTrimSpacesEnabled: () => power_user.trim_spaces,
     getGenericSystemMessageType: () => system_message_types.GENERIC,
-    getGenerateUrl,
     getGroups: () => groups,
     getGroupDepthPrompts,
     getGuidanceScale,
@@ -667,6 +665,9 @@ bindGenerationCore({
     getWorldInfoIncludeNames: () => world_info_include_names,
     getWorldInfoPrompt,
     generateGroupWrapper,
+    generateKoboldWithStreaming,
+    generateNovelWithStreaming,
+    generateTextGenWithStreaming,
     getSelectedGroup: () => selected_group,
     getAllowWIScan: () => extension_settings.note.allowWIScan,
     hasPendingFileAttachment,
@@ -701,10 +702,8 @@ bindGenerationCore({
     saveLogprobsForActiveMessage,
     saveReply,
     sendMessageAsUser,
-    sendGenerationRequest,
     sendOpenAIRequest,
     sendSystemMessage,
-    sendStreamingRequest,
     setAbortController: (controller) => abortController = controller,
     setCharacterId,
     setCharacterName,
@@ -2198,57 +2197,7 @@ function hideStopButton() {
  * @returns {string | object[]} Prompt ready for use in generation. If using TC, this will be a string. If using CC, this will be an array of chat-style messages.
  */
 export function createRawPrompt(prompt, api, instructOverride, quietToLoud, systemPrompt, prefill) {
-    const isInstruct = power_user.instruct.enabled && api !== 'openai' && api !== 'novel' && !instructOverride;
-
-    // If the prompt was given as a string, convert to a message-style object assuming user role
-    if (typeof prompt === 'string') {
-        const message = api === 'openai'
-            ? { role: 'user', content: prompt.trim() }
-            : { role: 'system', content: prompt };
-        prompt = [message];
-    } else {  // checks for message-style object
-        if (prompt.length === 0 && !systemPrompt) throw Error('No messages provided');
-    }
-
-    // Substitute the prefill if provided
-    prefill = substituteParams(prefill ?? '');
-
-    // Format each message in the prompt, accounting for the provided roles
-    for (const message of prompt) {
-        let name = '';
-        if (message.role === 'user') name = message.name ?? name1;
-        if (message.role === 'assistant') name = message.name ?? name2;
-        if (message.role === 'system') name = message.name ?? '';
-        const prefix = isInstruct || api === 'openai' ? '' : (name ? `${name}: ` : '');
-        message.content = prefix + substituteParams(message.content ?? '');
-        if (isInstruct) {  // instruct formatting for text completion
-            const isUser = message.role === 'user';
-            const isNarrator = message.role === 'system';
-            message.content = formatInstructModeChat(name, message.content, isUser, isNarrator, '', name1, name2, false);
-        }
-    }
-
-    // prepend system prompt, if provided
-    if (systemPrompt) {
-        systemPrompt = substituteParams(systemPrompt);
-        systemPrompt = isInstruct ? (formatInstructModeStoryString(systemPrompt) + '\n') : systemPrompt.trim();
-        prompt.unshift({ role: 'system', content: systemPrompt });
-    }
-
-    // with Chat Completion, the prefill is an additional assistant message at the end.
-    if (api === 'openai' && prefill) {
-        prompt.push({ role: 'assistant', content: prefill });
-    }
-
-    // if text completion, convert to text prompt by concatenating all message contents and adding the prefill as a promptBias.
-    if (api !== 'openai') {
-        const joiner = isInstruct ? '' : '\n';
-        prompt = prompt.map(message => message.content).join(joiner);
-        prompt = api === 'novel' ? adjustNovelInstructionPrompt(prompt) : prompt;
-        prompt = prompt + (isInstruct ? formatInstructModePrompt(name2, false, prefill, name1, name2, true, quietToLoud) : `\n${prefill}`);  // add last line
-    }
-
-    return prompt;
+    return createRawPromptCore(prompt, api, instructOverride, quietToLoud, systemPrompt, prefill);
 }
 
 /**
@@ -2709,27 +2658,7 @@ function setInContextMessages(msgInContextCount, type) {
  * @throws {Error|object}
  */
 export async function sendGenerationRequest(type, data, options = {}) {
-    if (main_api === 'openai') {
-        return await sendOpenAIRequest(type, data.prompt, abortController.signal, options);
-    }
-
-    if (main_api === 'koboldhorde') {
-        return await generateHorde(data.prompt, data, abortController.signal, true);
-    }
-
-    const response = await fetch(getGenerateUrl(main_api), {
-        method: 'POST',
-        headers: getRequestHeaders(),
-        cache: 'no-cache',
-        body: JSON.stringify(data),
-        signal: abortController.signal,
-    });
-
-    if (!response.ok) {
-        throw await response.json();
-    }
-
-    return await response.json();
+    return sendGenerationRequestCore(type, data, options);
 }
 
 /**
@@ -2740,22 +2669,7 @@ export async function sendGenerationRequest(type, data, options = {}) {
  * @returns {Promise<any>} Streaming generator
  */
 export async function sendStreamingRequest(type, data, options = {}) {
-    if (abortController?.signal?.aborted) {
-        throw new Error('Generation was aborted.');
-    }
-
-    switch (main_api) {
-        case 'openai':
-            return await sendOpenAIRequest(type, data.prompt, streamingProcessor.abortController.signal, options);
-        case 'textgenerationwebui':
-            return await generateTextGenWithStreaming(data, streamingProcessor.abortController.signal);
-        case 'novel':
-            return await generateNovelWithStreaming(data, streamingProcessor.abortController.signal);
-        case 'kobold':
-            return await generateKoboldWithStreaming(data, streamingProcessor.abortController.signal);
-        default:
-            throw new Error('Streaming is enabled, but the current API does not support streaming.');
-    }
+    return sendStreamingRequestCore(type, data, options);
 }
 
 /**
@@ -2765,18 +2679,7 @@ export async function sendStreamingRequest(type, data, options = {}) {
  * @throws {Error} If the API is unknown
  */
 export function getGenerateUrl(api) {
-    switch (api) {
-        case 'kobold':
-            return '/api/backends/kobold/generate';
-        case 'koboldhorde':
-            return '/api/backends/koboldhorde/generate';
-        case 'textgenerationwebui':
-            return '/api/backends/text-completions/generate';
-        case 'novel':
-            return '/api/novelai/generate';
-        default:
-            throw new Error(`Unknown API: ${api}`);
-    }
+    return getGenerateUrlCore(api);
 }
 
 function extractTitleFromData(data) {

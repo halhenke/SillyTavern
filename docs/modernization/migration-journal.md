@@ -3383,3 +3383,9 @@ The next adjacent move kept the same approach and moved `getCharacterCardFields(
 This wave moved `saveSettings()` out of `public/script.js` into `public/scripts/settings-core.js`. The function body stayed intact: the same readiness checks, temp-response-length retry loop, payload shape, and save endpoint behavior were preserved. The only structural change was adding a few extra bound getters for script-owned runtime state such as `firstRun`, `settingsReady`, `swipes`, and the temp response-length status hooks.
 
 This was a better fit than taking `firstLoadInit()` next because it reduces a large remaining function without re-entering the fragile startup/import-order surface. `script.js` now keeps a thin compatibility wrapper while `settings-core` owns the actual save flow.
+
+### 2026-03-28: Wave 72 - moved character selection orchestration into `session-core`
+
+This follow-up moved `selectCharacterById()` out of `public/script.js` into `public/scripts/session-core.js`. That flow is really session/menu orchestration rather than pure character data logic: it clears chat state, resets selected groups, syncs edited-message state, updates menu selection, and either loads the new chat or re-opens the already-selected character editor.
+
+To keep behavior aligned with the legacy path, `session-core` now receives explicit setters for the script-local mirrors that still matter here, especially chat metadata and edited-message id. `script.js` keeps a thin wrapper and updates its local `this_edit_mes_id` mirror from the core after delegation.

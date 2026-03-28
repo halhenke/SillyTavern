@@ -4,6 +4,7 @@ import { chat_metadata, default_avatar, getCurrentChatId, name2, setCharacterId 
 import { chat, clearChat, getChat, getCurrentChatDetails, openCharacterChat, reloadCurrentChat, saveChatConditional, systemUserName } from './chat-operations-core.js';
 import { event_types, eventSource } from './events.js';
 import { Generate } from './generation-core.js';
+import { resetSelectedGroup } from './group-chats.js';
 import { t } from './i18n.js';
 import { hideLoader, showLoader } from './loader.js';
 import { editedMessageId } from './message-core.js';
@@ -41,13 +42,14 @@ let openPermanentAssistantChatImpl = null;
 let printCharactersImpl = null;
 let readAvatarLoadImpl = null;
 let renameGroupChatImpl = null;
-let selectCharacterByIdImpl = null;
 let sendSystemMessageImpl = null;
 let setWorldInfoButtonClassImpl = null;
 let setActiveCharacterImpl = null;
 let setActiveGroupImpl = null;
+let setChatMetadataImpl = null;
 let setCharacterIdImpl = null;
 let setCharacterNameImpl = null;
+let setEditedMessageIdImpl = null;
 let setScenarioOverrideImpl = null;
 let unshallowCharacterImpl = null;
 
@@ -88,13 +90,14 @@ function throwUnbound(name) {
  *   printCharacters: (...args: any[]) => any,
  *   readAvatarLoad: (...args: any[]) => Promise<any>,
  *   renameGroupChat: (...args: any[]) => Promise<any>,
- *   selectCharacterById: (...args: any[]) => Promise<any>,
  *   sendSystemMessage: (...args: any[]) => any,
  *   setWorldInfoButtonClass: (...args: any[]) => any,
  *   setActiveCharacter: (...args: any[]) => any,
  *   setActiveGroup: (...args: any[]) => any,
+ *   setChatMetadata: (value: any) => any,
  *   setCharacterId: (...args: any[]) => any,
  *   setCharacterName: (...args: any[]) => any,
+ *   setEditedMessageId: (...args: any[]) => any,
  *   setScenarioOverride: (...args: any[]) => Promise<any>,
  *   unshallowCharacter: (...args: any[]) => Promise<any>,
  * }} impl Implementations to bind
@@ -122,13 +125,14 @@ export function bindSessionCore(impl) {
     printCharactersImpl = impl?.printCharacters ?? null;
     readAvatarLoadImpl = impl?.readAvatarLoad ?? null;
     renameGroupChatImpl = impl?.renameGroupChat ?? null;
-    selectCharacterByIdImpl = impl?.selectCharacterById ?? null;
     sendSystemMessageImpl = impl?.sendSystemMessage ?? null;
     setWorldInfoButtonClassImpl = impl?.setWorldInfoButtonClass ?? null;
     setActiveCharacterImpl = impl?.setActiveCharacter ?? null;
     setActiveGroupImpl = impl?.setActiveGroup ?? null;
+    setChatMetadataImpl = impl?.setChatMetadata ?? null;
     setCharacterIdImpl = impl?.setCharacterId ?? null;
     setCharacterNameImpl = impl?.setCharacterName ?? null;
+    setEditedMessageIdImpl = impl?.setEditedMessageId ?? null;
     setScenarioOverrideImpl = impl?.setScenarioOverride ?? null;
     unshallowCharacterImpl = impl?.unshallowCharacter ?? null;
 }
@@ -409,12 +413,53 @@ function flashEntityListEntry({ lookupValue, lookup, selector, selectElement, mi
     }
 }
 
-export function selectCharacterById(...args) {
-    if (!selectCharacterByIdImpl) {
-        throwUnbound('selectCharacterById');
+export async function selectCharacterById(id, { switchMenu = true } = {}) {
+    if (!setEditedMessageIdImpl) {
+        throwUnbound('setEditedMessageId');
+    }
+    if (!setSelectedButtonImpl) {
+        throwUnbound('setSelectedButton');
+    }
+    if (!setCharacterIdImpl) {
+        throwUnbound('setCharacterId');
+    }
+    if (!setChatMetadataImpl) {
+        throwUnbound('setChatMetadata');
+    }
+    if (!unshallowCharacterImpl) {
+        throwUnbound('unshallowCharacter');
     }
 
-    return selectCharacterByIdImpl(...args);
+    if (characters[id] === undefined) {
+        return;
+    }
+
+    if (isChatSaving) {
+        toastr.info(t`Please wait until the chat is saved before switching characters.`, t`Your chat is still saving...`);
+        return;
+    }
+
+    if (selected_group && is_group_generating) {
+        return;
+    }
+
+    if (selected_group || String(this_chid) !== String(id)) {
+        if (!is_send_press) {
+            await clearChat();
+            cancelTtsPlayImpl?.();
+            resetSelectedGroup();
+            setEditedMessageIdImpl(undefined);
+            setSelectedButtonImpl('character_edit');
+            setCharacterIdImpl(id);
+            chat.length = 0;
+            setChatMetadataImpl({});
+            await getChat();
+        }
+    } else {
+        switchMenu && setSelectedButtonImpl('character_edit');
+        await unshallowCharacterImpl(this_chid);
+        select_selected_character(this_chid, { switchMenu });
+    }
 }
 
 export function selectRightMenuWithAnimation(selectedMenuId) {

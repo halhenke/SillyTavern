@@ -1,10 +1,22 @@
 import { t } from './i18n.js';
+import { main_api } from './api-core.js';
+import { user_avatar, name1 } from './chat-core.js';
+import { extension_settings } from './extensions.js';
+import { horde_settings } from './horde.js';
+import { kai_settings } from './kai-settings.js';
+import { textgenerationwebui_settings as textgen_settings } from './textgen-settings.js';
+import { openai_settings as oai_settings, proxies, selected_proxy } from './openai.js';
+import { power_user } from './power-user.js';
+import { active_character, active_group } from './session-core.js';
+import { tags, tag_map } from './tags.js';
+import { nai_settings } from './nai-settings.js';
+import { background_settings } from './backgrounds.js';
+import { getWorldInfoSettings } from './world-info.js';
 
 /**
  * Bound settings implementation hooks provided by the legacy runtime bootstrap.
  * These wrappers let adapter consumers avoid importing from script.js directly.
  */
-let saveSettingsImpl = null;
 let saveSettingsDebouncedImpl = null;
 let saveMetadataImpl = null;
 let saveCharacterDebouncedImpl = null;
@@ -14,6 +26,11 @@ let getCurrentUserAvatarImpl = null;
 let getRequestHeadersImpl = null;
 let getCurrentAmountGenImpl = null;
 let getCurrentMaxContextImpl = null;
+let getFirstRunImpl = null;
+let getSettingsReadyImpl = null;
+let getSwipesImpl = null;
+let isTempResponseLengthCustomizedImpl = null;
+let restoreTempResponseLengthImpl = null;
 let setSettingsImpl = null;
 let setName1Impl = null;
 let setAmountGenImpl = null;
@@ -70,7 +87,6 @@ function requireBound(value, name) {
 /**
  * Binds legacy settings implementations to standalone wrappers.
  * @param {{
- *   saveSettings: (...args: any[]) => Promise<any>,
  *   saveSettingsDebounced: (...args: any[]) => any,
  *   saveMetadata: (...args: any[]) => Promise<any>,
  *   saveCharacterDebounced: (...args: any[]) => any,
@@ -80,6 +96,11 @@ function requireBound(value, name) {
  *   getRequestHeaders: (...args: any[]) => any,
  *   getCurrentAmountGen: () => number,
  *   getCurrentMaxContext: () => number,
+ *   getFirstRun: () => boolean,
+ *   getSettingsReady: () => boolean,
+ *   getSwipes: () => boolean,
+ *   isTempResponseLengthCustomized: () => boolean,
+ *   restoreTempResponseLength: (...args: any[]) => any,
  *   setSettings: (value: any) => any,
  *   setName1: (value: string) => any,
  *   setAmountGen: (value: number) => any,
@@ -123,7 +144,6 @@ function requireBound(value, name) {
  * }} impl Implementations to bind
  */
 export function bindSettingsCore(impl) {
-    saveSettingsImpl = impl?.saveSettings ?? null;
     saveSettingsDebouncedImpl = impl?.saveSettingsDebounced ?? null;
     saveMetadataImpl = impl?.saveMetadata ?? null;
     saveCharacterDebouncedImpl = impl?.saveCharacterDebounced ?? null;
@@ -133,6 +153,11 @@ export function bindSettingsCore(impl) {
     getRequestHeadersImpl = impl?.getRequestHeaders ?? null;
     getCurrentAmountGenImpl = impl?.getCurrentAmountGen ?? null;
     getCurrentMaxContextImpl = impl?.getCurrentMaxContext ?? null;
+    getFirstRunImpl = impl?.getFirstRun ?? null;
+    getSettingsReadyImpl = impl?.getSettingsReady ?? null;
+    getSwipesImpl = impl?.getSwipes ?? null;
+    isTempResponseLengthCustomizedImpl = impl?.isTempResponseLengthCustomized ?? null;
+    restoreTempResponseLengthImpl = impl?.restoreTempResponseLength ?? null;
     setSettingsImpl = impl?.setSettings ?? null;
     setName1Impl = impl?.setName1 ?? null;
     setAmountGenImpl = impl?.setAmountGen ?? null;
@@ -175,12 +200,112 @@ export function bindSettingsCore(impl) {
     forceCharacterEditorTokenizeImpl = impl?.forceCharacterEditorTokenize ?? null;
 }
 
-export function saveSettings(...args) {
-    if (!saveSettingsImpl) {
-        throwUnbound('saveSettings');
+export async function saveSettings(loopCounter = 0) {
+    if (!getSettingsReadyImpl) {
+        throwUnbound('getSettingsReady');
+    }
+    if (!saveSettingsDebouncedImpl) {
+        throwUnbound('saveSettingsDebounced');
+    }
+    if (!isTempResponseLengthCustomizedImpl) {
+        throwUnbound('isTempResponseLengthCustomized');
+    }
+    if (!restoreTempResponseLengthImpl) {
+        throwUnbound('restoreTempResponseLength');
+    }
+    if (!getFirstRunImpl) {
+        throwUnbound('getFirstRun');
+    }
+    if (!accountStorageImpl) {
+        throwUnbound('accountStorage');
+    }
+    if (!getCurrentVersionImpl) {
+        throwUnbound('getCurrentVersion');
+    }
+    if (!getCurrentAmountGenImpl) {
+        throwUnbound('getCurrentAmountGen');
+    }
+    if (!getCurrentMaxContextImpl) {
+        throwUnbound('getCurrentMaxContext');
+    }
+    if (!getSwipesImpl) {
+        throwUnbound('getSwipes');
+    }
+    if (!getRequestHeadersImpl) {
+        throwUnbound('getRequestHeaders');
+    }
+    if (!setSettingsImpl) {
+        throwUnbound('setSettings');
+    }
+    if (!eventSourceImpl) {
+        throwUnbound('eventSource');
+    }
+    if (!eventTypesImpl) {
+        throwUnbound('eventTypes');
     }
 
-    return saveSettingsImpl(...args);
+    if (!getSettingsReadyImpl()) {
+        console.warn('Settings not ready, scheduling another save');
+        saveSettingsDebouncedImpl();
+        return;
+    }
+
+    const MAX_RETRIES = 3;
+    if (isTempResponseLengthCustomizedImpl()) {
+        if (loopCounter < MAX_RETRIES) {
+            console.warn('Response length is currently being overridden, scheduling another save');
+            saveSettingsDebouncedImpl(++loopCounter);
+            return;
+        }
+        console.error('Response length is currently being overridden, but the save loop has reached the maximum number of retries');
+        restoreTempResponseLengthImpl(null);
+    }
+
+    const payload = {
+        firstRun: getFirstRunImpl(),
+        accountStorage: accountStorageImpl.getState(),
+        currentVersion: getCurrentVersionImpl(),
+        username: name1,
+        active_character: active_character,
+        active_group: active_group,
+        user_avatar: user_avatar,
+        amount_gen: getCurrentAmountGenImpl(),
+        max_context: getCurrentMaxContextImpl(),
+        main_api: main_api,
+        world_info_settings: getWorldInfoSettings(),
+        textgenerationwebui_settings: textgen_settings,
+        swipes: getSwipesImpl(),
+        horde_settings: horde_settings,
+        power_user: power_user,
+        extension_settings: extension_settings,
+        tags: tags,
+        tag_map: tag_map,
+        nai_settings: nai_settings,
+        kai_settings: kai_settings,
+        oai_settings: oai_settings,
+        background: background_settings,
+        proxies: proxies,
+        selected_proxy: selected_proxy,
+    };
+
+    try {
+        const result = await fetch('/api/settings/save', {
+            method: 'POST',
+            headers: getRequestHeadersImpl(),
+            body: JSON.stringify(payload),
+            cache: 'no-cache',
+        });
+
+        if (!result.ok) {
+            throw new Error(`Failed to save settings: ${result.statusText}`);
+        }
+
+        setSettingsImpl(payload);
+        await eventSourceImpl.emit(eventTypesImpl.SETTINGS_UPDATED);
+    } catch (error) {
+        console.error('Error saving settings:', error);
+        toastr.error(t`Check the server connection and reload the page to prevent data loss.`, t`Settings could not be saved`);
+    }
 }
 
 export function saveSettingsDebounced(...args) {

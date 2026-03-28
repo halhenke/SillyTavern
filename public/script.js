@@ -267,7 +267,7 @@ import { beginMessageEdit as beginMessageEditCore, bindMessageCore, cancelDelete
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
 import { bindSessionCore, doNewChat as doNewChatCore, handleDeleteChat as handleDeleteChatCore, initCharacterManagementDropdownBindings as initCharacterManagementDropdownBindingsCore, newAssistantChat as newAssistantChatCore, renameGroupOrCharacterChat as renameGroupOrCharacterChatCore, resetChatState as resetChatStateCore, selectRightMenuWithAnimation as selectRightMenuWithAnimationCore, select_rm_characters as selectRmCharactersCore, select_rm_create as selectRmCreateCore, select_rm_info as selectRmInfoCore, select_selected_character as selectSelectedCharacterCore, sendTextareaMessage as sendTextareaMessageCore, setExternalAbortController as setExternalAbortControllerCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes, updateRemoteChatName as updateRemoteChatNameCore } from './scripts/session-core.js';
-import { bindSettingsCore, changeMainAPI as changeMainAPICore, getSettings as getSettingsCore } from './scripts/settings-core.js';
+import { bindSettingsCore, changeMainAPI as changeMainAPICore, getSettings as getSettingsCore, saveSettings as saveSettingsCore } from './scripts/settings-core.js';
 import { activateSendButtons as activateSendButtonsCore, bindUiCore, deactivateSendButtons as deactivateSendButtonsCore, doDrawerOpenClick as doDrawerOpenClickCore, doNavbarIconClick as doNavbarIconClickCore, fixViewport as fixViewportCore, getSlideToggleOptions as getSlideToggleOptionsCore, hideStopButton as hideStopButtonCore, initEditTextareaAutoFit as initEditTextareaAutoFitCore, initExecutionControlBindings as initExecutionControlBindingsCore, initInlineDrawerBindings as initInlineDrawerBindingsCore, initOptionsMenu as initOptionsMenuCore, initRangeInputBindings as initRangeInputBindingsCore, initSendTextareaFocusRetention as initSendTextareaFocusRetentionCore, initStandaloneMode as initStandaloneModeCore, reloadMarkdownProcessor as reloadMarkdownProcessorCore, setAnimationDuration as setAnimationDurationCore, setSendButtonState as setSendButtonStateCore, showStopButton as showStopButtonCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
 import { accountStorage } from './scripts/util/AccountStorage.js';
 import { initWelcomeScreen, openPermanentAssistantChat, openPermanentAssistantCard, getPermanentAssistantAvatar } from './scripts/welcome-screen.js';
@@ -838,7 +838,6 @@ syncDefaultPrintTimeout(DEFAULT_PRINT_TIMEOUT);
 export const saveSettingsDebounced = debounce((loopCounter = 0) => saveSettings(loopCounter), DEFAULT_SAVE_EDIT_TIMEOUT);
 export const saveCharacterDebounced = debounce(() => $('#create_button').trigger('click'), DEFAULT_SAVE_EDIT_TIMEOUT);
 bindSettingsCore({
-    saveSettings,
     saveSettingsDebounced,
     saveMetadata,
     saveCharacterDebounced,
@@ -848,6 +847,11 @@ bindSettingsCore({
     getRequestHeaders,
     getCurrentAmountGen: () => amount_gen,
     getCurrentMaxContext: () => max_context,
+    getFirstRun: () => firstRun,
+    getSettingsReady: () => settingsReady,
+    getSwipes: () => swipes,
+    isTempResponseLengthCustomized: () => TempResponseLength.isCustomized(),
+    restoreTempResponseLength: (value) => TempResponseLength.restore(value),
     setSettings: (value) => {
         settings = value;
     },
@@ -3220,68 +3224,7 @@ export async function getSettings() {
 
 //MARK: saveSettings()
 export async function saveSettings(loopCounter = 0) {
-    if (!settingsReady) {
-        console.warn('Settings not ready, scheduling another save');
-        saveSettingsDebounced();
-        return;
-    }
-
-    const MAX_RETRIES = 3;
-    if (TempResponseLength.isCustomized()) {
-        if (loopCounter < MAX_RETRIES) {
-            console.warn('Response length is currently being overridden, scheduling another save');
-            saveSettingsDebounced(++loopCounter);
-            return;
-        }
-        console.error('Response length is currently being overridden, but the save loop has reached the maximum number of retries');
-        TempResponseLength.restore(null);
-    }
-
-    const payload = {
-        firstRun: firstRun,
-        accountStorage: accountStorage.getState(),
-        currentVersion: currentVersion,
-        username: name1,
-        active_character: active_character,
-        active_group: active_group,
-        user_avatar: user_avatar,
-        amount_gen: amount_gen,
-        max_context: max_context,
-        main_api: main_api,
-        world_info_settings: getWorldInfoSettings(),
-        textgenerationwebui_settings: textgen_settings,
-        swipes: swipes,
-        horde_settings: horde_settings,
-        power_user: power_user,
-        extension_settings: extension_settings,
-        tags: tags,
-        tag_map: tag_map,
-        nai_settings: nai_settings,
-        kai_settings: kai_settings,
-        oai_settings: oai_settings,
-        background: background_settings,
-        proxies: proxies,
-        selected_proxy: selected_proxy,
-    };
-
-    try {
-        const result = await fetch('/api/settings/save', {
-            method: 'POST',
-            headers: getRequestHeaders(),
-            body: JSON.stringify(payload),
-            cache: 'no-cache',
-        });
-
-        if (!result.ok) {
-            throw new Error(`Failed to save settings: ${result.statusText}`);
-        }
-
-        settings = payload;
-        await eventSource.emit(event_types.SETTINGS_UPDATED);
-    } catch (error) {
-        console.error('Error saving settings:', error);
-        toastr.error(t`Check the server connection and reload the page to prevent data loss.`, t`Settings could not be saved`);
-    }
+    return saveSettingsCore(loopCounter);
 }
 
 /**

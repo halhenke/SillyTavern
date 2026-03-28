@@ -3377,3 +3377,9 @@ This stayed relocation-first rather than rewriting the character list flow. The 
 ### 2026-03-28: Wave 70 - moved character card prompt field shaping into `character-core`
 
 The next adjacent move kept the same approach and moved `getCharacterCardFields()` into `public/scripts/character-core.js`. That logic already depends on character state, group-card overrides, and chat metadata, so leaving it in `script.js` was mostly historical. `script.js` now just forwards to the core-owned implementation.
+
+### 2026-03-28: Wave 71 - moved settings save orchestration into `settings-core`
+
+This wave moved `saveSettings()` out of `public/script.js` into `public/scripts/settings-core.js`. The function body stayed intact: the same readiness checks, temp-response-length retry loop, payload shape, and save endpoint behavior were preserved. The only structural change was adding a few extra bound getters for script-owned runtime state such as `firstRun`, `settingsReady`, `swipes`, and the temp response-length status hooks.
+
+This was a better fit than taking `firstLoadInit()` next because it reduces a large remaining function without re-entering the fragile startup/import-order surface. `script.js` now keeps a thin compatibility wrapper while `settings-core` owns the actual save flow.

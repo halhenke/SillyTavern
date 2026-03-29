@@ -60,9 +60,11 @@ let getInstructionPromptImpl = null;
 let getIsGroupGeneratingImpl = null;
 let getIsInstructEnabledImpl = null;
 let getIsKoboldStreamingUnsupportedImpl = null;
+let getKayraMaxContextTokensImpl = null;
 let getMinLengthImpl = null;
 let getNamesAsStopStringsImpl = null;
 let getOaiSendIfEmptyImpl = null;
+let getOpenAiMaxContextImpl = null;
 let getOpenAiMessagesCountImpl = null;
 let getOpenAiContinuePostfixImpl = null;
 let getPromptMetadataExtrasImpl = null;
@@ -87,7 +89,6 @@ let getWiAnchorBeforeImpl = null;
 let executeSlashCommandsOnChatInputImpl = null;
 let generateGroupWrapperImpl = null;
 let getSelectedGroupImpl = null;
-let getMaxContextSizeImpl = null;
 let hasPendingFileAttachmentImpl = null;
 let hideStopButtonImpl = null;
 let hideSwipeButtonsImpl = null;
@@ -153,7 +154,6 @@ let adjustHordeGenerationParamsImpl = null;
 let adjustNovelInstructionPromptImpl = null;
 let parseMesExamplesImpl = null;
 let parseAndSaveLogprobsImpl = null;
-let parseTokenCountsImpl = null;
 let playMessageSoundImpl = null;
 let prepareOpenAIMessagesImpl = null;
 let renderStoryStringImpl = null;
@@ -247,10 +247,11 @@ function throwUnbound(name) {
  *   getIsInstructEnabled: () => boolean,
  *   getIsKoboldStreamingUnsupported: () => boolean,
  *   getInstructStoppingSequences: () => string[],
- *   getMaxContextSize: () => number,
+ *   getKayraMaxContextTokens: () => number|undefined,
  *   getMinLength: () => number,
  *   getNamesAsStopStrings: () => boolean,
  *   getOaiSendIfEmpty: () => string,
+ *   getOpenAiMaxContext: () => number,
  *   getOpenAiMessagesCount: () => number,
  *   getPromptMetadataExtras: () => { authorsNoteString?: string, chatVectorsString?: string, dataBankVectorsString?: string, smartContextString?: string, summarizeString?: string },
  *   getSelectedPresetName: () => string,
@@ -407,10 +408,11 @@ export function bindGenerationCore(impl) {
     getIsKoboldStreamingUnsupportedImpl = impl?.getIsKoboldStreamingUnsupported ?? null;
     getInstructStoppingSequencesImpl = impl?.getInstructStoppingSequences ?? null;
     getInstructionPromptImpl = impl?.getInstructionPrompt ?? null;
-    getMaxContextSizeImpl = impl?.getMaxContextSize ?? null;
+    getKayraMaxContextTokensImpl = impl?.getKayraMaxContextTokens ?? null;
     getMinLengthImpl = impl?.getMinLength ?? null;
     getNamesAsStopStringsImpl = impl?.getNamesAsStopStrings ?? null;
     getOaiSendIfEmptyImpl = impl?.getOaiSendIfEmpty ?? null;
+    getOpenAiMaxContextImpl = impl?.getOpenAiMaxContext ?? null;
     getOpenAiContinuePostfixImpl = impl?.getOpenAiContinuePostfix ?? null;
     getOpenAiMessagesCountImpl = impl?.getOpenAiMessagesCount ?? null;
     getItemizedPromptsImpl = impl?.getItemizedPrompts ?? null;
@@ -465,7 +467,6 @@ export function bindGenerationCore(impl) {
     normalizeReasoningTextImpl = impl?.normalizeReasoningText ?? null;
     parseMesExamplesImpl = impl?.parseMesExamples ?? null;
     parseAndSaveLogprobsImpl = impl?.parseAndSaveLogprobs ?? null;
-    parseTokenCountsImpl = impl?.parseTokenCounts ?? null;
     pingServerImpl = impl?.pingServer ?? null;
     playMessageSoundImpl = impl?.playMessageSound ?? null;
     processImageAttachmentImpl = impl?.processImageAttachment ?? null;
@@ -583,9 +584,6 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
     }
     if (!getOpenAiContinuePostfixImpl) {
         throwUnbound('getOpenAiContinuePostfix');
-    }
-    if (!parseTokenCountsImpl) {
-        throwUnbound('parseTokenCounts');
     }
     if (!setSendButtonStateImpl) {
         throwUnbound('setSendButtonState');
@@ -893,7 +891,7 @@ export async function Generate(type, { automatic_trigger, force_name2, quiet_pro
     });
 
     if (openAiCounts) {
-        parseTokenCountsImpl(openAiCounts, thisPromptBits);
+        parseTokenCounts(openAiCounts, thisPromptBits);
     }
 
     if (main_api === 'openai' && !dryRun) {
@@ -1513,6 +1511,78 @@ export function getGeneratingApi() {
         default:
             return mainApi;
     }
+}
+
+export function getMaxContextSize(overrideResponseLength = null) {
+    if (typeof overrideResponseLength !== 'number' || overrideResponseLength <= 0 || Number.isNaN(overrideResponseLength)) {
+        overrideResponseLength = null;
+    }
+
+    let thisMaxContext = 1487;
+    if (main_api === 'kobold' || main_api === 'koboldhorde' || main_api === 'textgenerationwebui') {
+        thisMaxContext = max_context - (overrideResponseLength || amount_gen);
+    }
+    if (main_api === 'novel') {
+        if (!getNovelSettingsConfigImpl) {
+            throwUnbound('getNovelSettingsConfig');
+        }
+
+        thisMaxContext = Number(max_context);
+        const novelModel = getNovelSettingsConfigImpl()?.naiSettings?.model_novel ?? '';
+
+        if (novelModel.includes('clio')) {
+            thisMaxContext = Math.min(max_context, 8192);
+        }
+        if (novelModel.includes('kayra')) {
+            if (!getKayraMaxContextTokensImpl) {
+                throwUnbound('getKayraMaxContextTokens');
+            }
+
+            thisMaxContext = Math.min(max_context, 8192);
+            const subscriptionLimit = getKayraMaxContextTokensImpl();
+            if (typeof subscriptionLimit === 'number' && thisMaxContext > subscriptionLimit) {
+                thisMaxContext = subscriptionLimit;
+                console.log(`NovelAI subscription limit reached. Max context size is now ${thisMaxContext}`);
+            }
+        }
+        if (novelModel.includes('erato')) {
+            thisMaxContext = Math.min(max_context, 8192);
+            thisMaxContext -= 10;
+        }
+
+        thisMaxContext -= (overrideResponseLength || amount_gen);
+    }
+    if (main_api === 'openai') {
+        if (!getOpenAiMaxContextImpl) {
+            throwUnbound('getOpenAiMaxContext');
+        }
+        if (!getOpenAiMaxTokensImpl) {
+            throwUnbound('getOpenAiMaxTokens');
+        }
+
+        thisMaxContext = getOpenAiMaxContextImpl() - (overrideResponseLength || getOpenAiMaxTokensImpl());
+    }
+
+    return thisMaxContext;
+}
+
+export function parseTokenCounts(counts, thisPromptBits) {
+    const getSum = (...numbers) => numbers.map(x => Number(x)).filter(x => !Number.isNaN(x)).reduce((acc, val) => acc + val, 0);
+    const total = getSum(Object.values(counts));
+
+    thisPromptBits.push({
+        oaiStartTokens: (counts?.start + counts?.controlPrompts) || 0,
+        oaiPromptTokens: getSum(counts?.prompt, counts?.charDescription, counts?.charPersonality, counts?.scenario) || 0,
+        oaiBiasTokens: counts?.bias || 0,
+        oaiNudgeTokens: counts?.nudge || 0,
+        oaiJailbreakTokens: counts?.jailbreak || 0,
+        oaiImpersonateTokens: counts?.impersonate || 0,
+        oaiExamplesTokens: (counts?.dialogueExamples + counts?.examples) || 0,
+        oaiConversationTokens: (counts?.conversation + counts?.chatHistory) || 0,
+        oaiNsfwTokens: counts?.nsfw || 0,
+        oaiMainTokens: counts?.main || 0,
+        oaiTotalTokens: total,
+    });
 }
 
 export function getStoppingStrings(...args) {
@@ -2237,9 +2307,6 @@ export async function preparePromptAugmentationState({
 }
 
 export async function prepareGenerationContextWindow({ coreChat, dryRun, type }) {
-    if (!getMaxContextSizeImpl) {
-        throwUnbound('getMaxContextSize');
-    }
     if (!runGenerationInterceptorsImpl) {
         throwUnbound('runGenerationInterceptors');
     }
@@ -2259,7 +2326,7 @@ export async function prepareGenerationContextWindow({ coreChat, dryRun, type })
         throwUnbound('getTokenCountAsync');
     }
 
-    let thisMaxContext = getMaxContextSizeImpl();
+    let thisMaxContext = getMaxContextSize();
 
     if (!dryRun) {
         console.debug('Running extension interceptors');

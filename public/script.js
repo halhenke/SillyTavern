@@ -260,7 +260,7 @@ import { addOneMessage as addOneMessageCore, bindChatOperationsCore, cancelDebou
 import { importExternalContent as importExternalContentCore, importFromURL as importFromURLCore } from './scripts/content-import-core.js';
 import { addDebugFunctions as addDebugFunctionsCore, bindDebugCore } from './scripts/debug-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
-import { TempResponseLength, Generate as GenerateCore, StreamingProcessor as StreamingProcessorCore, bindGenerationCore, createRawPrompt as createRawPromptCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGenerateUrl as getGenerateUrlCore, getGeneratingApi as getGeneratingApiCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, sendGenerationRequest as sendGenerationRequestCore, sendStreamingRequest as sendStreamingRequestCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
+import { TempResponseLength, Generate as GenerateCore, StreamingProcessor as StreamingProcessorCore, bindGenerationCore, createRawPrompt as createRawPromptCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGenerateUrl as getGenerateUrlCore, getGeneratingApi as getGeneratingApiCore, getMaxContextSize as getMaxContextSizeCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, sendGenerationRequest as sendGenerationRequestCore, sendStreamingRequest as sendStreamingRequestCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
 import { beginMessageEdit as beginMessageEditCore, bindMessageCore, cancelDeleteMode as cancelDeleteModeCore, cancelMessageEdit as cancelMessageEditCore, cleanUpMessage as cleanUpMessageCore, closeMessageEditor as closeMessageEditorCore, confirmDeleteMode as confirmDeleteModeCore, copyEditedMessage as copyEditedMessageCore, deleteEditedMessage as deleteEditedMessageCore, deleteSwipe as deleteSwipeCore, editedMessageId as editedMessageIdCore, getFirstDisplayedMessageId as getFirstDisplayedMessageIdCore, hideSwipeButtons as hideSwipeButtonsCore, initMessageCopyBinding as initMessageCopyBindingCore, isDeleteMode as isDeleteModeCore, messageEditAuto as messageEditAutoCore, messageEditDone as messageEditDoneCore, messageFormatting as messageFormattingCore, moveEditedMessageDown as moveEditedMessageDownCore, moveEditedMessageUp as moveEditedMessageUpCore, openMessageDelete as openMessageDeleteCore, selectMessageDeleteTarget as selectMessageDeleteTargetCore, setEditedMessageId as setEditedMessageIdCore, showSwipeButtons as showSwipeButtonsCore, swipe_left as swipeLeftCore, swipe_right as swipeRightCore, syncMesToSwipe as syncMesToSwipeCore, syncSwipeToMes as syncSwipeToMesCore, updateEditArrowClasses as updateEditArrowClassesCore, updateMessageBlock as updateMessageBlockCore, updateViewMessageIds as updateViewMessageIdsCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
@@ -627,6 +627,8 @@ bindGenerationCore({
         novelaiSettings: novelai_settings,
         novelaiSettingNames: novelai_setting_names,
     }),
+    getKayraMaxContextTokens,
+    getOpenAiMaxContext: () => oai_settings.openai_max_context,
     getOpenAiMaxTokens: () => oai_settings.openai_max_tokens,
     getOpenAiContinuePostfix: () => oai_settings.continue_postfix,
     getOpenAiMessagesCount: () => openai_messages_count,
@@ -659,7 +661,6 @@ bindGenerationCore({
     }),
     getTextareaText: () => String($('#send_textarea').val()),
     getUserAlignmentMessage: () => power_user.instruct.user_alignment_message,
-    getMaxContextSize,
     getTokenCount,
     getTokenCountAsync,
     getTokenPadding: () => power_user.token_padding,
@@ -695,7 +696,6 @@ bindGenerationCore({
     normalizeReasoningText: (reasoning) => getRegexedString(reasoning, regex_placement.REASONING),
     parseMesExamples,
     parseAndSaveLogprobs,
-    parseTokenCounts,
     pingServer: pingServerCore,
     playMessageSound,
     processImageAttachment,
@@ -2287,66 +2287,7 @@ export async function sendMessageAsUser(messageText, messageBias, insertAt = nul
  * @returns {number} Maximum usable context size.
  */
 export function getMaxContextSize(overrideResponseLength = null) {
-    if (typeof overrideResponseLength !== 'number' || overrideResponseLength <= 0 || isNaN(overrideResponseLength)) {
-        overrideResponseLength = null;
-    }
-
-    let this_max_context = 1487;
-    if (main_api == 'kobold' || main_api == 'koboldhorde' || main_api == 'textgenerationwebui') {
-        this_max_context = (max_context - (overrideResponseLength || amount_gen));
-    }
-    if (main_api == 'novel') {
-        this_max_context = Number(max_context);
-        if (nai_settings.model_novel.includes('clio')) {
-            this_max_context = Math.min(max_context, 8192);
-        }
-        if (nai_settings.model_novel.includes('kayra')) {
-            this_max_context = Math.min(max_context, 8192);
-
-            const subscriptionLimit = getKayraMaxContextTokens();
-            if (typeof subscriptionLimit === 'number' && this_max_context > subscriptionLimit) {
-                this_max_context = subscriptionLimit;
-                console.log(`NovelAI subscription limit reached. Max context size is now ${this_max_context}`);
-            }
-        }
-        if (nai_settings.model_novel.includes('erato')) {
-            // subscriber limits coming soon
-            this_max_context = Math.min(max_context, 8192);
-
-            // Added special tokens and whatnot
-            this_max_context -= 10;
-        }
-
-        this_max_context = this_max_context - (overrideResponseLength || amount_gen);
-    }
-    if (main_api == 'openai') {
-        this_max_context = oai_settings.openai_max_context - (overrideResponseLength || oai_settings.openai_max_tokens);
-    }
-    return this_max_context;
-}
-
-function parseTokenCounts(counts, thisPromptBits) {
-    /**
-     * @param {any[]} numbers
-     */
-    function getSum(...numbers) {
-        return numbers.map(x => Number(x)).filter(x => !Number.isNaN(x)).reduce((acc, val) => acc + val, 0);
-    }
-    const total = getSum(Object.values(counts));
-
-    thisPromptBits.push({
-        oaiStartTokens: (counts?.start + counts?.controlPrompts) || 0,
-        oaiPromptTokens: getSum(counts?.prompt, counts?.charDescription, counts?.charPersonality, counts?.scenario) || 0,
-        oaiBiasTokens: counts?.bias || 0,
-        oaiNudgeTokens: counts?.nudge || 0,
-        oaiJailbreakTokens: counts?.jailbreak || 0,
-        oaiImpersonateTokens: counts?.impersonate || 0,
-        oaiExamplesTokens: (counts?.dialogueExamples + counts?.examples) || 0,
-        oaiConversationTokens: (counts?.conversation + counts?.chatHistory) || 0,
-        oaiNsfwTokens: counts?.nsfw || 0,
-        oaiMainTokens: counts?.main || 0,
-        oaiTotalTokens: total,
-    });
+    return getMaxContextSizeCore(overrideResponseLength);
 }
 
 function addChatsPreamble(mesSendString) {

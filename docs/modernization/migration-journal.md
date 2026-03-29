@@ -3419,3 +3419,9 @@ That let the monolith drop its local `chatSaveTimeout` state while keeping compa
 This batch kept working on user-facing chat ownership rather than parser/bootstrap code. `sendMessageAsUser()` now lives in `public/scripts/chat-operations-core.js`, which already owns chat state, rendering, persistence, and message events; the only remaining bridge is `populateFileAttachment(...)`, which is still injected to avoid creating a cycle back through `chats.js`.
 
 In parallel, `setUserName()` moved into `public/scripts/chat-core.js`. The behavior stayed the same, but the core now receives a few narrow bindings for the remaining UI/runtime details: default-name fallback, persona-notification gating, persona-panel visibility, and debounced settings save. `script.js` keeps a thin wrapper so its local `name1` mirror stays synchronized.
+
+### 2026-03-29: Wave 78 - collapsed the remaining `getMaxContextSize` / token-count generation seam
+
+This batch cleaned up one of the last obvious “generation-core already owns this, but `script.js` still implements it” seams. `getMaxContextSize()` now lives in `public/scripts/generation-core.js`, using narrow bindings for the OpenAI context limit and the Kayra subscription cap while continuing to rely on generation-core’s synced `amount_gen`, `max_context`, and API state. I also moved `parseTokenCounts()` into the same module, since `Generate()` was already calling it there through a transitional binding.
+
+The result is still relocation-first rather than a redesign: `script.js` now keeps only the `getMaxContextSize()` wrapper, the transitional `parseTokenCounts` binding is gone, and generation context sizing/count parsing is owned by the same module that consumes both behaviors.

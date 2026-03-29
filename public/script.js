@@ -255,8 +255,8 @@ import { bindAppStateCore, setMenuType as setMenuTypeCore, syncDefaultPrintTimeo
 import { getClientVersion as getClientVersionCore, syncClientVersion, syncConnectApiMap, syncMainApi, syncNaiSettings } from './scripts/api-core.js';
 import { bindBackendStatusCore, cancelStatusCheck as cancelStatusCheckCore, displayOnlineStatus as displayOnlineStatusCore, resultCheckStatus as resultCheckStatusCore, setAbortStatusCheck, setOnlineStatus as setOnlineStatusCore, startStatusLoading as startStatusLoadingCore, stopStatusLoading as stopStatusLoadingCore } from './scripts/backend-status-core.js';
 import { bindCharacterCore, buildAvatarList as buildAvatarListCore, characterToEntity as characterToEntityCore, closeAdvancedCharacterPopup as closeAdvancedCharacterPopupCore, createOrEditCharacter as createOrEditCharacterCore, crop_data as characterCropData, deleteCharacter as deleteCharacterCore, doCharListDisplaySwitch as doCharListDisplaySwitchCore, duplicateCharacter as duplicateCharacterCore, getCharacterCardFields as getCharacterCardFieldsCore, getCharacters as getCharactersCore, getCharacterSource as getCharacterSourceCore, getEntitiesList as getEntitiesListCore, getOneCharacter as getOneCharacterCore, groupToEntity as groupToEntityCore, importCharacter as importCharacterCore, importCharactersTags as importCharactersTagsCore, initCharacterDeleteBinding as initCharacterDeleteBindingCore, initCharacterEditorBindings as initCharacterEditorBindingsCore, initCharacterImportExportBindings as initCharacterImportExportBindingsCore, initCharacterPanelBindings as initCharacterPanelBindingsCore, initCharacterSearch as initCharacterSearchCore, openAlternateGreetings as openAlternateGreetingsCore, openCharacterWorldPopup as openCharacterWorldPopupCore, printCharacters as printCharactersCore, processDroppedFiles as processDroppedFilesCore, read_avatar_load as readAvatarLoadCore, renameCharacter as characterCoreRename, selectImportedChar as selectImportedCharCore, syncCharacterGroupOverlay, syncCharacters, syncCreateSave as syncCharacterCreateSave, syncCropData, syncDepthPromptDepthDefault as syncCharacterDepthPromptDepthDefault, syncDepthPromptRoleDefault as syncCharacterDepthPromptRoleDefault, syncPrintCharactersDebounced, syncTalkativenessDefault as syncCharacterTalkativenessDefault, tagToEntity as tagToEntityCore, toggleAdvancedCharacterPopup as toggleAdvancedCharacterPopupCore, unshallowCharacter as unshallowCharacterCore } from './scripts/character-core.js';
-import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
-import { addOneMessage as addOneMessageCore, bindChatOperationsCore, cancelDebouncedChatSave as cancelDebouncedChatSaveCore, clearChat as clearChatCore, delChat as delChatCore, deleteCharacterChatByName as deleteCharacterChatByNameCore, displayPastChats as displayPastChatsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, getCurrentChatDetails as getCurrentChatDetailsCore, getFirstMessage as getFirstMessageCore, getPastCharacterChats as getPastCharacterChatsCore, importCharacterChat as importCharacterChatCore, initChatImportBindings as initChatImportBindingsCore, initChatManagementBindings as initChatManagementBindingsCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, replaceCurrentChat as replaceCurrentChatCore, saveChat as saveChatCore, saveChatConditional as saveChatConditionalCore, saveChatDebounced as saveChatDebouncedCore, saveMetadata as saveMetadataCore, saveReply as saveReplyCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
+import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, setUserName as setUserNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
+import { addOneMessage as addOneMessageCore, bindChatOperationsCore, cancelDebouncedChatSave as cancelDebouncedChatSaveCore, clearChat as clearChatCore, delChat as delChatCore, deleteCharacterChatByName as deleteCharacterChatByNameCore, displayPastChats as displayPastChatsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, getCurrentChatDetails as getCurrentChatDetailsCore, getFirstMessage as getFirstMessageCore, getPastCharacterChats as getPastCharacterChatsCore, importCharacterChat as importCharacterChatCore, initChatImportBindings as initChatImportBindingsCore, initChatManagementBindings as initChatManagementBindingsCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, replaceCurrentChat as replaceCurrentChatCore, saveChat as saveChatCore, saveChatConditional as saveChatConditionalCore, saveChatDebounced as saveChatDebouncedCore, saveMetadata as saveMetadataCore, saveReply as saveReplyCore, sendMessageAsUser as sendMessageAsUserCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { importExternalContent as importExternalContentCore, importFromURL as importFromURLCore } from './scripts/content-import-core.js';
 import { addDebugFunctions as addDebugFunctionsCore, bindDebugCore } from './scripts/debug-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
@@ -493,8 +493,11 @@ bindCharacterCore({
     select_rm_info,
 });
 bindChatCore({
+    getDefaultUserName: () => default_user_name,
+    getPersonaNotificationsEnabled: () => power_user.persona_show_notifications,
     getUserAvatar,
-    setUserName,
+    isPersonaPanelOpen,
+    saveSettingsDebounced: (...args) => saveSettingsDebounced(...args),
 });
 bindSessionCore({
     cancelTtsPlay,
@@ -780,6 +783,7 @@ bindChatOperationsCore({
     isDeleteMode: () => isDeleteModeCore,
     loadItemizedPrompts,
     messageFormatting,
+    populateFileAttachment,
     preserveNeutralChat,
     processDroppedFiles,
     renameChat,
@@ -2274,52 +2278,7 @@ export function removeMacros(str) {
  * @returns {Promise<any>} A promise that resolves to the message when it is inserted.
  */
 export async function sendMessageAsUser(messageText, messageBias, insertAt = null, compact = false, name = name1, avatar = user_avatar) {
-    messageText = getRegexedString(messageText, regex_placement.USER_INPUT);
-
-    const message = {
-        name: name,
-        is_user: true,
-        is_system: false,
-        send_date: getMessageTimeStamp(),
-        mes: substituteParams(messageText),
-        extra: {
-            isSmallSys: compact,
-        },
-    };
-
-    if (power_user.message_token_count_enabled) {
-        message.extra.token_count = await getTokenCountAsync(message.mes, 0);
-    }
-
-    // Lock user avatar to a persona.
-    if (avatar in power_user.personas) {
-        message.force_avatar = getThumbnailUrl('persona', avatar);
-    }
-
-    if (messageBias) {
-        message.extra.bias = messageBias;
-        message.mes = removeMacros(message.mes);
-    }
-
-    await populateFileAttachment(message);
-    statMesProcess(message, 'user', characters, this_chid, '');
-
-    if (typeof insertAt === 'number' && insertAt >= 0 && insertAt <= chat.length) {
-        chat.splice(insertAt, 0, message);
-        await saveChatConditional();
-        await eventSource.emit(event_types.MESSAGE_SENT, insertAt);
-        await reloadCurrentChat();
-        await eventSource.emit(event_types.USER_MESSAGE_RENDERED, insertAt);
-    } else {
-        chat.push(message);
-        const chat_id = (chat.length - 1);
-        await eventSource.emit(event_types.MESSAGE_SENT, chat_id);
-        addOneMessage(message);
-        await eventSource.emit(event_types.USER_MESSAGE_RENDERED, chat_id);
-        await saveChatConditional();
-    }
-
-    return message;
+    return sendMessageAsUserCore(messageText, messageBias, insertAt, compact, name, avatar);
 }
 
 /**
@@ -2995,16 +2954,10 @@ export function changeMainAPI() {
 }
 
 export function setUserName(value, { toastPersonaNameChange = true } = {}) {
-    name1 = value;
-    if (name1 === undefined || name1 == '')
-        name1 = default_user_name;
+    const result = setUserNameCore(value, { toastPersonaNameChange });
+    name1 = result;
     syncName1(name1);
-    console.log(`User name changed to ${name1}`);
-    $('#your_name').text(name1);
-    if (toastPersonaNameChange && power_user.persona_show_notifications && !isPersonaPanelOpen()) {
-        toastr.success(t`Your messages will now be sent as ${name1}`, t`Persona Changed`);
-    }
-    saveSettingsDebounced();
+    return result;
 }
 
 async function doOnboarding(avatarId) {

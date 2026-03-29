@@ -51,7 +51,6 @@ let resetExtensionPromptsImpl = null;
 let resetItemizedPromptsImpl = null;
 let saveCharacterDebouncedImpl = null;
 let saveItemizedPromptsImpl = null;
-let sendMessageAsUserImpl = null;
 let setChatMetadataImpl = null;
 let setIsChatSavingImpl = null;
 let selectSelectedCharacterImpl = null;
@@ -64,6 +63,7 @@ let updateRemoteChatNameImpl = null;
 let updateBookmarkDisplayImpl = null;
 let getItemizedPromptsImpl = null;
 let messageFormattingImpl = null;
+let populateFileAttachmentImpl = null;
 let addCopyToCodeBlocksImpl = null;
 let scrollChatToBottomImpl = null;
 let applyStylePinsImpl = null;
@@ -110,6 +110,7 @@ function throwUnbound(name) {
    *   hideSwipeButtons: (...args: any[]) => any,
   *   isDeleteMode: () => boolean,
  *   messageFormatting: (...args: any[]) => string,
+ *   populateFileAttachment: (...args: any[]) => Promise<any>,
  *   preserveNeutralChat: (...args: any[]) => any,
  *   processDroppedFiles: (...args: any[]) => Promise<any>,
   *   renameChat: (...args: any[]) => Promise<any>,
@@ -121,7 +122,6 @@ function throwUnbound(name) {
   *   loadItemizedPrompts: (...args: any[]) => Promise<any>,
   *   saveCharacterDebounced: (...args: any[]) => any,
   *   saveItemizedPrompts: (...args: any[]) => Promise<any>,
-  *   sendMessageAsUser: (...args: any[]) => Promise<any>,
   *   setChatMetadata: (value: any) => any,
   *   setIsChatSaving: (value: boolean) => any,
   *   select_selected_character: (...args: any[]) => Promise<any>,
@@ -165,6 +165,7 @@ export function bindChatOperationsCore(impl) {
     hideSwipeButtonsImpl = impl?.hideSwipeButtons ?? null;
     isDeleteModeImpl = impl?.isDeleteMode ?? null;
     messageFormattingImpl = impl?.messageFormatting ?? null;
+    populateFileAttachmentImpl = impl?.populateFileAttachment ?? null;
     preserveNeutralChatImpl = impl?.preserveNeutralChat ?? null;
     processDroppedFilesImpl = impl?.processDroppedFiles ?? null;
     renameChatImpl = impl?.renameChat ?? null;
@@ -176,7 +177,6 @@ export function bindChatOperationsCore(impl) {
     saveCharacterDebouncedImpl = impl?.saveCharacterDebounced ?? null;
     saveItemizedPromptsImpl = impl?.saveItemizedPrompts ?? null;
     scrollChatToBottomImpl = impl?.scrollChatToBottom ?? null;
-    sendMessageAsUserImpl = impl?.sendMessageAsUser ?? null;
     setChatMetadataImpl = impl?.setChatMetadata ?? null;
     setIsChatSavingImpl = impl?.setIsChatSaving ?? null;
     selectSelectedCharacterImpl = impl?.select_selected_character ?? null;
@@ -651,8 +651,57 @@ export function saveItemizedPrompts(...args) {
 }
 
 export function sendMessageAsUser(...args) {
-    if (!sendMessageAsUserImpl) throwUnbound('sendMessageAsUser');
-    return sendMessageAsUserImpl(...args);
+    return sendMessageAsUserInternal(...args);
+}
+
+async function sendMessageAsUserInternal(messageText, messageBias, insertAt = null, compact = false, name = name1, avatar = user_avatar) {
+    if (!populateFileAttachmentImpl) throwUnbound('populateFileAttachment');
+
+    messageText = getRegexedString(messageText, regex_placement.USER_INPUT);
+
+    const message = {
+        name,
+        is_user: true,
+        is_system: false,
+        send_date: getMessageTimeStamp(),
+        mes: substituteParams(messageText),
+        extra: {
+            isSmallSys: compact,
+        },
+    };
+
+    if (power_user.message_token_count_enabled) {
+        message.extra.token_count = await getTokenCountAsync(message.mes, 0);
+    }
+
+    if (avatar in power_user.personas) {
+        message.force_avatar = getThumbnailUrl('persona', avatar);
+    }
+
+    if (messageBias) {
+        message.extra.bias = messageBias;
+        message.mes = removeMacros(message.mes);
+    }
+
+    await populateFileAttachmentImpl(message);
+    statMesProcess(message, 'user', characters, this_chid, '');
+
+    if (typeof insertAt === 'number' && insertAt >= 0 && insertAt <= chat.length) {
+        chat.splice(insertAt, 0, message);
+        await saveChatConditional();
+        await eventSource.emit(event_types.MESSAGE_SENT, insertAt);
+        await reloadCurrentChat();
+        await eventSource.emit(event_types.USER_MESSAGE_RENDERED, insertAt);
+    } else {
+        chat.push(message);
+        const chatId = chat.length - 1;
+        await eventSource.emit(event_types.MESSAGE_SENT, chatId);
+        addOneMessage(message);
+        await eventSource.emit(event_types.USER_MESSAGE_RENDERED, chatId);
+        await saveChatConditional();
+    }
+
+    return message;
 }
 
 function saveImageToMessage(img, mes) {

@@ -1,8 +1,12 @@
 import { characters } from './character-core.js';
 import { groups, selected_group } from './group-chats.js';
+import { t } from './i18n.js';
 
 let getUserAvatarImpl = null;
-let setUserNameImpl = null;
+let getDefaultUserNameImpl = null;
+let getPersonaNotificationsEnabledImpl = null;
+let isPersonaPanelOpenImpl = null;
+let saveSettingsDebouncedImpl = null;
 
 export let chat_metadata = {};
 export let comment_avatar = '';
@@ -20,13 +24,19 @@ function throwUnbound(name) {
 /**
  * Binds legacy chat implementations to standalone wrappers.
  * @param {{
+ *   getDefaultUserName: () => string,
+ *   getPersonaNotificationsEnabled: () => boolean,
  *   getUserAvatar: (...args: any[]) => string,
- *   setUserName: (...args: any[]) => any,
+ *   isPersonaPanelOpen: () => boolean,
+ *   saveSettingsDebounced: (...args: any[]) => any,
  * }} impl Implementations to bind
  */
 export function bindChatCore(impl) {
+    getDefaultUserNameImpl = impl?.getDefaultUserName ?? null;
+    getPersonaNotificationsEnabledImpl = impl?.getPersonaNotificationsEnabled ?? null;
     getUserAvatarImpl = impl?.getUserAvatar ?? null;
-    setUserNameImpl = impl?.setUserName ?? null;
+    isPersonaPanelOpenImpl = impl?.isPersonaPanelOpen ?? null;
+    saveSettingsDebouncedImpl = impl?.saveSettingsDebounced ?? null;
 }
 
 export function syncChatMetadata(value) {
@@ -71,11 +81,37 @@ export function getCurrentChatId() {
 }
 
 export function setUserName(...args) {
-    if (!setUserNameImpl) {
-        throwUnbound('setUserName');
+    return setUserNameInternal(...args);
+}
+
+function setUserNameInternal(value, { toastPersonaNameChange = true } = {}) {
+    if (!getDefaultUserNameImpl) {
+        throwUnbound('getDefaultUserName');
+    }
+    if (!getPersonaNotificationsEnabledImpl) {
+        throwUnbound('getPersonaNotificationsEnabled');
+    }
+    if (!isPersonaPanelOpenImpl) {
+        throwUnbound('isPersonaPanelOpen');
+    }
+    if (!saveSettingsDebouncedImpl) {
+        throwUnbound('saveSettingsDebounced');
     }
 
-    return setUserNameImpl(...args);
+    name1 = value;
+    if (name1 === undefined || name1 === '') {
+        name1 = getDefaultUserNameImpl();
+    }
+
+    console.log(`User name changed to ${name1}`);
+    $('#your_name').text(name1);
+
+    if (toastPersonaNameChange && getPersonaNotificationsEnabledImpl() && !isPersonaPanelOpenImpl()) {
+        toastr.success(t`Your messages will now be sent as ${name1}`, t`Persona Changed`);
+    }
+
+    saveSettingsDebouncedImpl();
+    return name1;
 }
 
 export function getUserAvatar(...args) {

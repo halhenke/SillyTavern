@@ -3413,3 +3413,9 @@ The move stayed intentionally narrow: no behavior change, no new startup wiring,
 This batch finished the adjacent save-timing seam instead of leaving the timeout state stranded in `public/script.js`. `cancelDebouncedChatSave()` and `saveChatDebounced()` now live in `public/scripts/chat-operations-core.js`, which already owns the actual chat-save path and the clear/reset operations that need to cancel pending saves.
 
 That let the monolith drop its local `chatSaveTimeout` state while keeping compatibility wrappers for the runtime/message adapters. The move also simplified `chat-operations-core` itself by replacing its old `cancelDebouncedChatSave` binding hook with direct core-owned behavior.
+
+### 2026-03-29: Wave 77 - moved user message insertion and username update out of `script.js`
+
+This batch kept working on user-facing chat ownership rather than parser/bootstrap code. `sendMessageAsUser()` now lives in `public/scripts/chat-operations-core.js`, which already owns chat state, rendering, persistence, and message events; the only remaining bridge is `populateFileAttachment(...)`, which is still injected to avoid creating a cycle back through `chats.js`.
+
+In parallel, `setUserName()` moved into `public/scripts/chat-core.js`. The behavior stayed the same, but the core now receives a few narrow bindings for the remaining UI/runtime details: default-name fallback, persona-notification gating, persona-panel visibility, and debounced settings save. `script.js` keeps a thin wrapper so its local `name1` mirror stays synchronized.

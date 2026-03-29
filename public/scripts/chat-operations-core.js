@@ -13,7 +13,7 @@ import { power_user } from './power-user.js';
 import { parseReasoningInSwipes } from './reasoning.js';
 import { statMesProcess } from './stats.js';
 import { getTokenCountAsync, saveTokenCache } from './tokenizers.js';
-import { debounce, delay, download, humanFileSize, isDataURL, saveBase64AsFile, sortMoments, timestampToMoment, waitUntilCondition, uuidv4 } from './utils.js';
+import { debounce, delay, download, humanFileSize, isDataURL, isElementInViewport, saveBase64AsFile, sortMoments, timestampToMoment, waitUntilCondition, uuidv4 } from './utils.js';
 import { humanizedDateTime } from './RossAscends-mods.js';
 import { renderTemplateAsync } from './templates.js';
 
@@ -57,7 +57,6 @@ let setChatMetadataImpl = null;
 let setIsChatSavingImpl = null;
 let selectSelectedCharacterImpl = null;
 let showSwipeButtonsImpl = null;
-let showMoreMessagesImpl = null;
 let shouldShowTimestampModelIconImpl = null;
 let swipeLeftImpl = null;
 let swipeRightImpl = null;
@@ -128,7 +127,6 @@ function throwUnbound(name) {
   *   setIsChatSaving: (value: boolean) => any,
   *   select_selected_character: (...args: any[]) => Promise<any>,
   *   showSwipeButtons: (...args: any[]) => any,
-  *   showMoreMessages: (...args: any[]) => Promise<any>,
  *   shouldShowTimestampModelIcon: () => boolean,
   *   swipe_left: (...args: any[]) => Promise<any>,
   *   swipe_right: (...args: any[]) => Promise<any>,
@@ -185,7 +183,6 @@ export function bindChatOperationsCore(impl) {
     setIsChatSavingImpl = impl?.setIsChatSaving ?? null;
     selectSelectedCharacterImpl = impl?.select_selected_character ?? null;
     showSwipeButtonsImpl = impl?.showSwipeButtons ?? null;
-    showMoreMessagesImpl = impl?.showMoreMessages ?? null;
     shouldShowTimestampModelIconImpl = impl?.shouldShowTimestampModelIcon ?? null;
     swipeLeftImpl = impl?.swipe_left ?? null;
     swipeRightImpl = impl?.swipe_right ?? null;
@@ -1519,9 +1516,40 @@ async function saveChatConditionalInternal() {
     }
 }
 
-export function showMoreMessages(...args) {
-    if (!showMoreMessagesImpl) throwUnbound('showMoreMessages');
-    return showMoreMessagesImpl(...args);
+export async function showMoreMessages(messagesToLoad = null) {
+    if (!getChatTruncationImpl) throwUnbound('getChatTruncation');
+    if (!applyStylePinsImpl) throwUnbound('applyStylePins');
+
+    const firstDisplayedMesId = $('#chat').children('.mes').first().attr('mesid');
+    let messageId = Number(firstDisplayedMesId);
+    let count = messagesToLoad || getChatTruncationImpl() || Number.MAX_SAFE_INTEGER;
+
+    if (Number.isNaN(messageId)) {
+        messageId = chat.length;
+    }
+
+    console.debug('Inserting messages before', messageId, 'count', count, 'chat length', chat.length);
+    const prevHeight = $('#chat').prop('scrollHeight');
+    const isButtonInView = isElementInViewport($('#show_more_messages')[0]);
+
+    while (messageId > 0 && count > 0) {
+        const newMessageId = messageId - 1;
+        addOneMessage(chat[newMessageId], { insertBefore: messageId >= chat.length ? null : messageId, scroll: false, forceId: newMessageId });
+        count--;
+        messageId--;
+    }
+
+    if (messageId === 0) {
+        $('#show_more_messages').remove();
+    }
+
+    if (isButtonInView) {
+        const newHeight = $('#chat').prop('scrollHeight');
+        $('#chat').scrollTop(newHeight - prevHeight);
+    }
+
+    applyStylePinsImpl();
+    await eventSource.emit(event_types.MORE_MESSAGES_LOADED);
 }
 
 export function showSwipeButtons(...args) {

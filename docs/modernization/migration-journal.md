@@ -3401,3 +3401,9 @@ To preserve the old behavior, `character-core` now receives the selected-button 
 This batch kept to the relocation-first approach and peeled out a few remaining self-contained behaviors without touching the startup/bootstrap path. `saveMetadata()` now lives in `public/scripts/chat-operations-core.js`, which is the right ownership point because it already owns chat-save orchestration and metadata state. In parallel, `duplicateCharacter()` and `unshallowCharacter()` moved into `public/scripts/character-core.js`, where the surrounding character fetch/list state and network helpers already live.
 
 `script.js` stays as a thin compatibility layer for all three paths, so runtime adapters and existing callers still hit the same public names. Static verification was `node --check` via `mise` on `public/script.js`, `public/scripts/chat-operations-core.js`, and `public/scripts/character-core.js`.
+
+### 2026-03-29: Wave 75 - moved `showMoreMessages()` into `chat-operations-core`
+
+This follow-up kept the same relocation style and moved the chat-history expansion flow out of `public/script.js`. `showMoreMessages()` now lives in `public/scripts/chat-operations-core.js`, alongside the message rendering helpers it already depends on (`addOneMessage(...)`, style-pin refresh, chat state, and the `MORE_MESSAGES_LOADED` event).
+
+The move stayed intentionally narrow: no behavior change, no new startup wiring, and `script.js` remains a thin wrapper so existing callers still hit the same export surface.

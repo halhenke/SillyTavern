@@ -19,7 +19,6 @@ import { renderTemplateAsync } from './templates.js';
 
 let activateSendButtonsImpl = null;
 let appendMediaToMessageImpl = null;
-let cancelDebouncedChatSaveImpl = null;
 let cancelDebouncedMetadataSaveImpl = null;
 let cancelDeleteModeImpl = null;
 let closeMessageEditorImpl = null;
@@ -76,6 +75,7 @@ export let create_save = {};
 export let displayVersion = 'SillyTavern';
 export let systemUserName = 'SillyTavern System';
 export let system_avatar = '';
+let chatSaveTimeout = null;
 
 function throwUnbound(name) {
     throw new Error(`[chat-operations-core] ${name} was called before bindings were initialized`);
@@ -86,7 +86,6 @@ function throwUnbound(name) {
  * @param {{
  *   activateSendButtons: (...args: any[]) => any,
  *   appendMediaToMessage: (...args: any[]) => any,
- *   cancelDebouncedChatSave: (...args: any[]) => any,
  *   cancelDebouncedMetadataSave: (...args: any[]) => any,
  *   cancelDeleteMode: (...args: any[]) => any,
  *   closeMessageEditor: (...args: any[]) => any,
@@ -142,7 +141,6 @@ function throwUnbound(name) {
 export function bindChatOperationsCore(impl) {
     activateSendButtonsImpl = impl?.activateSendButtons ?? null;
     appendMediaToMessageImpl = impl?.appendMediaToMessage ?? null;
-    cancelDebouncedChatSaveImpl = impl?.cancelDebouncedChatSave ?? null;
     cancelDebouncedMetadataSaveImpl = impl?.cancelDebouncedMetadataSave ?? null;
     cancelDeleteModeImpl = impl?.cancelDeleteMode ?? null;
     closeMessageEditorImpl = impl?.closeMessageEditor ?? null;
@@ -334,8 +332,15 @@ export function appendMediaToMessage(...args) {
     return appendMediaToMessageImpl(...args);
 }
 
+export function cancelDebouncedChatSave() {
+    if (chatSaveTimeout) {
+        console.debug('Debounced chat save cancelled');
+        clearTimeout(chatSaveTimeout);
+        chatSaveTimeout = null;
+    }
+}
+
 export async function clearChat() {
-    if (!cancelDebouncedChatSaveImpl) throwUnbound('cancelDebouncedChatSave');
     if (!cancelDebouncedMetadataSaveImpl) throwUnbound('cancelDebouncedMetadataSave');
     if (!closeMessageEditorImpl) throwUnbound('closeMessageEditor');
     if (!resetExtensionPromptsImpl) throwUnbound('resetExtensionPrompts');
@@ -343,7 +348,7 @@ export async function clearChat() {
     if (!cancelDeleteModeImpl) throwUnbound('cancelDeleteMode');
     if (!resetItemizedPromptsImpl) throwUnbound('resetItemizedPrompts');
 
-    cancelDebouncedChatSaveImpl();
+    cancelDebouncedChatSave();
     cancelDebouncedMetadataSaveImpl();
     closeMessageEditorImpl();
     resetExtensionPromptsImpl();
@@ -1487,7 +1492,6 @@ export async function reloadCurrentChat() {
 }
 
 async function saveChatConditionalInternal() {
-    if (!cancelDebouncedChatSaveImpl) throwUnbound('cancelDebouncedChatSave');
     if (!setIsChatSavingImpl) throwUnbound('setIsChatSaving');
 
     try {
@@ -1498,7 +1502,7 @@ async function saveChatConditionalInternal() {
     }
 
     try {
-        cancelDebouncedChatSaveImpl();
+        cancelDebouncedChatSave();
         setIsChatSavingImpl(true);
 
         if (selected_group) {
@@ -1571,6 +1575,29 @@ export function updateChatMetadata(newValues, reset) {
     const nextMetadata = reset ? { ...newValues } : { ...chat_metadata, ...newValues };
     syncChatMetadata(nextMetadata);
     return nextMetadata;
+}
+
+export function saveChatDebounced() {
+    const chid = this_chid;
+    const selectedGroup = selected_group;
+
+    cancelDebouncedChatSave();
+
+    chatSaveTimeout = setTimeout(async () => {
+        if (selectedGroup !== selected_group) {
+            console.warn('Chat save timeout triggered, but group changed. Aborting.');
+            return;
+        }
+
+        if (chid !== this_chid) {
+            console.warn('Chat save timeout triggered, but chid changed. Aborting.');
+            return;
+        }
+
+        console.debug('Chat save timeout triggered');
+        await saveChatConditional();
+        console.debug('Chat saved');
+    }, debounce_timeout.relaxed);
 }
 
 export async function saveMetadata() {

@@ -256,7 +256,7 @@ import { getClientVersion as getClientVersionCore, syncClientVersion, syncConnec
 import { bindBackendStatusCore, cancelStatusCheck as cancelStatusCheckCore, displayOnlineStatus as displayOnlineStatusCore, resultCheckStatus as resultCheckStatusCore, setAbortStatusCheck, setOnlineStatus as setOnlineStatusCore, startStatusLoading as startStatusLoadingCore, stopStatusLoading as stopStatusLoadingCore } from './scripts/backend-status-core.js';
 import { bindCharacterCore, buildAvatarList as buildAvatarListCore, characterToEntity as characterToEntityCore, closeAdvancedCharacterPopup as closeAdvancedCharacterPopupCore, createOrEditCharacter as createOrEditCharacterCore, crop_data as characterCropData, deleteCharacter as deleteCharacterCore, doCharListDisplaySwitch as doCharListDisplaySwitchCore, duplicateCharacter as duplicateCharacterCore, getCharacterCardFields as getCharacterCardFieldsCore, getCharacters as getCharactersCore, getCharacterSource as getCharacterSourceCore, getEntitiesList as getEntitiesListCore, getOneCharacter as getOneCharacterCore, groupToEntity as groupToEntityCore, importCharacter as importCharacterCore, importCharactersTags as importCharactersTagsCore, initCharacterDeleteBinding as initCharacterDeleteBindingCore, initCharacterEditorBindings as initCharacterEditorBindingsCore, initCharacterImportExportBindings as initCharacterImportExportBindingsCore, initCharacterPanelBindings as initCharacterPanelBindingsCore, initCharacterSearch as initCharacterSearchCore, openAlternateGreetings as openAlternateGreetingsCore, openCharacterWorldPopup as openCharacterWorldPopupCore, printCharacters as printCharactersCore, processDroppedFiles as processDroppedFilesCore, read_avatar_load as readAvatarLoadCore, renameCharacter as characterCoreRename, selectImportedChar as selectImportedCharCore, syncCharacterGroupOverlay, syncCharacters, syncCreateSave as syncCharacterCreateSave, syncCropData, syncDepthPromptDepthDefault as syncCharacterDepthPromptDepthDefault, syncDepthPromptRoleDefault as syncCharacterDepthPromptRoleDefault, syncPrintCharactersDebounced, syncTalkativenessDefault as syncCharacterTalkativenessDefault, tagToEntity as tagToEntityCore, toggleAdvancedCharacterPopup as toggleAdvancedCharacterPopupCore, unshallowCharacter as unshallowCharacterCore } from './scripts/character-core.js';
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
-import { addOneMessage as addOneMessageCore, bindChatOperationsCore, clearChat as clearChatCore, delChat as delChatCore, deleteCharacterChatByName as deleteCharacterChatByNameCore, displayPastChats as displayPastChatsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, getCurrentChatDetails as getCurrentChatDetailsCore, getFirstMessage as getFirstMessageCore, getPastCharacterChats as getPastCharacterChatsCore, importCharacterChat as importCharacterChatCore, initChatImportBindings as initChatImportBindingsCore, initChatManagementBindings as initChatManagementBindingsCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, replaceCurrentChat as replaceCurrentChatCore, saveChat as saveChatCore, saveChatConditional as saveChatConditionalCore, saveMetadata as saveMetadataCore, saveReply as saveReplyCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
+import { addOneMessage as addOneMessageCore, bindChatOperationsCore, cancelDebouncedChatSave as cancelDebouncedChatSaveCore, clearChat as clearChatCore, delChat as delChatCore, deleteCharacterChatByName as deleteCharacterChatByNameCore, displayPastChats as displayPastChatsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, getCurrentChatDetails as getCurrentChatDetailsCore, getFirstMessage as getFirstMessageCore, getPastCharacterChats as getPastCharacterChatsCore, importCharacterChat as importCharacterChatCore, initChatImportBindings as initChatImportBindingsCore, initChatManagementBindings as initChatManagementBindingsCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, replaceCurrentChat as replaceCurrentChatCore, saveChat as saveChatCore, saveChatConditional as saveChatConditionalCore, saveChatDebounced as saveChatDebouncedCore, saveMetadata as saveMetadataCore, saveReply as saveReplyCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { importExternalContent as importExternalContentCore, importFromURL as importFromURLCore } from './scripts/content-import-core.js';
 import { addDebugFunctions as addDebugFunctionsCore, bindDebugCore } from './scripts/debug-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
@@ -374,7 +374,6 @@ export let name2 = systemUserName;
 syncName2(name2);
 export let chat = [];
 syncChat(chat);
-let chatSaveTimeout;
 export let isChatSaving = false;
 syncIsChatSaving(isChatSaving);
 let chat_create_date = '';
@@ -756,7 +755,6 @@ bindChatOperationsCore({
     appendMediaToMessage,
     applyCharacterTagsToMessageDivs,
     applyStylePins,
-    cancelDebouncedChatSave,
     cancelDebouncedMetadataSave,
     cancelDeleteMode: () => cancelDeleteModeCore(css_send_form_display),
     closeMessageEditor,
@@ -1365,11 +1363,7 @@ export async function printMessages() {
  * Cancels the debounced chat save if it is currently pending.
  */
 export function cancelDebouncedChatSave() {
-    if (chatSaveTimeout) {
-        console.debug('Debounced chat save cancelled');
-        clearTimeout(chatSaveTimeout);
-        chatSaveTimeout = null;
-    }
+    return cancelDebouncedChatSaveCore();
 }
 
 export async function clearChat() {
@@ -2906,26 +2900,7 @@ export async function renameCharacter(name = null, { silent = false, renameChats
 }
 
 export function saveChatDebounced() {
-    const chid = this_chid;
-    const selectedGroup = selected_group;
-
-    cancelDebouncedChatSave();
-
-    chatSaveTimeout = setTimeout(async () => {
-        if (selectedGroup !== selected_group) {
-            console.warn('Chat save timeout triggered, but group changed. Aborting.');
-            return;
-        }
-
-        if (chid !== this_chid) {
-            console.warn('Chat save timeout triggered, but chid changed. Aborting.');
-            return;
-        }
-
-        console.debug('Chat save timeout triggered');
-        await saveChatConditional();
-        console.debug('Chat saved');
-    }, DEFAULT_SAVE_EDIT_TIMEOUT);
+    return saveChatDebouncedCore();
 }
 
 /**

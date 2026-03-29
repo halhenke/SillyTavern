@@ -3407,3 +3407,9 @@ This batch kept to the relocation-first approach and peeled out a few remaining 
 This follow-up kept the same relocation style and moved the chat-history expansion flow out of `public/script.js`. `showMoreMessages()` now lives in `public/scripts/chat-operations-core.js`, alongside the message rendering helpers it already depends on (`addOneMessage(...)`, style-pin refresh, chat state, and the `MORE_MESSAGES_LOADED` event).
 
 The move stayed intentionally narrow: no behavior change, no new startup wiring, and `script.js` remains a thin wrapper so existing callers still hit the same export surface.
+
+### 2026-03-29: Wave 76 - moved chat-save debounce ownership into `chat-operations-core`
+
+This batch finished the adjacent save-timing seam instead of leaving the timeout state stranded in `public/script.js`. `cancelDebouncedChatSave()` and `saveChatDebounced()` now live in `public/scripts/chat-operations-core.js`, which already owns the actual chat-save path and the clear/reset operations that need to cancel pending saves.
+
+That let the monolith drop its local `chatSaveTimeout` state while keeping compatibility wrappers for the runtime/message adapters. The move also simplified `chat-operations-core` itself by replacing its old `cancelDebouncedChatSave` binding hook with direct core-owned behavior.

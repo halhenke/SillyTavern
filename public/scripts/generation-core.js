@@ -23,6 +23,7 @@ let generateKoboldWithStreamingImpl = null;
 let getKoboldGenerationDataImpl = null;
 let getKoboldSettingsConfigImpl = null;
 let getGroupsImpl = null;
+let getHordeModelNameImpl = null;
 let getNovelGenerationDataImpl = null;
 let generateNovelWithStreamingImpl = null;
 let getNovelSettingsConfigImpl = null;
@@ -33,6 +34,7 @@ let getAbortControllerImpl = null;
 let getAllExtensionPromptsImpl = null;
 let getAutoContinueConfigImpl = null;
 let getCurrentInputTextImpl = null;
+let getChatCompletionModelNameImpl = null;
 let getConsoleLogPromptsEnabledImpl = null;
 let getCustomStoppingStringsImpl = null;
 let getGeneratingApiConfigImpl = null;
@@ -238,10 +240,12 @@ function throwUnbound(name) {
  *   getKoboldSettingsConfig: () => { kaiSettings?: any, kaiFlags?: any, koboldaiSettings?: any, koboldaiSettingNames?: any },
  *   getAbortController: () => AbortController|null|undefined,
  *   getAutoContinueConfig: () => { enabled?: boolean, target_length?: number, allow_chat_completions?: boolean },
+ *   getChatCompletionModelName: () => string,
  *   getGroups: () => any[],
  *   getConsoleLogPromptsEnabled: () => boolean,
  *   getGuidanceScale: () => any,
  *   getHordeAdjustConfig: () => { autoAdjustContextLength?: boolean, autoAdjustResponseLength?: boolean },
+ *   getHordeModelName: () => string,
  *   getInstructionPrompt: (system: string) => string,
  *   getIsGroupGenerating: () => boolean,
  *   getIsInstructEnabled: () => boolean,
@@ -397,10 +401,12 @@ export function bindGenerationCore(impl) {
     getGuidanceScaleImpl = impl?.getGuidanceScale ?? null;
     getGroupDepthPromptsImpl = impl?.getGroupDepthPrompts ?? null;
     getHordeAdjustConfigImpl = impl?.getHordeAdjustConfig ?? null;
+    getHordeModelNameImpl = impl?.getHordeModelName ?? null;
     getKoboldGenerationDataImpl = impl?.getKoboldGenerationData ?? null;
     getKoboldSettingsConfigImpl = impl?.getKoboldSettingsConfig ?? null;
     getAbortControllerImpl = impl?.getAbortController ?? null;
     getAutoContinueConfigImpl = impl?.getAutoContinueConfig ?? null;
+    getChatCompletionModelNameImpl = impl?.getChatCompletionModelName ?? null;
     getGroupsImpl = impl?.getGroups ?? null;
     getConsoleLogPromptsEnabledImpl = impl?.getConsoleLogPromptsEnabled ?? null;
     getIsGroupGeneratingImpl = impl?.getIsGroupGenerating ?? null;
@@ -1510,6 +1516,28 @@ export function getGeneratingApi() {
             return textgenType === textgenOobaType ? 'textgenerationwebui' : textgenType;
         default:
             return mainApi;
+    }
+}
+
+export function getGeneratingModel() {
+    switch (main_api) {
+        case 'kobold':
+        case 'textgenerationwebui':
+            return online_status;
+        case 'novel':
+            return getNovelSettingsConfigImpl()?.naiSettings?.model_novel || '';
+        case 'openai':
+            if (!getChatCompletionModelNameImpl) {
+                throwUnbound('getChatCompletionModelName');
+            }
+            return getChatCompletionModelNameImpl();
+        case 'koboldhorde':
+            if (!getHordeModelNameImpl) {
+                throwUnbound('getHordeModelName');
+            }
+            return getHordeModelNameImpl();
+        default:
+            return '';
     }
 }
 

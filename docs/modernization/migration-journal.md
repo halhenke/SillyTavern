@@ -3425,3 +3425,7 @@ In parallel, `setUserName()` moved into `public/scripts/chat-core.js`. The behav
 This batch cleaned up one of the last obvious “generation-core already owns this, but `script.js` still implements it” seams. `getMaxContextSize()` now lives in `public/scripts/generation-core.js`, using narrow bindings for the OpenAI context limit and the Kayra subscription cap while continuing to rely on generation-core’s synced `amount_gen`, `max_context`, and API state. I also moved `parseTokenCounts()` into the same module, since `Generate()` was already calling it there through a transitional binding.
 
 The result is still relocation-first rather than a redesign: `script.js` now keeps only the `getMaxContextSize()` wrapper, the transitional `parseTokenCounts` binding is gone, and generation context sizing/count parsing is owned by the same module that consumes both behaviors.
+
+### 2026-03-29: Wave 79 - moved generation model naming into `generation-core`
+
+This follow-up removed another small but real generation seam from `public/script.js`: `getGeneratingModel()` now lives in `public/scripts/generation-core.js`. The move stayed binding-based to avoid direct imports back into OpenAI or Horde settings: generation-core now receives narrow getters for the current chat-completion model name and Horde model name, while Novel still reads through the existing `getNovelSettingsConfig()` seam and Kobold/TextGen continue using the core-owned `online_status`.

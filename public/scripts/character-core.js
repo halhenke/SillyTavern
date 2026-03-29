@@ -26,7 +26,6 @@ import { chat_metadata, this_chid } from './chat-core.js';
 
 let clearChatImpl = null;
 let createTagMapFromListImpl = null;
-let duplicateCharacterImpl = null;
 let getActiveCharacterImpl = null;
 let getChatImpl = null;
 let getCurrentChatIdImpl = null;
@@ -70,7 +69,6 @@ function throwUnbound(name) {
  * @param {{
  *   clearChat: (...args: any[]) => Promise<any>,
  *   createTagMapFromList: (...args: any[]) => any,
- *   duplicateCharacter: (...args: any[]) => Promise<any>,
  *   getActiveCharacter: () => string|null|undefined,
  *   getChat: () => any[],
  *   getCurrentChatId: () => string|undefined,
@@ -94,7 +92,6 @@ function throwUnbound(name) {
 export function bindCharacterCore(impl) {
     clearChatImpl = impl?.clearChat ?? null;
     createTagMapFromListImpl = impl?.createTagMapFromList ?? null;
-    duplicateCharacterImpl = impl?.duplicateCharacter ?? null;
     getActiveCharacterImpl = impl?.getActiveCharacter ?? null;
     getChatImpl = impl?.getChat ?? null;
     getCurrentChatIdImpl = impl?.getCurrentChatId ?? null;
@@ -260,12 +257,35 @@ async function deleteCharacterInternal(characterKey, { deleteChats = true } = {}
     await removeCharacterFromUI();
 }
 
-export function duplicateCharacter(...args) {
-    if (!duplicateCharacterImpl) {
-        throwUnbound('duplicateCharacter');
+export async function duplicateCharacter() {
+    if (this_chid === undefined || !characters[this_chid]) {
+        toastr.warning(t`You must first select a character to duplicate!`);
+        return '';
     }
 
-    return duplicateCharacterImpl(...args);
+    const confirmMessage = $(await renderTemplateAsync('duplicateConfirm'));
+    const confirm = await callGenericPopup(confirmMessage, POPUP_TYPE.CONFIRM);
+
+    if (!confirm) {
+        console.log('User cancelled duplication');
+        return '';
+    }
+
+    const body = { avatar_url: characters[this_chid].avatar };
+    const response = await fetch('/api/characters/duplicate', {
+        method: 'POST',
+        headers: getRequestHeaders(),
+        body: JSON.stringify(body),
+    });
+
+    if (response.ok) {
+        toastr.success(t`Character Duplicated`);
+        const data = await response.json();
+        await eventSource.emit(event_types.CHARACTER_DUPLICATED, { oldAvatar: body.avatar_url, newAvatar: data.path });
+        await getCharacters();
+    }
+
+    return '';
 }
 
 export function getCharacterSource(chId = this_chid) {
@@ -1253,6 +1273,37 @@ export async function getOneCharacter(avatarUrl) {
             toastr.error(t`Character ${avatarUrl} not found in the list`, t`Error`, { timeOut: 5000, preventDuplicates: true });
         }
     }
+}
+
+/**
+ * Loads all the data of a shallow character.
+ * @param {string|undefined} characterId Array index
+ * @returns {Promise<void>} Promise that resolves when the character is unshallowed
+ */
+export async function unshallowCharacter(characterId) {
+    if (characterId === undefined) {
+        console.debug('Undefined character cannot be unshallowed');
+        return;
+    }
+
+    /** @type {import('./char-data.js').v1CharData} */
+    const character = characters[characterId];
+    if (!character) {
+        console.debug('Character not found:', characterId);
+        return;
+    }
+
+    if (!character.shallow) {
+        return;
+    }
+
+    const avatar = character.avatar;
+    if (!avatar) {
+        console.debug('Character has no avatar field:', characterId);
+        return;
+    }
+
+    await getOneCharacter(avatar);
 }
 
 export async function createOrEditCharacter(e) {

@@ -6,7 +6,7 @@ import { default_avatar, getCurrentChatId, chat_metadata, name1, name2, syncChat
 import { debounce_timeout } from './constants.js';
 import { event_types, eventSource } from './events.js';
 import { getRegexedString, regex_placement } from './extensions/regex/engine.js';
-import { group_generation_id, groups, importGroupChat, selected_group } from './group-chats.js';
+import { editGroup, group_generation_id, groups, importGroupChat, selected_group } from './group-chats.js';
 import { getRequestHeaders, getThumbnailUrl } from './network-core.js';
 import { POPUP_TYPE, callGenericPopup } from './popup.js';
 import { power_user } from './power-user.js';
@@ -1543,4 +1543,13 @@ export function updateChatMetadata(newValues, reset) {
     const nextMetadata = reset ? { ...newValues } : { ...chat_metadata, ...newValues };
     syncChatMetadata(nextMetadata);
     return nextMetadata;
+}
+
+export async function saveMetadata() {
+    if (selected_group) {
+        await editGroup(selected_group, true, false);
+        return;
+    }
+
+    await saveChatConditional();
 }

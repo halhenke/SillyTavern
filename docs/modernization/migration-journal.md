@@ -3395,3 +3395,9 @@ To keep behavior aligned with the legacy path, `session-core` now receives expli
 This batch moved `read_avatar_load()` out of `public/script.js` into `public/scripts/character-core.js`. The flow already depended on core-owned character edit state such as `create_save`, `crop_data`, `createOrEditCharacter()`, and avatar refresh behavior, so keeping it in the monolith was mostly leftover placement from before the character seam existed.
 
 To preserve the old behavior, `character-core` now receives the selected-button getter through `bindCharacterCore(...)` so it can still distinguish create-mode avatar assignment from edit-mode refresh. `script.js` keeps only a thin wrapper that syncs its local crop-data mirror from the core after delegation.
+
+### 2026-03-29: Wave 74 - moved metadata save and small character utility flows out of `script.js`
+
+This batch kept to the relocation-first approach and peeled out a few remaining self-contained behaviors without touching the startup/bootstrap path. `saveMetadata()` now lives in `public/scripts/chat-operations-core.js`, which is the right ownership point because it already owns chat-save orchestration and metadata state. In parallel, `duplicateCharacter()` and `unshallowCharacter()` moved into `public/scripts/character-core.js`, where the surrounding character fetch/list state and network helpers already live.
+
+`script.js` stays as a thin compatibility layer for all three paths, so runtime adapters and existing callers still hit the same public names. Static verification was `node --check` via `mise` on `public/script.js`, `public/scripts/chat-operations-core.js`, and `public/scripts/character-core.js`.

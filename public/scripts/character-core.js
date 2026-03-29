@@ -40,6 +40,7 @@ let renameGroupMemberImpl = null;
 let restoreNeutralChatImpl = null;
 let saveChatConditionalImpl = null;
 let saveSettingsDebouncedImpl = null;
+let getSelectedButtonImpl = null;
 let selectCharacterByIdImpl = null;
 let setActiveCharacterImpl = null;
 let setCharacterIdImpl = null;
@@ -83,6 +84,7 @@ function throwUnbound(name) {
  *   restoreNeutralChat: (...args: any[]) => any,
  *   saveChatConditional: (...args: any[]) => Promise<any>,
  *   saveSettingsDebounced: (...args: any[]) => any,
+ *   getSelectedButton: () => string,
  *   selectCharacterById: (...args: any[]) => Promise<any>,
  *   setActiveCharacter: (...args: any[]) => any,
  *   setCharacterId: (...args: any[]) => any,
@@ -106,6 +108,7 @@ export function bindCharacterCore(impl) {
     restoreNeutralChatImpl = impl?.restoreNeutralChat ?? null;
     saveChatConditionalImpl = impl?.saveChatConditional ?? null;
     saveSettingsDebouncedImpl = impl?.saveSettingsDebounced ?? null;
+    getSelectedButtonImpl = impl?.getSelectedButton ?? null;
     selectCharacterByIdImpl = impl?.selectCharacterById ?? null;
     setActiveCharacterImpl = impl?.setActiveCharacter ?? null;
     setCharacterIdImpl = impl?.setCharacterId ?? null;
@@ -1447,6 +1450,72 @@ export async function createOrEditCharacter(e) {
     } catch (error) {
         console.log(error);
         toastr.error(t`Something went wrong while saving the character, or the image file provided was in an invalid format. Double check that the image is not a webp.`);
+    }
+}
+
+/**
+ * Processes the avatar image from the input element, allowing the user to crop it if necessary.
+ * @param {HTMLInputElement} input The input element containing the avatar file.
+ * @returns {Promise<void>}
+ */
+export async function read_avatar_load(input) {
+    if (!getSelectedButtonImpl) {
+        throwUnbound('getSelectedButton');
+    }
+
+    if (input.files && input.files[0]) {
+        if (getSelectedButtonImpl() == 'create') {
+            create_save.avatar = input.files;
+        }
+
+        crop_data = undefined;
+        const file = input.files[0];
+        const fileData = await getBase64Async(file);
+
+        if (!power_user.never_resize_avatars) {
+            const dlg = new Popup('Set the crop position of the avatar image', POPUP_TYPE.CROP, '', { cropImage: fileData });
+            const croppedImage = await dlg.show();
+
+            if (!croppedImage) {
+                return;
+            }
+
+            crop_data = dlg.cropData;
+            $('#avatar_load_preview').attr('src', String(croppedImage));
+        } else {
+            $('#avatar_load_preview').attr('src', fileData);
+        }
+
+        if (menu_type == 'create') {
+            return;
+        }
+
+        await createOrEditCharacter();
+        await delay(1000);
+
+        const formData = new FormData(/** @type {HTMLFormElement} */ ($('#form_create').get(0)));
+        await fetch(getThumbnailUrl('avatar', formData.get('avatar_url').toString()), {
+            method: 'GET',
+            cache: 'reload',
+        });
+
+        const messages = $('.mes').toArray();
+        for (const el of messages) {
+            const $el = $(el);
+            const nameMatch = $el.attr('ch_name') == formData.get('ch_name');
+            if ($el.attr('is_system') == 'true' && !nameMatch) continue;
+            if ($el.attr('is_user') == 'true') continue;
+
+            if (nameMatch) {
+                const previewSrc = $('#avatar_load_preview').attr('src');
+                const avatar = $el.find('.avatar img');
+                avatar.attr('src', default_avatar);
+                await delay(1);
+                avatar.attr('src', previewSrc);
+            }
+        }
+
+        console.log('Avatar refreshed');
     }
 }
 

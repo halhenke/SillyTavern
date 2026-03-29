@@ -3389,3 +3389,9 @@ This was a better fit than taking `firstLoadInit()` next because it reduces a la
 This follow-up moved `selectCharacterById()` out of `public/script.js` into `public/scripts/session-core.js`. That flow is really session/menu orchestration rather than pure character data logic: it clears chat state, resets selected groups, syncs edited-message state, updates menu selection, and either loads the new chat or re-opens the already-selected character editor.
 
 To keep behavior aligned with the legacy path, `session-core` now receives explicit setters for the script-local mirrors that still matter here, especially chat metadata and edited-message id. `script.js` keeps a thin wrapper and updates its local `this_edit_mes_id` mirror from the core after delegation.
+
+### 2026-03-29: Wave 73 - moved avatar upload/edit flow into `character-core`
+
+This batch moved `read_avatar_load()` out of `public/script.js` into `public/scripts/character-core.js`. The flow already depended on core-owned character edit state such as `create_save`, `crop_data`, `createOrEditCharacter()`, and avatar refresh behavior, so keeping it in the monolith was mostly leftover placement from before the character seam existed.
+
+To preserve the old behavior, `character-core` now receives the selected-button getter through `bindCharacterCore(...)` so it can still distinguish create-mode avatar assignment from edit-mode refresh. `script.js` keeps only a thin wrapper that syncs its local crop-data mirror from the core after delegation.

@@ -3461,7 +3461,7 @@ The important constraint here is that this is not yet a React renderer rewrite. 
 
 ### 2026-03-31: Wave 84 - extracted the legacy message template renderer out of `chat-operations-core`
 
-This follow-up completed the next obvious split in the same message-render seam. I added `public/scripts/message-template-renderer.js` and moved the jQuery template cloning/population work there. `chat-operations-core` now keeps the orchestration around insertion, swipe handling, prompt markers, and scroll behavior, but it no longer owns the actual DOM template fill-in logic.
+This follow-up completed the next obvious split in the same message-render seam. I added `public/scripts/message-template-renderer.js` and moved the jQuery template cloning/population work there. `chat-operations-core` now keeps the orchestration around insertion, swipe handling, prompt markers, and scroll behavior, but it no longer owns the actual DOM template fill-in logic. I later folded the timestamp/model SVG icon insertion into the same renderer module as well, so that the remaining message-template DOM code stays together instead of being split between renderer and orchestration layers.
 
 Combined with the new `message-template-view-model.js`, the message-render path is now split into:
 1. data shaping / normalized template params

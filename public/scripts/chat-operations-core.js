@@ -1,4 +1,4 @@
-import { SVGInject, moment } from '../lib.js';
+import { moment } from '../lib.js';
 import { getMessageTimeStamp } from './RossAscends-mods.js';
 import { isChatSaving } from './app-state-core.js';
 import { characters } from './character-core.js';
@@ -1008,45 +1008,6 @@ async function saveChatInternal({ chatName, withMetadata, mesId, force = false }
     }
 }
 
-function insertSVGIcon(mes, extra) {
-    let modelName;
-    if (extra.api === 'openai' && extra.model?.toLowerCase().includes('claude')) {
-        modelName = 'claude';
-    } else if (extra.api === 'openai' && extra.model?.toLowerCase().includes('openai')) {
-        modelName = 'openai';
-    } else if (extra.api === 'openai' && (extra.model === null || extra.model?.toLowerCase().includes('/'))) {
-        modelName = 'openrouter';
-    } else {
-        modelName = extra.api;
-    }
-
-    const insertOrReplaceSVG = (image, className, targetSelector, insertBefore) => {
-        image.onload = async function () {
-            const target = mes.find(targetSelector);
-            const existingSVG = insertBefore ? target.prev(`.${className}`) : target.next(`.${className}`);
-            if (existingSVG.length) {
-                existingSVG.replaceWith(image);
-            } else if (insertBefore) {
-                target.before(image);
-            } else {
-                target.after(image);
-            }
-            await SVGInject(image);
-        };
-    };
-
-    const createModelImage = (className, targetSelector, insertBefore) => {
-        const image = new Image();
-        image.classList.add('icon-svg', className);
-        image.src = `/img/${modelName}.svg`;
-        image.title = `${extra?.api ? `${extra.api} - ` : ''}${extra?.model ?? ''}`;
-        insertOrReplaceSVG(image, className, targetSelector, insertBefore);
-    };
-
-    createModelImage('timestamp-icon', '.timestamp');
-    createModelImage('thinking-icon', '.mes_reasoning_header_title', true);
-}
-
 function getMessageFromTemplate(params) {
     if (!updateReasoningUIImpl) throwUnbound('updateReasoningUI');
     if (!shouldShowTimestampModelIconImpl) throwUnbound('shouldShowTimestampModelIcon');
@@ -1056,7 +1017,6 @@ function getMessageFromTemplate(params) {
         updateReasoningUI: updateReasoningUIImpl,
         shouldShowTimestampModelIcon: shouldShowTimestampModelIconImpl,
         updateBookmarkDisplay: updateBookmarkDisplayImpl,
-        insertTimestampModelIcon: insertSVGIcon,
     });
 }
 

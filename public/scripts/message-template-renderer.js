@@ -1,3 +1,44 @@
+import { SVGInject } from '../lib.js';
+
+function insertSVGIcon(mes, extra) {
+    let modelName;
+    if (extra.api === 'openai' && extra.model?.toLowerCase().includes('claude')) {
+        modelName = 'claude';
+    } else if (extra.api === 'openai' && extra.model?.toLowerCase().includes('openai')) {
+        modelName = 'openai';
+    } else if (extra.api === 'openai' && (extra.model === null || extra.model?.toLowerCase().includes('/'))) {
+        modelName = 'openrouter';
+    } else {
+        modelName = extra.api;
+    }
+
+    const insertOrReplaceSVG = (image, className, targetSelector, insertBefore) => {
+        image.onload = async function () {
+            const target = mes.find(targetSelector);
+            const existingSVG = insertBefore ? target.prev(`.${className}`) : target.next(`.${className}`);
+            if (existingSVG.length) {
+                existingSVG.replaceWith(image);
+            } else if (insertBefore) {
+                target.before(image);
+            } else {
+                target.after(image);
+            }
+            await SVGInject(image);
+        };
+    };
+
+    const createModelImage = (className, targetSelector, insertBefore) => {
+        const image = new Image();
+        image.classList.add('icon-svg', className);
+        image.src = `/img/${modelName}.svg`;
+        image.title = `${extra?.api ? `${extra.api} - ` : ''}${extra?.model ?? ''}`;
+        insertOrReplaceSVG(image, className, targetSelector, insertBefore);
+    };
+
+    createModelImage('timestamp-icon', '.timestamp');
+    createModelImage('thinking-icon', '.mes_reasoning_header_title', true);
+}
+
 export function renderMessageTemplate({
     mesId,
     swipeId,
@@ -19,7 +60,6 @@ export function renderMessageTemplate({
     updateReasoningUI,
     shouldShowTimestampModelIcon,
     updateBookmarkDisplay,
-    insertTimestampModelIcon,
 }) {
     const mes = $('#message_template .mes').clone();
     mes.attr({
@@ -58,7 +98,7 @@ export function renderMessageTemplate({
     updateReasoningUI(mes);
 
     if (shouldShowTimestampModelIcon() && extra?.api) {
-        insertTimestampModelIcon(mes, extra);
+        insertSVGIcon(mes, extra);
     }
 
     return mes;

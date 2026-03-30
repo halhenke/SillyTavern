@@ -12,6 +12,7 @@ import { POPUP_TYPE, callGenericPopup } from './popup.js';
 import { power_user } from './power-user.js';
 import { parseReasoningInSwipes } from './reasoning.js';
 import { statMesProcess } from './stats.js';
+import { renderChatHistoryWindow, renderMessageListItem } from './message-list-renderer.js';
 import { renderMessageTemplate } from './message-template-renderer.js';
 import { createMessageTemplateViewModel } from './message-template-view-model.js';
 import { getTokenCountAsync, saveTokenCache } from './tokenizers.js';
@@ -1091,91 +1092,30 @@ function addOneMessageInternal(mes, { type = 'normal', insertAfter = null, scrol
         formatGenerationTimer,
     });
 
-    const renderedMessage = getMessageFromTemplate(params);
-    const chatElement = $('#chat');
-
-    if (type !== 'swipe') {
-        if (!insertAfter && !insertBefore) {
-            chatElement.append(renderedMessage);
-        } else if (insertAfter) {
-            $(renderedMessage).insertAfter(chatElement.find(`.mes[mesid="${insertAfter}"]`));
-        } else {
-            $(renderedMessage).insertBefore(chatElement.find(`.mes[mesid="${insertBefore}"]`));
-        }
-    }
-
-    const newMessageId = typeof forceId === 'number' ? forceId : chat.length - 1;
-    const newMessage = $(`#chat [mesid="${newMessageId}"]`);
-    const isSmallSys = mes?.extra?.isSmallSys;
-
-    if (isSmallSys === true) {
-        newMessage.addClass('smallSysMes');
-    }
-    if (Array.isArray(mes?.extra?.tool_invocations)) {
-        newMessage.addClass('toolCall');
-    }
-
-    const mesIdToFind = type === 'swipe' ? params.mesId - 1 : params.mesId;
-    const itemizedPrompts = getItemizedPromptsImpl();
-    if (params.isUser === false && Array.isArray(itemizedPrompts) && itemizedPrompts.length > 0) {
-        const itemizedPrompt = itemizedPrompts.find(x => Number(x.mesId) === Number(mesIdToFind));
-        if (itemizedPrompt) {
-            newMessage.find('.mes_prompt').show();
-        }
-    }
-
-    newMessage.find('.avatar img').on('error', function () {
-        $(this).hide();
-        $(this).parent().html('<div class="missing-avatar fa-solid fa-user-slash"></div>');
+    renderMessageListItem({
+        chat,
+        message: mes,
+        params,
+        messageText,
+        renderedMessage: getMessageFromTemplate(params),
+        type,
+        insertAfter,
+        insertBefore,
+        forceId,
+        scroll,
+        showSwipes,
+        itemizedPrompts: getItemizedPromptsImpl(),
+    }, {
+        appendMediaToMessage,
+        addCopyToCodeBlocks: addCopyToCodeBlocksImpl,
+        hideSwipeButtons,
+        showSwipeButtons,
+        scrollChatToBottom: scrollChatToBottomImpl,
+        applyCharacterTagsToMessageDivs: applyCharacterTagsToMessageDivsImpl,
+        formatSwipeCounter,
+        updateReasoningUI: updateReasoningUIImpl,
+        shouldShowTimestampModelIcon: shouldShowTimestampModelIconImpl,
     });
-
-    if (type === 'swipe') {
-        const swipeMessage = chatElement.find(`[mesid="${chat.length - 1}"]`);
-        swipeMessage.attr('swipeid', params.swipeId);
-        swipeMessage.find('.mes_text').html(messageText).attr('title', title);
-        swipeMessage.find('.timestamp').text(timestamp).attr('title', `${params.extra.api} - ${params.extra.model}`);
-        updateReasoningUIImpl(swipeMessage);
-        appendMediaToMessage(mes, swipeMessage);
-        if (shouldShowTimestampModelIconImpl() && params.extra?.api) {
-            insertSVGIcon(swipeMessage, params.extra);
-        }
-
-        if (mes.swipe_id == mes.swipes.length - 1) {
-            swipeMessage.find('.mes_timer').text(params.timerValue).attr('title', params.timerTitle);
-            swipeMessage.find('.tokenCounterDisplay').text(`${params.tokenCount}t`);
-        } else {
-            swipeMessage.find('.mes_timer').empty();
-            swipeMessage.find('.tokenCounterDisplay').empty();
-        }
-    } else {
-        const messageId = forceId ?? chat.length - 1;
-        chatElement.find(`[mesid="${messageId}"] .mes_text`).append(messageText);
-        appendMediaToMessage(mes, newMessage);
-        if (showSwipes) {
-            hideSwipeButtons();
-        }
-    }
-
-    addCopyToCodeBlocksImpl(newMessage);
-
-    if (!params.isUser && newMessageId !== 0 && newMessageId !== chat.length - 1) {
-        const swipesNum = chat[newMessageId].swipes?.length;
-        const swipeId = chat[newMessageId].swipe_id + 1;
-        newMessage.find('.swipes-counter').text(formatSwipeCounter(swipeId, swipesNum));
-    }
-
-    if (showSwipes) {
-        $('#chat .mes').last().addClass('last_mes');
-        $('#chat .mes').eq(-2).removeClass('last_mes');
-        hideSwipeButtons();
-        showSwipeButtons();
-    }
-
-    if (!insertAfter && !insertBefore && scroll) {
-        scrollChatToBottomImpl();
-    }
-
-    applyCharacterTagsToMessageDivsImpl({ mesIds: newMessageId });
 }
 
 async function printMessagesInternal() {
@@ -1183,44 +1123,16 @@ async function printMessagesInternal() {
     if (!scrollChatToBottomImpl) throwUnbound('scrollChatToBottom');
     if (!applyStylePinsImpl) throwUnbound('applyStylePins');
 
-    let startIndex = 0;
-    const count = getChatTruncationImpl() || Number.MAX_SAFE_INTEGER;
-
-    if (chat.length > count) {
-        startIndex = chat.length - count;
-        $('#chat').append('<div id="show_more_messages">Show more messages</div>');
-    }
-
-    for (let i = startIndex; i < chat.length; i++) {
-        addOneMessageInternal(chat[i], { scroll: false, forceId: i, showSwipes: false });
-    }
-
-    const images = document.querySelectorAll('#chat .mes img');
-    let imagesLoaded = 0;
-
-    for (const image of images) {
-        if (image instanceof HTMLImageElement) {
-            if (image.complete) {
-                incrementAndCheck();
-            } else {
-                image.addEventListener('load', incrementAndCheck);
-            }
-        }
-    }
-
-    $('#chat .mes').removeClass('last_mes');
-    $('#chat .mes').last().addClass('last_mes');
-    hideSwipeButtons();
-    showSwipeButtons();
-    scrollChatToBottomImpl();
-    applyStylePinsImpl();
-
-    function incrementAndCheck() {
-        imagesLoaded++;
-        if (imagesLoaded === images.length) {
-            scrollChatToBottomImpl();
-        }
-    }
+    renderChatHistoryWindow({
+        chat,
+        count: getChatTruncationImpl() || Number.MAX_SAFE_INTEGER,
+        renderMessage: addOneMessageInternal,
+    }, {
+        scrollChatToBottom: scrollChatToBottomImpl,
+        hideSwipeButtons,
+        showSwipeButtons,
+        applyStylePins: applyStylePinsImpl,
+    });
 }
 
 export function getFirstMessage(characterName) {

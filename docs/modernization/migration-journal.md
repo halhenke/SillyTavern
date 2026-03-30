@@ -3469,3 +3469,14 @@ Combined with the new `message-template-view-model.js`, the message-render path 
 3. higher-level chat insertion/orchestration
 
 That is much closer to the same structure a React replacement would want, without forcing a behavior rewrite yet.
+
+### 2026-03-31: Wave 85 - extracted message list DOM orchestration out of `chat-operations-core`
+
+This next pass kept pushing on the same seam. I added `public/scripts/message-list-renderer.js` and moved the remaining list-level jQuery mutation out of `chat-operations-core`: insertion of rendered messages into `#chat`, swipe DOM updates, code-block decoration hookup, prompt-marker toggles, message class decoration, and the image/scroll finalization used by `printMessages()` now live in the dedicated list renderer module.
+
+That leaves `chat-operations-core` owning message orchestration and runtime state, while the actual list DOM work is now split into:
+1. view model shaping (`message-template-view-model.js`)
+2. message template DOM rendering (`message-template-renderer.js`)
+3. chat-list DOM insertion and update (`message-list-renderer.js`)
+
+This move also fixed a latent regression in the moved swipe path, where `title` and the timestamp/model icon helper were no longer in the local scope after earlier extractions. The list renderer now uses the normalized template params directly and the icon helper from the template renderer module.

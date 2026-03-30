@@ -1,6 +1,6 @@
 import { SVGInject } from '../lib.js';
 
-function insertSVGIcon(mes, extra) {
+export function applyMessageTemplateModelIcons(mes, extra) {
     let modelName;
     if (extra.api === 'openai' && extra.model?.toLowerCase().includes('claude')) {
         modelName = 'claude';
@@ -98,7 +98,7 @@ export function renderMessageTemplate({
     updateReasoningUI(mes);
 
     if (shouldShowTimestampModelIcon() && extra?.api) {
-        insertSVGIcon(mes, extra);
+        applyMessageTemplateModelIcons(mes, extra);
     }
 
     return mes;

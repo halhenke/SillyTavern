@@ -3435,3 +3435,14 @@ This follow-up removed another small but real generation seam from `public/scrip
 This was not a full move of `appendMediaToMessage()`. Instead, it prepared that large jQuery-heavy path for a later extraction by separating message-media state shaping from DOM mutation. I added `public/scripts/message-media-view-model.js`, which builds a normalized media view model for image/video/file attachments from the legacy `mes.extra` structure.
 
 `public/script.js` still owns the jQuery renderer, but `appendMediaToMessage()` now consumes that normalized view model instead of directly unpacking the message structure throughout the function. That should make the eventual next step cleaner in two ways: extracting the renderer into a dedicated module will be more mechanical, and a future React message component can reuse the same media-shaping logic without depending on jQuery DOM code.
+
+### 2026-03-31: Wave 81 - extracted the legacy media DOM renderer out of `script.js`
+
+This follow-up completed the next logical seam move: the jQuery DOM work behind `appendMediaToMessage()` now lives in `public/scripts/message-media-renderer.js`. `script.js` still exposes the same wrapper, but it now just builds the normalized media view model and delegates to the dedicated legacy renderer module.
+
+This is still not the React rewrite itself, but it materially improves that path. The media feature is now split into three layers:
+1. message data shape (`mes.extra`)
+2. normalized media view model (`message-media-view-model.js`)
+3. legacy jQuery renderer (`message-media-renderer.js`)
+
+That is a much better replacement seam than one large monolithic function sitting inside `script.js`.

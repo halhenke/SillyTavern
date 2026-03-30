@@ -271,6 +271,7 @@ import { accountStorage } from './scripts/util/AccountStorage.js';
 import { initWelcomeScreen, openPermanentAssistantChat, openPermanentAssistantCard, getPermanentAssistantAvatar } from './scripts/welcome-screen.js';
 import { initDataMaid } from './scripts/data-maid.js';
 import { clearItemizedPrompts, deleteItemizedPrompts, findItemizedPromptSet, initItemizedPrompts, itemizedParams, itemizedPrompts, loadItemizedPrompts, promptItemize, replaceItemizedPromptText, saveItemizedPrompts } from './scripts/itemized-prompts.js';
+import { renderMessageMedia } from './scripts/message-media-renderer.js';
 import { createMessageMediaViewModel } from './scripts/message-media-view-model.js';
 import { getSystemMessageByType, initSystemMessages, SAFETY_CHAT, sendSystemMessage, system_message_types, system_messages } from './scripts/system-messages.js';
 import { event_types, eventSource } from './scripts/events.js';
@@ -1438,95 +1439,7 @@ export function updateMessageBlock(messageId, message, { rerenderMessage = true 
  */
 export function appendMediaToMessage(mes, messageElement, adjustScroll = true) {
     const media = createMessageMediaViewModel(mes, { formatFileSize: humanFileSize });
-
-    // Add image to message
-    if (media.image) {
-        const container = messageElement.find('.mes_img_container');
-        const chatHeight = $('#chat').prop('scrollHeight');
-        const image = messageElement.find('.mes_img');
-        const text = messageElement.find('.mes_text');
-        const doAdjustScroll = () => {
-            if (!adjustScroll) {
-                return;
-            }
-            const scrollPosition = $('#chat').scrollTop();
-            const newChatHeight = $('#chat').prop('scrollHeight');
-            const diff = newChatHeight - chatHeight;
-            $('#chat').scrollTop(scrollPosition + diff);
-        };
-        image.off('load').on('load', function () {
-            image.removeAttr('alt');
-            image.removeClass('error');
-            doAdjustScroll();
-        });
-        image.off('error').on('error', function () {
-            image.attr('alt', '');
-            image.addClass('error');
-            doAdjustScroll();
-        });
-        image.attr('src', media.image.src);
-        image.attr('title', media.image.title);
-        container.addClass('img_extra');
-        image.toggleClass('img_inline', media.image.inline);
-        text.toggleClass('displayNone', !media.image.inline);
-
-        if (media.image.hasSwipes) {
-            container.addClass('img_swipes');
-            const counter = container.find('.mes_img_swipe_counter');
-            counter.text(`${media.image.swipeIndex}/${media.image.swipeCount}`);
-
-            const swipeLeft = container.find('.mes_img_swipe_left');
-            swipeLeft.off('click').on('click', function () {
-                eventSource.emit(event_types.IMAGE_SWIPED, { message: mes, element: messageElement, direction: 'left' });
-            });
-
-            const swipeRight = container.find('.mes_img_swipe_right');
-            swipeRight.off('click').on('click', function () {
-                eventSource.emit(event_types.IMAGE_SWIPED, { message: mes, element: messageElement, direction: 'right' });
-            });
-        }
-    } else {
-        const container = messageElement.find('.mes_img_container');
-        container.removeClass('img_extra img_swipes');
-        const text = messageElement.find('.mes_text');
-        text.removeClass('displayNone');
-    }
-
-    // Add video to message
-    if (media.video) {
-        const container = $('#message_video_template .mes_video_container').clone();
-        messageElement.find('.mes_video_container').remove();
-        messageElement.find('.mes_block').append(container);
-        const chatHeight = $('#chat').prop('scrollHeight');
-        const video = container.find('.mes_video');
-        video.off('loadedmetadata').on('loadedmetadata', function () {
-            if (!adjustScroll) {
-                return;
-            }
-            const scrollPosition = $('#chat').scrollTop();
-            const newChatHeight = $('#chat').prop('scrollHeight');
-            const diff = newChatHeight - chatHeight;
-            $('#chat').scrollTop(scrollPosition + diff);
-        });
-
-        video.attr('src', media.video.src);
-    } else {
-        messageElement.find('.mes_video_container').remove();
-    }
-
-    // Add file to message
-    if (media.file) {
-        messageElement.find('.mes_file_container').remove();
-        const messageId = messageElement.attr('mesid');
-        const template = $('#message_file_template .mes_file_container').clone();
-        template.find('.mes_file_name').text(media.file.name);
-        template.find('.mes_file_size').text(media.file.sizeLabel);
-        template.find('.mes_file_download').attr('mesid', messageId);
-        template.find('.mes_file_delete').attr('mesid', messageId);
-        messageElement.find('.mes_block').append(template);
-    } else {
-        messageElement.find('.mes_file_container').remove();
-    }
+    renderMessageMedia({ message: mes, messageElement, media, adjustScroll });
 }
 
 /**

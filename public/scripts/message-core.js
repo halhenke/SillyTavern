@@ -8,9 +8,28 @@ import { event_types, eventSource } from './events.js';
 import { getRegexedString, regex_placement } from './extensions/regex/engine.js';
 import { groups, is_group_generating, selected_group } from './group-chats.js';
 import { t } from './i18n.js';
+import {
+    encodeHtmlTagDelimiters,
+    escapeConfiguredReasoningMarkers,
+    getMessageFormattingDepth,
+    getMessageFormattingRegexPlacement,
+    normalizeMessageAuthorFlags,
+    renderMarkdownMessage,
+    sanitizeFormattedMessage,
+    stripVisibleUserPromptBias,
+    substituteFirstChatMessage,
+} from './message-formatting-pipeline.js';
 import { converter, removeMacros, substituteParams } from './parser-core.js';
 import { POPUP_TYPE, callGenericPopup } from './popup.js';
 import { collapseNewlines, fixMarkdown, power_user } from './power-user.js';
+import {
+    prependUserPromptBias,
+    trimGroupMemberPrefixes,
+    trimInstructSequences,
+    trimLeadingDisplayName,
+    trimPartialStoppingStrings,
+    trimWrongSpeakerContent,
+} from './message-cleanup-pipeline.js';
 import { renderMessageEditPreview, renderMessageElementContent } from './message-content-renderer.js';
 import { PromptReasoning } from './reasoning.js';
 import { COMMENT_NAME_DEFAULT } from './slash-commands.js';
@@ -270,50 +289,41 @@ export function messageFormatting(mes, ch_name, isSystem, isUser, messageId, san
         return '';
     }
 
-    if (Number(messageId) === 0 && !isSystem && !isUser && !isReasoning) {
-        const mesBeforeReplace = mes;
-        const chatMessage = chat[messageId];
-        mes = substituteParams(mes, undefined, ch_name);
-        if (chatMessage && chatMessage.mes === mesBeforeReplace && chatMessage.extra?.display_text !== mesBeforeReplace) {
-            chatMessage.mes = mes;
-        }
-    }
+    mes = substituteFirstChatMessage(mes, {
+        chat,
+        messageId,
+        isSystem,
+        isUser,
+        isReasoning,
+        characterName: ch_name,
+        substituteParams,
+    });
 
-    if (ch_name === COMMENT_NAME_DEFAULT && isSystem && !isUser) {
-        isSystem = false;
-    }
+    ({ isSystem, isUser } = normalizeMessageAuthorFlags({
+        characterName: ch_name,
+        isSystem,
+        isUser,
+        commentNameDefault: COMMENT_NAME_DEFAULT,
+        systemUserName,
+    }));
 
-    if (isSystem && ch_name !== systemUserName) {
-        isSystem = false;
-    }
-
-    const replacedPromptBias = power_user.user_prompt_bias && substituteParams(power_user.user_prompt_bias);
-    if (!power_user.show_user_prompt_bias && ch_name && !isUser && !isSystem && replacedPromptBias && mes.startsWith(replacedPromptBias)) {
-        mes = mes.slice(replacedPromptBias.length);
-    }
+    mes = stripVisibleUserPromptBias(mes, {
+        userPromptBias: power_user.user_prompt_bias,
+        showUserPromptBias: power_user.show_user_prompt_bias,
+        characterName: ch_name,
+        isUser,
+        isSystem,
+        substituteParams,
+    });
 
     if (!isSystem) {
-        function getRegexPlacement() {
-            try {
-                if (isReasoning) {
-                    return regex_placement.REASONING;
-                }
-                if (isUser) {
-                    return regex_placement.USER_INPUT;
-                } else if (chat[messageId]?.extra?.type === 'narrator') {
-                    return regex_placement.SLASH_COMMAND;
-                } else {
-                    return regex_placement.AI_OUTPUT;
-                }
-            } catch {
-                return regex_placement.AI_OUTPUT;
-            }
-        }
-
-        const regexPlacement = getRegexPlacement();
-        const usableMessages = chat.map((x, index) => ({ message: x, index: index })).filter(x => !x.message.is_system);
-        const indexOf = usableMessages.findIndex(x => x.index === Number(messageId));
-        const depth = messageId >= 0 && indexOf !== -1 ? (usableMessages.length - indexOf - 1) : undefined;
+        const regexPlacement = getMessageFormattingRegexPlacement({
+            chat,
+            messageId,
+            isReasoning,
+            isUser,
+        });
+        const depth = getMessageFormattingDepth(chat, messageId);
 
         mes = getRegexedString(mes, regexPlacement, {
             characterOverride: ch_name,
@@ -327,54 +337,20 @@ export function messageFormatting(mes, ch_name, isSystem, isUser, messageId, san
     }
 
     if (!isSystem && power_user.encode_tags) {
-        mes = mes.replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+        mes = encodeHtmlTagDelimiters(mes);
     }
 
-    [power_user.reasoning.prefix, power_user.reasoning.suffix].forEach((reasoningString) => {
-        if (!reasoningString || !reasoningString.trim().length) {
-            return;
-        }
-        if (mes.includes(reasoningString)) {
-            mes = mes.replace(reasoningString, escapeHtml(reasoningString));
-        }
-    });
+    mes = escapeConfiguredReasoningMarkers(
+        mes,
+        power_user.reasoning.prefix,
+        power_user.reasoning.suffix,
+        escapeHtml,
+    );
 
     if (!isSystem) {
-        if (!power_user.encode_tags) {
-            mes = mes.replace(/<([^>]+)>/g, function (_, contents) {
-                return '<' + contents.replace(/"/g, '\ufffe') + '>';
-            });
-        }
-
-        mes = mes.replace(
-            /<style>[\s\S]*?<\/style>|```[\s\S]*?```|~~~[\s\S]*?~~~|``[\s\S]*?``|`[\s\S]*?`|(".*?")|(\u201C.*?\u201D)|(\u00AB.*?\u00BB)|(\u300C.*?\u300D)|(\u300E.*?\u300F)|(\uFF02.*?\uFF02)/gim,
-            function (match, p1, p2, p3, p4, p5, p6) {
-                if (p1) return `<q>"${p1.slice(1, -1)}"</q>`;
-                if (p2) return `<q>“${p2.slice(1, -1)}”</q>`;
-                if (p3) return `<q>«${p3.slice(1, -1)}»</q>`;
-                if (p4) return `<q>「${p4.slice(1, -1)}」</q>`;
-                if (p5) return `<q>『${p5.slice(1, -1)}』</q>`;
-                if (p6) return `<q>＂${p6.slice(1, -1)}＂</q>`;
-                return match;
-            },
-        );
-
-        if (!power_user.encode_tags) {
-            mes = mes.replace(/\ufffe/g, '"');
-        }
-
-        mes = mes.replaceAll('\\begin{align*}', '$$');
-        mes = mes.replaceAll('\\end{align*}', '$$');
-        mes = converter.makeHtml(mes);
-
-        mes = mes.replace(/<code(.*)>[\s\S]*?<\/code>/g, function (match) {
-            return match.replace(/\n/gm, '\u0000');
-        });
-        mes = mes.replace(/\u0000/g, '\n');
-        mes = mes.trim();
-
-        mes = mes.replace(/<code(.*)>[\s\S]*?<\/code>/g, function (match) {
-            return match.replace(/&amp;/g, '&');
+        mes = renderMarkdownMessage(mes, {
+            encodeTags: power_user.encode_tags,
+            converter,
         });
     }
 
@@ -382,51 +358,12 @@ export function messageFormatting(mes, ch_name, isSystem, isUser, messageId, san
         mes = mes.replace(new RegExp(`(^|\n)${escapeRegex(ch_name)}:`, 'g'), '$1');
     }
 
-    /** @type {import('dompurify').Config & { RETURN_DOM_FRAGMENT: false; RETURN_DOM: false }} */
-    const config = {
-        RETURN_DOM: false,
-        RETURN_DOM_FRAGMENT: false,
-        RETURN_TRUSTED_TYPE: false,
-        MESSAGE_SANITIZE: true,
-        ADD_TAGS: ['custom-style'],
-        ...sanitizerOverrides,
-    };
-    mes = encodeStyleTags(mes);
-    mes = DOMPurify.sanitize(mes, config);
-    mes = decodeStyleTags(mes, { prefix: '.mes_text ' });
-
-    return mes;
-}
-
-function cleanGroupMessage(getMessage) {
-    if (power_user.disable_group_trimming) {
-        return getMessage;
-    }
-
-    const group = groups.find((x) => x.id == selected_group);
-
-    if (group && Array.isArray(group.members) && group.members) {
-        for (const member of group.members) {
-            const character = characters.find(x => x.avatar == member);
-
-            if (!character) {
-                continue;
-            }
-
-            const name = character.name;
-            if (name === name2) {
-                continue;
-            }
-
-            const regex = new RegExp(`(^|\n)${escapeRegex(name)}:`);
-            const nameMatch = getMessage.match(regex);
-            if (nameMatch) {
-                getMessage = getMessage.substring(0, nameMatch.index);
-            }
-        }
-    }
-
-    return getMessage;
+    return sanitizeFormattedMessage(mes, {
+        DOMPurify,
+        sanitizerOverrides,
+        encodeStyleTags,
+        decodeStyleTags,
+    });
 }
 
 export function cleanUpMessage({ getMessage, isImpersonate, isContinue, displayIncompleteSentences = false, stoppingStrings = null, includeUserPromptBias = true, trimNames = true, trimWrongNames = true } = {}) {
@@ -442,24 +379,19 @@ export function cleanUpMessage({ getMessage, isImpersonate, isContinue, displayI
         throwUnbound('getStoppingStrings');
     }
 
-    if (includeUserPromptBias && power_user.user_prompt_bias && !isImpersonate && !isContinue && power_user.user_prompt_bias.length !== 0) {
-        getMessage = substituteParams(power_user.user_prompt_bias) + getMessage;
-    }
+    getMessage = prependUserPromptBias(getMessage, {
+        includeUserPromptBias,
+        userPromptBias: power_user.user_prompt_bias,
+        isImpersonate,
+        isContinue,
+        substituteParams,
+    });
 
     if (!stoppingStrings) {
         stoppingStrings = getStoppingStringsImpl(isImpersonate, isContinue);
     }
 
-    for (const stoppingString of stoppingStrings) {
-        if (stoppingString.length) {
-            for (let j = stoppingString.length; j > 0; j--) {
-                if (getMessage.slice(-j) === stoppingString.slice(0, j)) {
-                    getMessage = getMessage.slice(0, -j);
-                    break;
-                }
-            }
-        }
-    }
+    getMessage = trimPartialStoppingStrings(getMessage, stoppingStrings);
 
     getMessage = getRegexedString(getMessage, isImpersonate ? regex_placement.USER_INPUT : regex_placement.AI_OUTPUT);
 
@@ -470,21 +402,13 @@ export function cleanUpMessage({ getMessage, isImpersonate, isContinue, displayI
     getMessage = getMessage.replace(/[^\S\r\n]+$/gm, '');
 
     if (trimWrongNames) {
-        let wrongName = isImpersonate
+        const wrongName = isImpersonate
             ? (!power_user.allow_name2_display ? name2 : '')
             : (!power_user.allow_name1_display ? name1 : '');
-
-        if (wrongName) {
-            let startIndex = getMessage.indexOf(`${wrongName}:`);
-            if (startIndex === 0) {
-                getMessage = '';
-                console.debug(`Message started with the wrong name: "${wrongName}" - response was deleted.`);
-            }
-
-            startIndex = getMessage.indexOf(`\n${wrongName}:`);
-            if (startIndex >= 0) {
-                getMessage = getMessage.substring(0, startIndex);
-            }
+        const originalMessage = getMessage;
+        getMessage = trimWrongSpeakerContent(getMessage, wrongName);
+        if (wrongName && originalMessage !== getMessage && getMessage === '') {
+            console.debug(`Message started with the wrong name: "${wrongName}" - response was deleted.`);
         }
     }
 
@@ -492,35 +416,24 @@ export function cleanUpMessage({ getMessage, isImpersonate, isContinue, displayI
         getMessage = getMessage.substring(0, getMessage.indexOf('<|endoftext|>'));
     }
 
-    const isInstruct = power_user.instruct.enabled && main_api !== 'openai';
-    const isNotEmpty = (str) => str && str.trim() !== '';
+    getMessage = trimInstructSequences(getMessage, {
+        isInstruct: power_user.instruct.enabled && main_api !== 'openai',
+        stopSequence: power_user.instruct.stop_sequence,
+        inputSequence: power_user.instruct.input_sequence,
+        outputSequence: power_user.instruct.output_sequence,
+        lastOutputSequence: power_user.instruct.last_output_sequence,
+        sequencesAsStopStrings: power_user.instruct.sequences_as_stop_strings,
+        isImpersonate,
+    });
 
-    if (isInstruct && power_user.instruct.stop_sequence) {
-        if (getMessage.indexOf(power_user.instruct.stop_sequence) !== -1) {
-            getMessage = getMessage.substring(0, getMessage.indexOf(power_user.instruct.stop_sequence));
-        }
-    }
-
-    if (isInstruct && isNotEmpty(power_user.instruct.input_sequence)) {
-        if (getMessage.indexOf(power_user.instruct.input_sequence) !== -1) {
-            getMessage = getMessage.substring(0, getMessage.indexOf(power_user.instruct.input_sequence));
-        }
-    }
-
-    if (isInstruct && power_user.instruct.sequences_as_stop_strings) {
-        const sequences = [
-            { value: power_user.instruct.input_sequence, apply: isImpersonate && isNotEmpty(power_user.instruct.input_sequence) },
-            { value: power_user.instruct.output_sequence, apply: !isImpersonate && isNotEmpty(power_user.instruct.output_sequence) },
-            { value: power_user.instruct.last_output_sequence, apply: !isImpersonate && isNotEmpty(power_user.instruct.last_output_sequence) },
-        ];
-        for (const seq of sequences.filter(s => s.apply)) {
-            seq.value.split('\n').filter(line => line.trim() !== '').forEach(line => { getMessage = getMessage.replaceAll(line, ''); });
-        }
-    }
-
-    if (selected_group) {
-        getMessage = cleanGroupMessage(getMessage);
-    }
+    getMessage = trimGroupMemberPrefixes(getMessage, {
+        selectedGroup: selected_group,
+        groups,
+        characters,
+        activeCharacterName: name2,
+        disableGroupTrimming: power_user.disable_group_trimming,
+        escapeRegex,
+    });
 
     if (!power_user.allow_name2_display) {
         const name2Escaped = escapeRegex(name2);
@@ -540,10 +453,7 @@ export function cleanUpMessage({ getMessage, isImpersonate, isContinue, displayI
             ? (!power_user.allow_name1_display ? name1 : '')
             : (!power_user.allow_name2_display ? name2 : '');
 
-        if (nameToTrim2 && getMessage.startsWith(`${nameToTrim2}:`)) {
-            getMessage = getMessage.replace(`${nameToTrim2}:`, '');
-            getMessage = getMessage.trimStart();
-        }
+        getMessage = trimLeadingDisplayName(getMessage, nameToTrim2);
     }
 
     if (isImpersonate) {

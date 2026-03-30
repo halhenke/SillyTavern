@@ -3486,3 +3486,11 @@ This move also fixed a latent regression in the moved swipe path, where `title` 
 The next adjacent seam was the repeated DOM rerender path for message edits and programmatic updates. I added `public/scripts/message-content-renderer.js` and moved the shared DOM refresh logic there: formatted message text replacement, bias rendering, reasoning refresh, media re-attachment, and code-block decoration are now handled by the dedicated renderer helper instead of being duplicated in `messageEditDone()` and `updateMessageBlock()`.
 
 This keeps `message-core` focused on edit state and orchestration, while the actual message-content DOM refresh path is now isolated in a module that is easier to replace later. It is not a React rewrite yet, but it is the same preparation pattern used for the media/template/list renderer seams.
+
+### 2026-03-31: Wave 87 - split the message cleanup and formatting text pipeline out of `message-core`
+
+This batch stayed on the same message-render modernization path, but on the text-processing side instead of the DOM side. I added `public/scripts/message-cleanup-pipeline.js` and moved the main cleanup stages out of `message-core`: user-prompt-bias prefixing, partial stop-string trimming, wrong-speaker trimming, instruct-sequence trimming, group-member cutoff trimming, and leading display-name trimming are now explicit helpers instead of being embedded in one long `cleanUpMessage()` body.
+
+In parallel, I added `public/scripts/message-formatting-pipeline.js` and split the main stages of `messageFormatting()` into named helpers: first-message substitution, author/system normalization, visible prompt-bias stripping, regex placement/depth calculation, markdown rendering, and final sanitizer/style-tag processing. `message-core` still owns the public API and sequencing, but the text pipeline is now divided into smaller modules the same way the media/template/list DOM work was divided earlier.
+
+This does not yet remove jQuery directly, but it is important prep for the eventual message renderer replacement: the message path is now separated into text cleanup, text formatting, template shaping, template DOM rendering, list DOM insertion, and rerender/update helpers instead of concentrating all of that logic in one or two monolithic functions.

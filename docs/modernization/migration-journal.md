@@ -3480,3 +3480,9 @@ That leaves `chat-operations-core` owning message orchestration and runtime stat
 3. chat-list DOM insertion and update (`message-list-renderer.js`)
 
 This move also fixed a latent regression in the moved swipe path, where `title` and the timestamp/model icon helper were no longer in the local scope after earlier extractions. The list renderer now uses the normalized template params directly and the icon helper from the template renderer module.
+
+### 2026-03-31: Wave 86 - extracted shared message content rerendering out of `message-core`
+
+The next adjacent seam was the repeated DOM rerender path for message edits and programmatic updates. I added `public/scripts/message-content-renderer.js` and moved the shared DOM refresh logic there: formatted message text replacement, bias rendering, reasoning refresh, media re-attachment, and code-block decoration are now handled by the dedicated renderer helper instead of being duplicated in `messageEditDone()` and `updateMessageBlock()`.
+
+This keeps `message-core` focused on edit state and orchestration, while the actual message-content DOM refresh path is now isolated in a module that is easier to replace later. It is not a React rewrite yet, but it is the same preparation pattern used for the media/template/list renderer seams.

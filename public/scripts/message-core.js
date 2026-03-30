@@ -11,6 +11,7 @@ import { t } from './i18n.js';
 import { converter, removeMacros, substituteParams } from './parser-core.js';
 import { POPUP_TYPE, callGenericPopup } from './popup.js';
 import { collapseNewlines, fixMarkdown, power_user } from './power-user.js';
+import { renderMessageEditPreview, renderMessageElementContent } from './message-content-renderer.js';
 import { PromptReasoning } from './reasoning.js';
 import { COMMENT_NAME_DEFAULT } from './slash-commands.js';
 import { system_message_types } from './system-messages.js';
@@ -1248,18 +1249,16 @@ function updateEditedMessage(div) {
 export function messageEditAuto(div, currentEditedMessageName = editedMessageName, currentEditedMessageId = editedMessageId) {
     const { mesBlock, text, mes, bias } = updateEditedMessage(div);
 
-    mesBlock.find('.mes_text').val('');
-    mesBlock.find('.mes_text').val(messageFormatting(
+    renderMessageEditPreview({
+        mesBlock,
         text,
-        currentEditedMessageName,
-        mes.is_system,
-        mes.is_user,
-        currentEditedMessageId,
-        {},
-        false,
-    ));
-    mesBlock.find('.mes_bias').empty();
-    mesBlock.find('.mes_bias').append(messageFormatting(bias, '', false, false, -1, {}, false));
+        bias,
+        characterName: currentEditedMessageName,
+        isSystem: mes.is_system,
+        isUser: mes.is_user,
+        messageId: currentEditedMessageId,
+        formatMessage: messageFormatting,
+    });
     saveChatDebounced();
 }
 
@@ -1271,24 +1270,24 @@ export async function messageEditDone(div, currentEditedMessageName = editedMess
 
     await eventSource.emit(event_types.MESSAGE_EDITED, currentEditedMessageId);
     text = chat[currentEditedMessageId]?.mes ?? text;
-    mesBlock.find('.mes_text').empty();
     mesBlock.find('.mes_edit_buttons').css('display', 'none');
     mesBlock.find('.mes_buttons').css('display', '');
-    mesBlock.find('.mes_text').append(
-        messageFormatting(
-            text,
-            currentEditedMessageName,
-            mes.is_system,
-            mes.is_user,
-            currentEditedMessageId,
-            {},
-            false,
+    renderMessageElementContent({
+        messageElement: div.closest('.mes'),
+        message: mes,
+        messageId: currentEditedMessageId,
+        text,
+        bias,
+        clearText: true,
+        formatMessage: (content, name, isSystem, isUser, messageId, sanitizerOverrides = {}, isReasoning = false) => (
+            name === mes.name
+                ? messageFormatting(content, currentEditedMessageName, isSystem, isUser, messageId, sanitizerOverrides, isReasoning)
+                : messageFormatting(content, name, isSystem, isUser, messageId, sanitizerOverrides, isReasoning)
         ),
-    );
-    mesBlock.find('.mes_bias').empty();
-    mesBlock.find('.mes_bias').append(messageFormatting(bias, '', false, false, -1, {}, false));
-    appendMediaToMessage(mes, div.closest('.mes'));
-    addCopyToCodeBlocksImpl(div.closest('.mes'));
+        updateReasoningUI: updateReasoningUIImpl,
+        addCopyToCodeBlocks: addCopyToCodeBlocksImpl,
+        appendMediaToMessage,
+    });
 
     const reasoningEditDone = mesBlock.find('.mes_reasoning_edit_done:visible');
     if (reasoningEditDone.length > 0) {
@@ -1450,13 +1449,17 @@ export function updateMessageBlock(...args) {
 
     const [messageId, message, { rerenderMessage = true } = {}] = args;
     const messageElement = $(`#chat [mesid="${messageId}"]`);
-    if (rerenderMessage) {
-        const text = message?.extra?.display_text ?? message.mes;
-        messageElement.find('.mes_text').html(messageFormatting(text, message.name, message.is_system, message.is_user, messageId, {}, false));
-    }
-
-    updateReasoningUIImpl(messageElement);
-    addCopyToCodeBlocksImpl(messageElement);
-    appendMediaToMessage(message, messageElement);
-    return messageElement;
+    const text = message?.extra?.display_text ?? message.mes;
+    return renderMessageElementContent({
+        messageElement,
+        message,
+        messageId,
+        text,
+        bias: null,
+        clearText: rerenderMessage,
+        formatMessage: messageFormatting,
+        updateReasoningUI: updateReasoningUIImpl,
+        addCopyToCodeBlocks: addCopyToCodeBlocksImpl,
+        appendMediaToMessage,
+    });
 }

@@ -1,12 +1,13 @@
 import { chat } from './chat-operations-core.js';
 import { event_types, eventSource } from './events.js';
+import { t } from './i18n.js';
 import { syncConverter } from './parser-core.js';
 import { markdownExclusionExt } from './showdown-exclusion.js';
 import { markdownUnderscoreExt } from './showdown-underscore.js';
+import { copyText } from './utils.js';
 
-import { showdown } from '../lib.js';
+import { hljs, showdown } from '../lib.js';
 
-let addCopyToCodeBlocksImpl = null;
 let callPopupImpl = null;
 let debounceImpl = null;
 let delayImpl = null;
@@ -32,7 +33,6 @@ function throwUnbound(name) {
 /**
  * Binds legacy UI implementations to standalone wrappers.
  * @param {{
- *   addCopyToCodeBlocks: (...args: any[]) => any,
  *   callPopup: (...args: any[]) => any,
  *   debounce: (...args: any[]) => any,
  *   delay: (...args: any[]) => Promise<any>,
@@ -47,7 +47,6 @@ function throwUnbound(name) {
  * }} impl Implementations to bind
  */
 export function bindUiCore(impl) {
-    addCopyToCodeBlocksImpl = impl?.addCopyToCodeBlocks ?? null;
     callPopupImpl = impl?.callPopup ?? null;
     debounceImpl = impl?.debounce ?? null;
     delayImpl = impl?.delay ?? null;
@@ -82,11 +81,23 @@ export function syncMaxInjectionDepth(value) {
 }
 
 export function addCopyToCodeBlocks(...args) {
-    if (!addCopyToCodeBlocksImpl) {
-        throwUnbound('addCopyToCodeBlocks');
+    const [messageElement] = args;
+    const codeBlocks = $(messageElement).find('pre code');
+    for (let i = 0; i < codeBlocks.length; i++) {
+        hljs.highlightElement(codeBlocks.get(i));
+        const copyButton = document.createElement('i');
+        copyButton.classList.add('fa-solid', 'fa-copy', 'code-copy', 'interactable');
+        copyButton.title = 'Copy code';
+        codeBlocks.get(i).appendChild(copyButton);
+        copyButton.addEventListener('click', function (e) {
+            e.stopPropagation();
+        });
+        copyButton.addEventListener('pointerup', async function () {
+            const text = codeBlocks.get(i).innerText;
+            await copyText(text);
+            toastr.info(t`Copied!`, '', { timeOut: 2000 });
+        });
     }
-
-    return addCopyToCodeBlocksImpl(...args);
 }
 
 export function callPopup(...args) {

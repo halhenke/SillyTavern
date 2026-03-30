@@ -12,6 +12,8 @@ import { POPUP_TYPE, callGenericPopup } from './popup.js';
 import { power_user } from './power-user.js';
 import { parseReasoningInSwipes } from './reasoning.js';
 import { statMesProcess } from './stats.js';
+import { renderMessageTemplate } from './message-template-renderer.js';
+import { createMessageTemplateViewModel } from './message-template-view-model.js';
 import { getTokenCountAsync, saveTokenCache } from './tokenizers.js';
 import { debounce, delay, download, humanFileSize, isDataURL, isElementInViewport, saveBase64AsFile, sortMoments, timestampToMoment, waitUntilCondition, uuidv4 } from './utils.js';
 import { humanizedDateTime } from './RossAscends-mods.js';
@@ -26,10 +28,8 @@ let createOrEditCharacterImpl = null;
 let deactivateSendButtonsImpl = null;
 let deleteSwipeImpl = null;
 let extractMessageBiasImpl = null;
-let formatCharacterAvatarImpl = null;
 let getChatTruncationImpl = null;
 let getChatCreateDateImpl = null;
-let getCharacterAvatarImpl = null;
 let getCharacterCardFieldsImpl = null;
 let getCharactersImpl = null;
 let getGeneratingApiImpl = null;
@@ -93,10 +93,8 @@ function throwUnbound(name) {
   *   deactivateSendButtons: (...args: any[]) => any,
   *   deleteSwipe: (...args: any[]) => Promise<any>,
  *   extractMessageBias: (...args: any[]) => any,
- *   formatCharacterAvatar: (...args: any[]) => any,
  *   getChatTruncation: () => number,
  *   getChatCreateDate: () => string,
- *   getCharacterAvatar: (...args: any[]) => any,
   *   getCharacterCardFields: (...args: any[]) => any,
   *   getCharacters: (...args: any[]) => Promise<any>,
  *   getGeneratingApi: () => string,
@@ -148,10 +146,8 @@ export function bindChatOperationsCore(impl) {
     deactivateSendButtonsImpl = impl?.deactivateSendButtons ?? null;
     deleteSwipeImpl = impl?.deleteSwipe ?? null;
     extractMessageBiasImpl = impl?.extractMessageBias ?? null;
-    formatCharacterAvatarImpl = impl?.formatCharacterAvatar ?? null;
     getChatTruncationImpl = impl?.getChatTruncation ?? null;
     getChatCreateDateImpl = impl?.getChatCreateDate ?? null;
-    getCharacterAvatarImpl = impl?.getCharacterAvatar ?? null;
     getCharacterCardFieldsImpl = impl?.getCharacterCardFields ?? null;
     getCharactersImpl = impl?.getCharacters ?? null;
     getGeneratingApiImpl = impl?.getGeneratingApi ?? null;
@@ -504,14 +500,19 @@ export function extractMessageBias(...args) {
     return extractMessageBiasImpl(...args);
 }
 
-export function formatCharacterAvatar(...args) {
-    if (!formatCharacterAvatarImpl) throwUnbound('formatCharacterAvatar');
-    return formatCharacterAvatarImpl(...args);
+export function formatCharacterAvatar(characterAvatar) {
+    return `characters/${characterAvatar}`;
 }
 
-export function getCharacterAvatar(...args) {
-    if (!getCharacterAvatarImpl) throwUnbound('getCharacterAvatar');
-    return getCharacterAvatarImpl(...args);
+export function getCharacterAvatar(characterId) {
+    const character = characters[characterId];
+    const avatarImg = character?.avatar;
+
+    if (!avatarImg || avatarImg === 'none') {
+        return default_avatar;
+    }
+
+    return formatCharacterAvatar(avatarImg);
 }
 
 export function getCharacterCardFields(...args) {
@@ -1046,65 +1047,17 @@ function insertSVGIcon(mes, extra) {
     createModelImage('thinking-icon', '.mes_reasoning_header_title', true);
 }
 
-function getMessageFromTemplate({
-    mesId,
-    swipeId,
-    characterName,
-    isUser,
-    avatarImg,
-    bias,
-    isSystem,
-    title,
-    timerValue,
-    timerTitle,
-    bookmarkLink,
-    forceAvatar,
-    timestamp,
-    tokenCount,
-    extra,
-    type,
-}) {
+function getMessageFromTemplate(params) {
     if (!updateReasoningUIImpl) throwUnbound('updateReasoningUI');
     if (!shouldShowTimestampModelIconImpl) throwUnbound('shouldShowTimestampModelIcon');
     if (!updateBookmarkDisplayImpl) throwUnbound('updateBookmarkDisplay');
 
-    const mes = $('#message_template .mes').clone();
-    mes.attr({
-        mesid: mesId,
-        swipeid: swipeId,
-        ch_name: characterName,
-        is_user: isUser,
-        is_system: !!isSystem,
-        bookmark_link: bookmarkLink,
-        force_avatar: !!forceAvatar,
-        timestamp: timestamp,
-        ...(type ? { type } : {}),
+    return renderMessageTemplate(params, {
+        updateReasoningUI: updateReasoningUIImpl,
+        shouldShowTimestampModelIcon: shouldShowTimestampModelIconImpl,
+        updateBookmarkDisplay: updateBookmarkDisplayImpl,
+        insertTimestampModelIcon: insertSVGIcon,
     });
-    mes.find('.avatar img').attr('src', avatarImg);
-    mes.find('.ch_name .name_text').text(characterName);
-    mes.find('.mes_bias').html(bias);
-    mes.find('.timestamp').text(timestamp).attr('title', `${extra?.api ? `${extra.api} - ` : ''}${extra?.model ?? ''}`);
-    mes.find('.mesIDDisplay').text(`#${mesId}`);
-    if (tokenCount) {
-        mes.find('.tokenCounterDisplay').text(`${tokenCount}t`);
-    }
-    if (title) {
-        mes.attr('title', title);
-    }
-    if (timerValue) {
-        mes.find('.mes_timer').attr('title', timerTitle).text(timerValue);
-    }
-    if (bookmarkLink) {
-        updateBookmarkDisplayImpl(mes);
-    }
-
-    updateReasoningUIImpl(mes);
-
-    if (shouldShowTimestampModelIconImpl() && extra?.api) {
-        insertSVGIcon(mes, extra);
-    }
-
-    return mes;
 }
 
 export function formatGenerationTimer(gen_started, gen_finished, tokenCount, reasoningDuration = null, timeToFirstToken = null) {
@@ -1148,66 +1101,35 @@ function addOneMessageInternal(mes, { type = 'normal', insertAfter = null, scrol
     if (!scrollChatToBottomImpl) throwUnbound('scrollChatToBottom');
     if (!applyCharacterTagsToMessageDivsImpl) throwUnbound('applyCharacterTagsToMessageDivs');
 
-    let messageText = mes.mes;
     const momentDate = timestampToMoment(mes.send_date);
     const timestamp = momentDate.isValid() ? momentDate.format('LL LT') : '';
-
-    if (mes?.extra?.display_text) {
-        messageText = mes.extra.display_text;
-    }
 
     if (type === 'swipe' && mes.swipe_id === undefined) {
         mes.swipe_id = 0;
         mes.swipes = [mes.mes];
     }
 
-    let avatarImg = getThumbnailUrl('persona', user_avatar);
-    const isSystem = mes.is_system;
-    const title = mes.title;
+    const selectedCharacterAvatarUrl = this_chid === undefined
+        ? null
+        : (characters[this_chid].avatar !== 'none'
+            ? getThumbnailUrl('avatar', characters[this_chid].avatar)
+            : default_avatar);
 
-    if (!mes.is_user) {
-        if (mes.force_avatar) {
-            avatarImg = mes.force_avatar;
-        } else if (this_chid === undefined) {
-            avatarImg = system_avatar;
-        } else if (characters[this_chid].avatar !== 'none') {
-            avatarImg = getThumbnailUrl('avatar', characters[this_chid].avatar);
-        } else {
-            avatarImg = default_avatar;
-        }
-    } else if (mes.is_user && mes.force_avatar) {
-        avatarImg = mes.force_avatar;
-    }
-
-    const sanitizerOverrides = mes.uses_system_ui ? { MESSAGE_ALLOW_SYSTEM_UI: true } : {};
-    messageText = messageFormattingImpl(
-        messageText,
-        mes.name,
-        isSystem,
-        mes.is_user,
-        chat.indexOf(mes),
-        sanitizerOverrides,
-        false,
-    );
-    const bias = messageFormattingImpl(mes.extra?.bias ?? '', '', false, false, -1, {}, false);
-
-    const params = {
-        mesId: forceId ?? chat.length - 1,
-        swipeId: mes.swipe_id ?? 0,
-        characterName: mes.name,
-        isUser: mes.is_user,
-        avatarImg,
-        bias,
-        isSystem,
-        title,
-        bookmarkLink: mes?.extra?.bookmark_link ?? '',
-        forceAvatar: mes.force_avatar,
+    const { messageText, params } = createMessageTemplateViewModel({
+        message: mes,
+        type,
+        forceId,
+        chatLength: chat.length,
+        messageIndex: chat.indexOf(mes),
+        personaAvatarUrl: getThumbnailUrl('persona', user_avatar),
+        selectedCharacterAvatarUrl,
+        hasSelectedCharacter: this_chid !== undefined,
+        systemAvatar: system_avatar,
+        defaultAvatar: default_avatar,
         timestamp,
-        extra: mes.extra,
-        tokenCount: mes.extra?.token_count ?? 0,
-        type: mes.extra?.type ?? '',
-        ...formatGenerationTimer(mes.gen_started, mes.gen_finished, mes.extra?.token_count, mes.extra?.reasoning_duration, mes.extra?.time_to_first_token),
-    };
+        formatMessage: messageFormattingImpl,
+        formatGenerationTimer,
+    });
 
     const renderedMessage = getMessageFromTemplate(params);
     const chatElement = $('#chat');

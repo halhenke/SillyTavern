@@ -3446,3 +3446,26 @@ This is still not the React rewrite itself, but it materially improves that path
 3. legacy jQuery renderer (`message-media-renderer.js`)
 
 That is a much better replacement seam than one large monolithic function sitting inside `script.js`.
+
+### 2026-03-31: Wave 82 - collapsed renderer-adjacent helper seams into their core owners
+
+This batch stayed intentionally small and relocation-first, but it cleaned up several lingering “core already consumes this, yet `script.js` still owns it” helpers around message rendering and avatar presentation. `addCopyToCodeBlocks()` now lives directly in `public/scripts/ui-core.js`, which is already the runtime adapter surface used by message and chat rendering code. Likewise, `getCharacterAvatar()` and `formatCharacterAvatar()` now live directly in `public/scripts/chat-operations-core.js`, alongside the message/template paths that already depend on them.
+
+The main goal here was not line-count alone. These helpers were part of the replacement seam around legacy message rendering: code-block decoration and avatar URL formatting are now owned by the same modules that React-facing adapters already import, which reduces monolith-only dependencies before a larger message-render move.
+
+### 2026-03-31: Wave 83 - introduced a message template view model ahead of deeper message-render extraction
+
+This follow-up keeps the same “prepare for React, but preserve behavior” direction as the earlier media work. I added `public/scripts/message-template-view-model.js` and moved the non-DOM message-template shaping out of `chat-operations-core`’s `addOneMessageInternal()` path: avatar selection, formatted body/bias text, timestamp/timer metadata, and the normalized template params now come from a pure helper.
+
+The important constraint here is that this is not yet a React renderer rewrite. `chat-operations-core` still owns the jQuery template cloning and DOM insertion, but the data-shaping step is now separated from the DOM mutation step. That makes the next extraction or eventual React replacement much more mechanical.
+
+### 2026-03-31: Wave 84 - extracted the legacy message template renderer out of `chat-operations-core`
+
+This follow-up completed the next obvious split in the same message-render seam. I added `public/scripts/message-template-renderer.js` and moved the jQuery template cloning/population work there. `chat-operations-core` now keeps the orchestration around insertion, swipe handling, prompt markers, and scroll behavior, but it no longer owns the actual DOM template fill-in logic.
+
+Combined with the new `message-template-view-model.js`, the message-render path is now split into:
+1. data shaping / normalized template params
+2. legacy jQuery template rendering
+3. higher-level chat insertion/orchestration
+
+That is much closer to the same structure a React replacement would want, without forcing a behavior rewrite yet.

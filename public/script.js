@@ -2,7 +2,6 @@ import {
     showdown,
     moment,
     DOMPurify,
-    hljs,
     Handlebars,
     Popper,
     initLibraryShims,
@@ -161,7 +160,6 @@ import {
     ensureImageFormatSupported,
     flashHighlight,
     toggleDrawer,
-    copyText,
     escapeHtml,
     saveBase64AsFile,
     uuidv4,
@@ -256,7 +254,7 @@ import { getClientVersion as getClientVersionCore, syncClientVersion, syncConnec
 import { bindBackendStatusCore, cancelStatusCheck as cancelStatusCheckCore, displayOnlineStatus as displayOnlineStatusCore, resultCheckStatus as resultCheckStatusCore, setAbortStatusCheck, setOnlineStatus as setOnlineStatusCore, startStatusLoading as startStatusLoadingCore, stopStatusLoading as stopStatusLoadingCore } from './scripts/backend-status-core.js';
 import { bindCharacterCore, buildAvatarList as buildAvatarListCore, characterToEntity as characterToEntityCore, closeAdvancedCharacterPopup as closeAdvancedCharacterPopupCore, createOrEditCharacter as createOrEditCharacterCore, crop_data as characterCropData, deleteCharacter as deleteCharacterCore, doCharListDisplaySwitch as doCharListDisplaySwitchCore, duplicateCharacter as duplicateCharacterCore, getCharacterCardFields as getCharacterCardFieldsCore, getCharacters as getCharactersCore, getCharacterSource as getCharacterSourceCore, getEntitiesList as getEntitiesListCore, getOneCharacter as getOneCharacterCore, groupToEntity as groupToEntityCore, importCharacter as importCharacterCore, importCharactersTags as importCharactersTagsCore, initCharacterDeleteBinding as initCharacterDeleteBindingCore, initCharacterEditorBindings as initCharacterEditorBindingsCore, initCharacterImportExportBindings as initCharacterImportExportBindingsCore, initCharacterPanelBindings as initCharacterPanelBindingsCore, initCharacterSearch as initCharacterSearchCore, openAlternateGreetings as openAlternateGreetingsCore, openCharacterWorldPopup as openCharacterWorldPopupCore, printCharacters as printCharactersCore, processDroppedFiles as processDroppedFilesCore, read_avatar_load as readAvatarLoadCore, renameCharacter as characterCoreRename, selectImportedChar as selectImportedCharCore, syncCharacterGroupOverlay, syncCharacters, syncCreateSave as syncCharacterCreateSave, syncCropData, syncDepthPromptDepthDefault as syncCharacterDepthPromptDepthDefault, syncDepthPromptRoleDefault as syncCharacterDepthPromptRoleDefault, syncPrintCharactersDebounced, syncTalkativenessDefault as syncCharacterTalkativenessDefault, tagToEntity as tagToEntityCore, toggleAdvancedCharacterPopup as toggleAdvancedCharacterPopupCore, unshallowCharacter as unshallowCharacterCore } from './scripts/character-core.js';
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, setUserName as setUserNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
-import { addOneMessage as addOneMessageCore, bindChatOperationsCore, cancelDebouncedChatSave as cancelDebouncedChatSaveCore, clearChat as clearChatCore, delChat as delChatCore, deleteCharacterChatByName as deleteCharacterChatByNameCore, displayPastChats as displayPastChatsCore, formatGenerationTimer as formatGenerationTimerCore, formatSwipeCounter as formatSwipeCounterCore, getChat as getChatCore, getChatResult as getChatResultCore, getCurrentChatDetails as getCurrentChatDetailsCore, getFirstMessage as getFirstMessageCore, getPastCharacterChats as getPastCharacterChatsCore, importCharacterChat as importCharacterChatCore, initChatImportBindings as initChatImportBindingsCore, initChatManagementBindings as initChatManagementBindingsCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, replaceCurrentChat as replaceCurrentChatCore, saveChat as saveChatCore, saveChatConditional as saveChatConditionalCore, saveChatDebounced as saveChatDebouncedCore, saveMetadata as saveMetadataCore, saveReply as saveReplyCore, sendMessageAsUser as sendMessageAsUserCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
+import { addOneMessage as addOneMessageCore, bindChatOperationsCore, cancelDebouncedChatSave as cancelDebouncedChatSaveCore, clearChat as clearChatCore, delChat as delChatCore, deleteCharacterChatByName as deleteCharacterChatByNameCore, displayPastChats as displayPastChatsCore, formatCharacterAvatar as formatCharacterAvatarCore, formatSwipeCounter as formatSwipeCounterCore, getCharacterAvatar as getCharacterAvatarCore, getChat as getChatCore, getChatResult as getChatResultCore, getCurrentChatDetails as getCurrentChatDetailsCore, getFirstMessage as getFirstMessageCore, getPastCharacterChats as getPastCharacterChatsCore, importCharacterChat as importCharacterChatCore, initChatImportBindings as initChatImportBindingsCore, initChatManagementBindings as initChatManagementBindingsCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, replaceCurrentChat as replaceCurrentChatCore, saveChat as saveChatCore, saveChatConditional as saveChatConditionalCore, saveChatDebounced as saveChatDebouncedCore, saveMetadata as saveMetadataCore, saveReply as saveReplyCore, sendMessageAsUser as sendMessageAsUserCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { importExternalContent as importExternalContentCore, importFromURL as importFromURLCore } from './scripts/content-import-core.js';
 import { addDebugFunctions as addDebugFunctionsCore, bindDebugCore } from './scripts/debug-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
@@ -266,7 +264,7 @@ import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumb
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
 import { bindSessionCore, doNewChat as doNewChatCore, handleDeleteChat as handleDeleteChatCore, initCharacterManagementDropdownBindings as initCharacterManagementDropdownBindingsCore, newAssistantChat as newAssistantChatCore, renameGroupOrCharacterChat as renameGroupOrCharacterChatCore, resetChatState as resetChatStateCore, selectCharacterById as selectCharacterByIdCore, selectRightMenuWithAnimation as selectRightMenuWithAnimationCore, select_rm_characters as selectRmCharactersCore, select_rm_create as selectRmCreateCore, select_rm_info as selectRmInfoCore, select_selected_character as selectSelectedCharacterCore, sendTextareaMessage as sendTextareaMessageCore, setExternalAbortController as setExternalAbortControllerCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes, updateRemoteChatName as updateRemoteChatNameCore } from './scripts/session-core.js';
 import { bindSettingsCore, changeMainAPI as changeMainAPICore, getSettings as getSettingsCore, saveSettings as saveSettingsCore } from './scripts/settings-core.js';
-import { activateSendButtons as activateSendButtonsCore, bindUiCore, deactivateSendButtons as deactivateSendButtonsCore, doDrawerOpenClick as doDrawerOpenClickCore, doNavbarIconClick as doNavbarIconClickCore, fixViewport as fixViewportCore, getSlideToggleOptions as getSlideToggleOptionsCore, hideStopButton as hideStopButtonCore, initEditTextareaAutoFit as initEditTextareaAutoFitCore, initExecutionControlBindings as initExecutionControlBindingsCore, initInlineDrawerBindings as initInlineDrawerBindingsCore, initOptionsMenu as initOptionsMenuCore, initRangeInputBindings as initRangeInputBindingsCore, initSendTextareaFocusRetention as initSendTextareaFocusRetentionCore, initStandaloneMode as initStandaloneModeCore, reloadMarkdownProcessor as reloadMarkdownProcessorCore, setAnimationDuration as setAnimationDurationCore, setSendButtonState as setSendButtonStateCore, showStopButton as showStopButtonCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
+import { activateSendButtons as activateSendButtonsCore, addCopyToCodeBlocks as addCopyToCodeBlocksCore, bindUiCore, deactivateSendButtons as deactivateSendButtonsCore, doDrawerOpenClick as doDrawerOpenClickCore, doNavbarIconClick as doNavbarIconClickCore, fixViewport as fixViewportCore, getSlideToggleOptions as getSlideToggleOptionsCore, hideStopButton as hideStopButtonCore, initEditTextareaAutoFit as initEditTextareaAutoFitCore, initExecutionControlBindings as initExecutionControlBindingsCore, initInlineDrawerBindings as initInlineDrawerBindingsCore, initOptionsMenu as initOptionsMenuCore, initRangeInputBindings as initRangeInputBindingsCore, initSendTextareaFocusRetention as initSendTextareaFocusRetentionCore, initStandaloneMode as initStandaloneModeCore, reloadMarkdownProcessor as reloadMarkdownProcessorCore, setAnimationDuration as setAnimationDurationCore, setSendButtonState as setSendButtonStateCore, showStopButton as showStopButtonCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
 import { accountStorage } from './scripts/util/AccountStorage.js';
 import { initWelcomeScreen, openPermanentAssistantChat, openPermanentAssistantCard, getPermanentAssistantAvatar } from './scripts/welcome-screen.js';
 import { initDataMaid } from './scripts/data-maid.js';
@@ -769,10 +767,8 @@ bindChatOperationsCore({
     deactivateSendButtons,
     deleteSwipe,
     extractMessageBias,
-    formatCharacterAvatar,
     getChatCreateDate: () => chat_create_date,
     getChatTruncation: () => power_user.chat_truncation,
-    getCharacterAvatar,
     getCharacterCardFields,
     getCharacters,
     getGeneratingApi,
@@ -826,7 +822,6 @@ bindChatOperationsCore({
     updateReasoningUI,
 });
 bindUiCore({
-    addCopyToCodeBlocks,
     callPopup,
     debounce,
     delay,
@@ -1450,22 +1445,7 @@ export function appendImageToMessage(mes, messageElement) {
 }
 
 export function addCopyToCodeBlocks(messageElement) {
-    const codeBlocks = $(messageElement).find('pre code');
-    for (let i = 0; i < codeBlocks.length; i++) {
-        hljs.highlightElement(codeBlocks.get(i));
-        const copyButton = document.createElement('i');
-        copyButton.classList.add('fa-solid', 'fa-copy', 'code-copy', 'interactable');
-        copyButton.title = 'Copy code';
-        codeBlocks.get(i).appendChild(copyButton);
-        copyButton.addEventListener('click', function (e) {
-            e.stopPropagation();
-        });
-        copyButton.addEventListener('pointerup', async function () {
-            const text = codeBlocks.get(i).innerText;
-            await copyText(text);
-            toastr.info(t`Copied!`, '', { timeOut: 2000 });
-        });
-    }
+    return addCopyToCodeBlocksCore(messageElement);
 }
 
 
@@ -1491,35 +1471,11 @@ export function addOneMessage(mes, { type = 'normal', insertAfter = null, scroll
  * @returns {string} Avatar URL
  */
 export function getCharacterAvatar(characterId) {
-    const character = characters[characterId];
-    const avatarImg = character?.avatar;
-
-    if (!avatarImg || avatarImg === 'none') {
-        return default_avatar;
-    }
-
-    return formatCharacterAvatar(avatarImg);
+    return getCharacterAvatarCore(characterId);
 }
 
 export function formatCharacterAvatar(characterAvatar) {
-    return `characters/${characterAvatar}`;
-}
-
-/**
- * Formats the title for the generation timer.
- * @param {Date} gen_started Date when generation was started
- * @param {Date} gen_finished Date when generation was finished
- * @param {number} tokenCount Number of tokens generated (0 if not available)
- * @param {number?} [reasoningDuration=null] Reasoning duration (null if no reasoning was done)
- * @param {number?} [timeToFirstToken=null] Time to first token
- * @returns {Object} Object containing the formatted timer value and title
- * @example
- * const { timerValue, timerTitle } = formatGenerationTimer(gen_started, gen_finished, tokenCount);
- * console.log(timerValue); // 1.2s
- * console.log(timerTitle); // Generation queued: 12:34:56 7 Jan 2021\nReply received: 12:34:57 7 Jan 2021\nTime to generate: 1.2 seconds\nToken rate: 5 t/s
- */
-function formatGenerationTimer(gen_started, gen_finished, tokenCount, reasoningDuration = null, timeToFirstToken = null) {
-    return formatGenerationTimerCore(gen_started, gen_finished, tokenCount, reasoningDuration, timeToFirstToken);
+    return formatCharacterAvatarCore(characterAvatar);
 }
 
 export function scrollChatToBottom() {

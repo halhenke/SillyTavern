@@ -3494,3 +3494,9 @@ This batch stayed on the same message-render modernization path, but on the text
 In parallel, I added `public/scripts/message-formatting-pipeline.js` and split the main stages of `messageFormatting()` into named helpers: first-message substitution, author/system normalization, visible prompt-bias stripping, regex placement/depth calculation, markdown rendering, and final sanitizer/style-tag processing. `message-core` still owns the public API and sequencing, but the text pipeline is now divided into smaller modules the same way the media/template/list DOM work was divided earlier.
 
 This does not yet remove jQuery directly, but it is important prep for the eventual message renderer replacement: the message path is now separated into text cleanup, text formatting, template shaping, template DOM rendering, list DOM insertion, and rerender/update helpers instead of concentrating all of that logic in one or two monolithic functions.
+
+### 2026-03-31: Wave 88 - extracted swipe transition DOM orchestration out of `message-core`
+
+The next remaining jQuery-heavy pocket in the message path was the swipe animation/update flow. I added `public/scripts/message-swipe-renderer.js` and moved the chained transition, height, scroll, and avatar animation logic there for both left and right swipes. `message-core` still owns the swipe state machine itself, including when to reuse an existing swipe versus trigger a fresh generation, but it no longer owns the full nested transition chain.
+
+This stayed behavior-preserving rather than redesigning the feature. The main gain is that the swipe DOM work is now isolated in a renderer module instead of being mixed into the swipe state machine. That also keeps the token-count refresh, media reattachment, and generation handoff explicit at the call site.

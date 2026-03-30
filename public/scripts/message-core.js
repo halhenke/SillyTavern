@@ -31,6 +31,7 @@ import {
     trimWrongSpeakerContent,
 } from './message-cleanup-pipeline.js';
 import { renderMessageEditPreview, renderMessageElementContent } from './message-content-renderer.js';
+import { runSwipeLeftTransition, runSwipeRightTransition } from './message-swipe-renderer.js';
 import { PromptReasoning } from './reasoning.js';
 import { COMMENT_NAME_DEFAULT } from './slash-commands.js';
 import { system_message_types } from './system-messages.js';
@@ -509,10 +510,6 @@ export function swipe_left(_event, { source, repeated } = {}) {
         }
 
         const messageRoot = $('.last_mes');
-        const messageBlock = messageRoot.children('.mes_block').children('.mes_text');
-        const messageRootHeight = messageRoot[0].scrollHeight;
-        messageRoot.css('height', messageRootHeight);
-        const messageBlockHeight = messageBlock[0].scrollHeight;
 
         chat[chat.length - 1].mes = chat[chat.length - 1].swipes[chat[chat.length - 1].swipe_id];
         chat[chat.length - 1].send_date = chat[chat.length - 1].swipe_info[chat[chat.length - 1].swipe_id]?.send_date || chat[chat.length - 1].send_date;
@@ -523,13 +520,12 @@ export function swipe_left(_event, { source, repeated } = {}) {
             delete chat[chat.length - 1].extra.display_text;
         }
 
-        messageRoot.children('.mes_block').transition({
-            x: swipeRange,
-            duration: animation_duration > 0 ? swipeDuration : 0,
-            easing: animation_easing,
-            queue: false,
-            complete: async function () {
-                const isAnimationScroll = ($('#chat').scrollTop() >= ($('#chat').prop('scrollHeight') - $('#chat').outerHeight()) - 10);
+        runSwipeLeftTransition(messageRoot, {
+            swipeRange,
+            swipeDuration,
+            animationDuration: animation_duration,
+            animationEasing: animation_easing,
+            onRenderSwipeMessage: async () => {
                 addOneMessage(chat[chat.length - 1], { type: 'swipe' });
 
                 if (power_user.message_token_count_enabled) {
@@ -543,70 +539,11 @@ export function swipe_left(_event, { source, repeated } = {}) {
                     chat[chat.length - 1].extra.token_count = tokenCount;
                     swipeMessage.find('.tokenCounterDisplay').text(`${tokenCount}t`);
                 }
-
-                let newHeight = messageRootHeight - (messageBlockHeight - messageBlock[0].scrollHeight);
-                if (newHeight < 103) {
-                    newHeight = 103;
-                }
-
-                messageRoot.animate({ height: `${newHeight}px` }, {
-                    duration: 0,
-                    queue: false,
-                    progress: function () {
-                        if (isAnimationScroll) {
-                            $('#chat').scrollTop($('#chat')[0].scrollHeight);
-                        }
-                    },
-                    complete: function () {
-                        messageRoot.css('height', 'auto');
-                        if (isAnimationScroll) {
-                            $('#chat').scrollTop($('#chat')[0].scrollHeight);
-                        }
-                    },
-                });
-
-                messageRoot.children('.mes_block').transition({
-                    x: `-${swipeRange}`,
-                    duration: 0,
-                    easing: animation_easing,
-                    queue: false,
-                    complete: function () {
-                        messageRoot.children('.mes_block').transition({
-                            x: '0px',
-                            duration: animation_duration > 0 ? swipeDuration : 0,
-                            easing: animation_easing,
-                            queue: false,
-                            complete: async function () {
-                                appendMediaToMessage(chat[chat.length - 1], messageRoot.children('.mes_block'));
-                                await eventSource.emit(event_types.MESSAGE_SWIPED, chat.length - 1);
-                                saveChatDebounced();
-                            },
-                        });
-                    },
-                });
             },
-        });
-
-        messageRoot.children('.avatar').transition({
-            x: swipeRange,
-            duration: animation_duration > 0 ? swipeDuration : 0,
-            easing: animation_easing,
-            queue: false,
-            complete: function () {
-                messageRoot.children('.avatar').transition({
-                    x: `-${swipeRange}`,
-                    duration: 0,
-                    easing: animation_easing,
-                    queue: false,
-                    complete: function () {
-                        messageRoot.children('.avatar').transition({
-                            x: '0px',
-                            duration: animation_duration > 0 ? swipeDuration : 0,
-                            easing: animation_easing,
-                            queue: false,
-                        });
-                    },
-                });
+            onFinishSwipe: async () => {
+                appendMediaToMessage(chat[chat.length - 1], messageRoot.children('.mes_block'));
+                await eventSource.emit(event_types.MESSAGE_SWIPED, chat.length - 1);
+                saveChatDebounced();
             },
         });
     }
@@ -711,18 +648,13 @@ export function swipe_right(_event = null, { source, repeated } = {}) {
     }
 
     if (runGenerate || runSwipeRight) {
-        const messageBlock = messageRoot.find('.mes_block .mes_text');
-        const messageRootHeight = messageRoot[0].scrollHeight;
-        const messageBlockHeight = messageBlock[0].scrollHeight;
-
         messageRoot.children('.swipe_left').css('display', 'flex');
-        messageRoot.children('.mes_block').transition({
-            x: `-${swipeRange}`,
-            duration: animation_duration > 0 ? swipeDuration : 0,
-            easing: animation_easing,
-            queue: false,
-            complete: async function () {
-                const isAnimationScroll = ($('#chat').scrollTop() >= ($('#chat').prop('scrollHeight') - $('#chat').outerHeight()) - 10);
+        runSwipeRightTransition(messageRoot, {
+            swipeRange,
+            swipeDuration,
+            animationDuration: animation_duration,
+            animationEasing: animation_easing,
+            onRenderSwipeMessage: async () => {
                 const currentSwipeMessage = $('#chat').find(`[mesid="${chat.length - 1}"]`);
 
                 if (runGenerate && parseInt(chat[chat.length - 1].swipe_id) === chat[chat.length - 1].swipes.length) {
@@ -744,75 +676,17 @@ export function swipe_right(_event = null, { source, repeated } = {}) {
                         currentSwipeMessage.find('.tokenCounterDisplay').text(`${tokenCount}t`);
                     }
                 }
-
-                let newHeight = messageRootHeight - (messageBlockHeight - messageBlock[0].scrollHeight);
-                if (newHeight < 103) {
-                    newHeight = 103;
-                }
-
-                messageRoot.animate({ height: `${newHeight}px` }, {
-                    duration: 0,
-                    queue: false,
-                    progress: function () {
-                        if (isAnimationScroll) {
-                            $('#chat').scrollTop($('#chat')[0].scrollHeight);
-                        }
-                    },
-                    complete: function () {
-                        messageRoot.css('height', 'auto');
-                        if (isAnimationScroll) {
-                            $('#chat').scrollTop($('#chat')[0].scrollHeight);
-                        }
-                    },
-                });
-
-                messageRoot.children('.mes_block').transition({
-                    x: swipeRange,
-                    duration: 0,
-                    easing: animation_easing,
-                    queue: false,
-                    complete: function () {
-                        messageRoot.children('.mes_block').transition({
-                            x: '0px',
-                            duration: animation_duration > 0 ? swipeDuration : 0,
-                            easing: animation_easing,
-                            queue: false,
-                            complete: async function () {
-                                appendMediaToMessage(chat[chat.length - 1], currentSwipeMessage);
-                                await eventSource.emit(event_types.MESSAGE_SWIPED, chat.length - 1);
-                                if (runGenerate && !is_send_press && parseInt(chat[chat.length - 1].swipe_id) === chat[chat.length - 1].swipes.length) {
-                                    setSendButtonStateImpl(true);
-                                    await generateImpl('swipe');
-                                } else if (parseInt(chat[chat.length - 1].swipe_id) !== chat[chat.length - 1].swipes.length) {
-                                    saveChatDebounced();
-                                }
-                            },
-                        });
-                    },
-                });
             },
-        });
-
-        messageRoot.children('.avatar').transition({
-            x: `-${swipeRange}`,
-            duration: animation_duration > 0 ? swipeDuration : 0,
-            easing: animation_easing,
-            queue: false,
-            complete: function () {
-                messageRoot.children('.avatar').transition({
-                    x: swipeRange,
-                    duration: 0,
-                    easing: animation_easing,
-                    queue: false,
-                    complete: function () {
-                        messageRoot.children('.avatar').transition({
-                            x: '0px',
-                            duration: animation_duration > 0 ? swipeDuration : 0,
-                            easing: animation_easing,
-                            queue: false,
-                        });
-                    },
-                });
+            onFinishSwipe: async () => {
+                const currentSwipeMessage = $('#chat').find(`[mesid="${chat.length - 1}"]`);
+                appendMediaToMessage(chat[chat.length - 1], currentSwipeMessage);
+                await eventSource.emit(event_types.MESSAGE_SWIPED, chat.length - 1);
+                if (runGenerate && !is_send_press && parseInt(chat[chat.length - 1].swipe_id) === chat[chat.length - 1].swipes.length) {
+                    setSendButtonStateImpl(true);
+                    await generateImpl('swipe');
+                } else if (parseInt(chat[chat.length - 1].swipe_id) !== chat[chat.length - 1].swipes.length) {
+                    saveChatDebounced();
+                }
             },
         });
     }

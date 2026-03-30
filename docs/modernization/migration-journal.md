@@ -3429,3 +3429,9 @@ The result is still relocation-first rather than a redesign: `script.js` now kee
 ### 2026-03-29: Wave 79 - moved generation model naming into `generation-core`
 
 This follow-up removed another small but real generation seam from `public/script.js`: `getGeneratingModel()` now lives in `public/scripts/generation-core.js`. The move stayed binding-based to avoid direct imports back into OpenAI or Horde settings: generation-core now receives narrow getters for the current chat-completion model name and Horde model name, while Novel still reads through the existing `getNovelSettingsConfig()` seam and Kobold/TextGen continue using the core-owned `online_status`.
+
+### 2026-03-30: Wave 80 - prepared the legacy media renderer for extraction and React replacement
+
+This was not a full move of `appendMediaToMessage()`. Instead, it prepared that large jQuery-heavy path for a later extraction by separating message-media state shaping from DOM mutation. I added `public/scripts/message-media-view-model.js`, which builds a normalized media view model for image/video/file attachments from the legacy `mes.extra` structure.
+
+`public/script.js` still owns the jQuery renderer, but `appendMediaToMessage()` now consumes that normalized view model instead of directly unpacking the message structure throughout the function. That should make the eventual next step cleaner in two ways: extracting the renderer into a dedicated module will be more mechanical, and a future React message component can reuse the same media-shaping logic without depending on jQuery DOM code.

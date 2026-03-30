@@ -271,6 +271,7 @@ import { accountStorage } from './scripts/util/AccountStorage.js';
 import { initWelcomeScreen, openPermanentAssistantChat, openPermanentAssistantCard, getPermanentAssistantAvatar } from './scripts/welcome-screen.js';
 import { initDataMaid } from './scripts/data-maid.js';
 import { clearItemizedPrompts, deleteItemizedPrompts, findItemizedPromptSet, initItemizedPrompts, itemizedParams, itemizedPrompts, loadItemizedPrompts, promptItemize, replaceItemizedPromptText, saveItemizedPrompts } from './scripts/itemized-prompts.js';
+import { createMessageMediaViewModel } from './scripts/message-media-view-model.js';
 import { getSystemMessageByType, initSystemMessages, SAFETY_CHAT, sendSystemMessage, system_message_types, system_messages } from './scripts/system-messages.js';
 import { event_types, eventSource } from './scripts/events.js';
 
@@ -1436,13 +1437,14 @@ export function updateMessageBlock(messageId, message, { rerenderMessage = true 
  * @param {boolean} [adjustScroll=true] Whether to adjust the scroll position after appending the media
  */
 export function appendMediaToMessage(mes, messageElement, adjustScroll = true) {
+    const media = createMessageMediaViewModel(mes, { formatFileSize: humanFileSize });
+
     // Add image to message
-    if (mes.extra?.image) {
+    if (media.image) {
         const container = messageElement.find('.mes_img_container');
         const chatHeight = $('#chat').prop('scrollHeight');
         const image = messageElement.find('.mes_img');
         const text = messageElement.find('.mes_text');
-        const isInline = !!mes.extra?.inline_image;
         const doAdjustScroll = () => {
             if (!adjustScroll) {
                 return;
@@ -1462,18 +1464,16 @@ export function appendMediaToMessage(mes, messageElement, adjustScroll = true) {
             image.addClass('error');
             doAdjustScroll();
         });
-        image.attr('src', mes.extra?.image);
-        image.attr('title', mes.extra?.title || mes.title || '');
+        image.attr('src', media.image.src);
+        image.attr('title', media.image.title);
         container.addClass('img_extra');
-        image.toggleClass('img_inline', isInline);
-        text.toggleClass('displayNone', !isInline);
+        image.toggleClass('img_inline', media.image.inline);
+        text.toggleClass('displayNone', !media.image.inline);
 
-        const imageSwipes = mes.extra.image_swipes;
-        if (Array.isArray(imageSwipes) && imageSwipes.length > 0) {
+        if (media.image.hasSwipes) {
             container.addClass('img_swipes');
             const counter = container.find('.mes_img_swipe_counter');
-            const currentImage = imageSwipes.indexOf(mes.extra.image) + 1;
-            counter.text(`${currentImage}/${imageSwipes.length}`);
+            counter.text(`${media.image.swipeIndex}/${media.image.swipeCount}`);
 
             const swipeLeft = container.find('.mes_img_swipe_left');
             swipeLeft.off('click').on('click', function () {
@@ -1493,7 +1493,7 @@ export function appendMediaToMessage(mes, messageElement, adjustScroll = true) {
     }
 
     // Add video to message
-    if (mes.extra?.video) {
+    if (media.video) {
         const container = $('#message_video_template .mes_video_container').clone();
         messageElement.find('.mes_video_container').remove();
         messageElement.find('.mes_block').append(container);
@@ -1509,18 +1509,18 @@ export function appendMediaToMessage(mes, messageElement, adjustScroll = true) {
             $('#chat').scrollTop(scrollPosition + diff);
         });
 
-        video.attr('src', mes.extra?.video);
+        video.attr('src', media.video.src);
     } else {
         messageElement.find('.mes_video_container').remove();
     }
 
     // Add file to message
-    if (mes.extra?.file) {
+    if (media.file) {
         messageElement.find('.mes_file_container').remove();
         const messageId = messageElement.attr('mesid');
         const template = $('#message_file_template .mes_file_container').clone();
-        template.find('.mes_file_name').text(mes.extra.file.name);
-        template.find('.mes_file_size').text(humanFileSize(mes.extra.file.size));
+        template.find('.mes_file_name').text(media.file.name);
+        template.find('.mes_file_size').text(media.file.sizeLabel);
         template.find('.mes_file_download').attr('mesid', messageId);
         template.find('.mes_file_delete').attr('mesid', messageId);
         messageElement.find('.mes_block').append(template);

@@ -31,6 +31,13 @@ import {
     trimWrongSpeakerContent,
 } from './message-cleanup-pipeline.js';
 import { renderMessageEditPreview, renderMessageElementContent } from './message-content-renderer.js';
+import {
+    getFirstDisplayedMessageId as getFirstDisplayedMessageIdRenderer,
+    hideMessageSwipeControls,
+    showMessageSwipeControls,
+    updateMessageEditArrowClasses,
+    updateMessageListIds,
+} from './message-list-renderer.js';
 import { runSwipeLeftTransition, runSwipeRightTransition } from './message-swipe-renderer.js';
 import { PromptReasoning } from './reasoning.js';
 import { COMMENT_NAME_DEFAULT } from './slash-commands.js';
@@ -212,66 +219,17 @@ export function syncSwipeToMes(messageId = null, swipeId = null) {
 }
 
 export function showSwipeButtons() {
-    if (chat.length === 0) {
-        return;
-    }
-
-    if (
-        chat[chat.length - 1].is_system ||
-        !chat[chat.length - 1].swipes ||
-        Number($('.mes:last').attr('mesid')) < 0 ||
-        chat[chat.length - 1].is_user ||
-        (selected_group && is_group_generating)
-    ) {
-        return;
-    }
-
-    if (chat.length === 1 && chat[0].swipe_id === undefined) {
-        return;
-    }
-
-    if (chat[chat.length - 1].swipe_id === undefined) {
-        chat[chat.length - 1].swipe_id = 0;
-        chat[chat.length - 1].swipes = [];
-        chat[chat.length - 1].swipes[0] = chat[chat.length - 1].mes;
-        chat[chat.length - 1].swipe_info = [];
-        chat[chat.length - 1].swipe_info[0] = {
-            send_date: chat[chat.length - 1].send_date,
-            gen_started: chat[chat.length - 1].gen_started,
-            gen_finished: chat[chat.length - 1].gen_finished,
-            extra: structuredClone(chat[chat.length - 1].extra),
-        };
-    }
-
-    const currentMessage = $('#chat').children().filter(`[mesid="${chat.length - 1}"]`);
-    const swipeId = chat[chat.length - 1].swipe_id;
-    const swipeCounterText = formatSwipeCounter(swipeId + 1, chat[chat.length - 1].swipes.length);
-    const swipeRight = currentMessage.find('.swipe_right');
-    const swipeLeft = currentMessage.find('.swipe_left');
-    const swipeCounter = currentMessage.find('.swipes-counter');
-
-    if (swipeId !== undefined && (chat[chat.length - 1].swipes.length > 1 || swipeId > 0)) {
-        swipeLeft.css('display', 'flex');
-    }
-
-    if (is_send_press === false || chat[chat.length - 1].swipes.length >= swipeId) {
-        swipeRight.css('display', 'flex').css('opacity', '0.3');
-        swipeCounter.css('opacity', '0.3');
-    }
-
-    if ((chat[chat.length - 1].swipes.length - swipeId) === 1) {
-        swipeRight.css('opacity', '0.7');
-        swipeCounter.css('opacity', '0.7');
-    }
-
-    $('.last_mes .swipes-counter').text(swipeCounterText).show();
+    return showMessageSwipeControls({
+        chat,
+        selectedGroup: selected_group,
+        isGroupGenerating: is_group_generating,
+        isSendPress: is_send_press,
+        formatSwipeCounter,
+    });
 }
 
 export function hideSwipeButtons() {
-    const chatElement = $('#chat');
-    chatElement.find('.swipe_right').hide();
-    chatElement.find('.last_mes .swipes-counter').hide();
-    chatElement.find('.swipe_left').hide();
+    return hideMessageSwipeControls();
 }
 
 /**
@@ -732,45 +690,15 @@ export async function deleteSwipe(swipeId = null) {
 }
 
 export function updateViewMessageIds(startFromZero = false) {
-    const minId = startFromZero ? 0 : getFirstDisplayedMessageId();
-
-    $('#chat').find('.mes').each(function (index, element) {
-        $(element).attr('mesid', minId + index);
-        $(element).find('.mesIDDisplay').text(`#${minId + index}`);
-    });
-
-    $('#chat .mes').removeClass('last_mes');
-    $('#chat .mes').last().addClass('last_mes');
-
-    updateEditArrowClasses();
+    return updateMessageListIds({ startFromZero, editedMessageId });
 }
 
 export function getFirstDisplayedMessageId() {
-    const allIds = Array.from(document.querySelectorAll('#chat .mes'))
-        .map(el => Number(el.getAttribute('mesid')))
-        .filter(x => !isNaN(x));
-    const minId = Math.min(...allIds);
-    return minId;
+    return getFirstDisplayedMessageIdRenderer();
 }
 
 export function updateEditArrowClasses() {
-    $('#chat .mes .mes_edit_up').removeClass('disabled');
-    $('#chat .mes .mes_edit_down').removeClass('disabled');
-
-    if (editedMessageId !== undefined) {
-        const down = $(`#chat .mes[mesid="${editedMessageId}"] .mes_edit_down`);
-        const up = $(`#chat .mes[mesid="${editedMessageId}"] .mes_edit_up`);
-        const lastId = Number($('#chat .mes').last().attr('mesid'));
-        const firstId = Number($('#chat .mes').first().attr('mesid'));
-
-        if (lastId === Number(editedMessageId)) {
-            down.addClass('disabled');
-        }
-
-        if (firstId === Number(editedMessageId)) {
-            up.addClass('disabled');
-        }
-    }
+    return updateMessageEditArrowClasses(editedMessageId);
 }
 
 export function closeMessageEditor(what = 'all') {

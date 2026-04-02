@@ -3500,3 +3500,9 @@ This does not yet remove jQuery directly, but it is important prep for the event
 The next remaining jQuery-heavy pocket in the message path was the swipe animation/update flow. I added `public/scripts/message-swipe-renderer.js` and moved the chained transition, height, scroll, and avatar animation logic there for both left and right swipes. `message-core` still owns the swipe state machine itself, including when to reuse an existing swipe versus trigger a fresh generation, but it no longer owns the full nested transition chain.
 
 This stayed behavior-preserving rather than redesigning the feature. The main gain is that the swipe DOM work is now isolated in a renderer module instead of being mixed into the swipe state machine. That also keeps the token-count refresh, media reattachment, and generation handoff explicit at the call site.
+
+### 2026-03-31: Wave 89 - moved remaining chat-list DOM controls into the list renderer
+
+This follow-up kept pushing on the same list-render seam rather than introducing a new area. I moved the remaining chat-list DOM controls out of `message-core` into `public/scripts/message-list-renderer.js`: swipe button visibility/setup, first displayed message id lookup, message id relabeling, and edit-arrow disabled-state updates now live alongside the existing list insertion/history rendering code.
+
+That leaves `message-core` owning the message interaction state machine while the list renderer owns more of the raw `#chat` DOM control surface. It is another small but useful step toward being able to replace the legacy list renderer without dragging those controls through unrelated message logic.

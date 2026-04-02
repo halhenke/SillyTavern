@@ -3512,3 +3512,9 @@ That leaves `message-core` owning the message interaction state machine while th
 This pass kept to the same renderer-decomposition pattern in the message area. I added `public/scripts/message-delete-mode-renderer.js` and moved the delete-mode UI wiring there: showing/hiding the delete controls, selecting the visible delete range, and removing the deleted DOM range/last-message class updates are no longer embedded directly in `message-core`.
 
 `message-core` still owns the delete-mode state and persistence/event flow, but the actual delete-mode DOM presentation is now isolated like the other message/list renderer helpers.
+
+### 2026-03-31: Wave 91 - extracted message edit-mode UI rendering out of `message-core`
+
+This follow-up moved the edit-mode presentation helpers into `public/scripts/message-edit-renderer.js`. Entering edit mode now uses a dedicated renderer helper for hiding/showing the right button groups, mounting the textarea, sizing it when CSS autofit is disabled, and focusing the cursor. Exiting edit mode likewise uses a dedicated helper to restore the normal button state.
+
+`message-core` still owns edit-state sequencing and persistence, but the visible edit-mode UI toggling is no longer embedded there.

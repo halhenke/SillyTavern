@@ -31,6 +31,7 @@ import {
     trimWrongSpeakerContent,
 } from './message-cleanup-pipeline.js';
 import { renderMessageEditPreview, renderMessageElementContent } from './message-content-renderer.js';
+import { enterMessageEditMode, exitMessageEditMode } from './message-edit-renderer.js';
 import {
     removeDeleteModeMessages,
     resetDeleteModeUi as resetDeleteModeUiRenderer,
@@ -829,19 +830,7 @@ export async function beginMessageEdit(trigger, cssAutofit) {
         text = text.trim();
     }
 
-    mesBlock.find('.mes_text').append('<textarea id=\'curEditTextarea\' class=\'edit_textarea mdHotkeys\'></textarea>');
-    $('#curEditTextarea').val(text);
-    const editTextarea = mesBlock.find('.edit_textarea');
-    if (!cssAutofit) {
-        editTextarea.height(0);
-        editTextarea.height(editTextarea[0].scrollHeight);
-    }
-    editTextarea.trigger('focus');
-    const textAreaElement = /** @type {HTMLTextAreaElement} */ (editTextarea[0]);
-    textAreaElement.setSelectionRange(
-        String(editTextarea.val()).length,
-        String(editTextarea.val()).length,
-    );
+    enterMessageEditMode({ mesBlock, text, cssAutofit });
 
     if (Number(editedMessageId) === chat.length - 1) {
         $('#chat').scrollTop(chatScrollPosition);
@@ -857,8 +846,7 @@ export async function cancelMessageEdit(trigger) {
     const mesBlock = triggerElement.closest('.mes_block');
 
     mesBlock.find('.mes_text').empty();
-    triggerElement.closest('.mes_edit_buttons').css('display', 'none');
-    mesBlock.find('.mes_buttons').css('display', '');
+    exitMessageEditMode(mesBlock, triggerElement);
     mesBlock.find('.mes_text').append(messageFormatting(
         currentEditedMessage?.mes ?? '',
         editedMessageName,
@@ -958,8 +946,7 @@ export async function messageEditDone(div, currentEditedMessageName = editedMess
 
     await eventSource.emit(event_types.MESSAGE_EDITED, currentEditedMessageId);
     text = chat[currentEditedMessageId]?.mes ?? text;
-    mesBlock.find('.mes_edit_buttons').css('display', 'none');
-    mesBlock.find('.mes_buttons').css('display', '');
+    exitMessageEditMode(mesBlock);
     renderMessageElementContent({
         messageElement: div.closest('.mes'),
         message: mes,

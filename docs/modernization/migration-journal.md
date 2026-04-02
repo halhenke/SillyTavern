@@ -3506,3 +3506,9 @@ This stayed behavior-preserving rather than redesigning the feature. The main ga
 This follow-up kept pushing on the same list-render seam rather than introducing a new area. I moved the remaining chat-list DOM controls out of `message-core` into `public/scripts/message-list-renderer.js`: swipe button visibility/setup, first displayed message id lookup, message id relabeling, and edit-arrow disabled-state updates now live alongside the existing list insertion/history rendering code.
 
 That leaves `message-core` owning the message interaction state machine while the list renderer owns more of the raw `#chat` DOM control surface. It is another small but useful step toward being able to replace the legacy list renderer without dragging those controls through unrelated message logic.
+
+### 2026-03-31: Wave 90 - extracted delete-mode UI rendering out of `message-core`
+
+This pass kept to the same renderer-decomposition pattern in the message area. I added `public/scripts/message-delete-mode-renderer.js` and moved the delete-mode UI wiring there: showing/hiding the delete controls, selecting the visible delete range, and removing the deleted DOM range/last-message class updates are no longer embedded directly in `message-core`.
+
+`message-core` still owns the delete-mode state and persistence/event flow, but the actual delete-mode DOM presentation is now isolated like the other message/list renderer helpers.

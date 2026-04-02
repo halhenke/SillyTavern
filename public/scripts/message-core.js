@@ -32,6 +32,12 @@ import {
 } from './message-cleanup-pipeline.js';
 import { renderMessageEditPreview, renderMessageElementContent } from './message-content-renderer.js';
 import {
+    removeDeleteModeMessages,
+    resetDeleteModeUi as resetDeleteModeUiRenderer,
+    selectDeleteModeRange,
+    showDeleteModeUi,
+} from './message-delete-mode-renderer.js';
+import {
     getFirstDisplayedMessageId as getFirstDisplayedMessageIdRenderer,
     hideMessageSwipeControls,
     showMessageSwipeControls,
@@ -735,26 +741,14 @@ function getEditedMessageName(message) {
 }
 
 function resetDeleteModeUi(cssSendFormDisplay) {
-    $('#dialogue_del_mes').css('display', 'none');
-    $('#send_form').css('display', cssSendFormDisplay);
-    $('.del_checkbox').each(function () {
-        $(this).css('display', 'none');
-        $(this).parent().children('.for_checkbox').css('display', 'block');
-        $(this).parent().removeClass('selected');
-        $(this).prop('checked', false);
-    });
+    return resetDeleteModeUiRenderer(cssSendFormDisplay);
 }
 
 export function openMessageDelete(fromSlashCommand) {
     closeMessageEditor();
     hideSwipeButtons();
     if (fromSlashCommand || (!is_send_press) || (selected_group && !is_group_generating)) {
-        $('#dialogue_del_mes').css('display', 'block');
-        $('#send_form').css('display', 'none');
-        $('.del_checkbox').each(function () {
-            $(this).css('display', 'grid');
-            $(this).parent().children('.for_checkbox').css('display', 'none');
-        });
+        showDeleteModeUi();
     } else {
         console.debug(`
             ERR -- could not enter del mode
@@ -769,21 +763,8 @@ export function openMessageDelete(fromSlashCommand) {
 }
 
 export function selectMessageDeleteTarget(messageId) {
-    $('.mes').children('.del_checkbox').each(function () {
-        $(this).prop('checked', false);
-        $(this).parent().removeClass('selected');
-    });
-
-    let currentMessageId = Number(messageId);
-    $(`.mes[mesid="${currentMessageId}"]`).addClass('selected');
-    deleteModeMessageId = currentMessageId;
-
-    while (currentMessageId < chat.length) {
-        $(`.mes[mesid="${currentMessageId}"]`).addClass('selected');
-        $(`.mes[mesid="${currentMessageId}"]`).children('.del_checkbox').prop('checked', true);
-        currentMessageId++;
-    }
-
+    selectDeleteModeRange(messageId, chat.length);
+    deleteModeMessageId = Number(messageId);
     return deleteModeMessageId;
 }
 
@@ -798,16 +779,11 @@ export async function confirmDeleteMode(cssSendFormDisplay) {
     resetDeleteModeUi(cssSendFormDisplay);
 
     if (deleteModeMessageId >= 0) {
-        $(`.mes[mesid="${deleteModeMessageId}"]`).nextAll('div').remove();
-        $(`.mes[mesid="${deleteModeMessageId}"]`).remove();
+        removeDeleteModeMessages(deleteModeMessageId);
         chat.length = deleteModeMessageId;
         chat_metadata.tainted = true;
         await saveChatConditional();
-        const chatElement = $('#chat');
-        chatElement.scrollTop(chatElement[0].scrollHeight);
         await eventSource.emit(event_types.MESSAGE_DELETED, chat.length);
-        $('#chat .mes').removeClass('last_mes');
-        $('#chat .mes').last().addClass('last_mes');
     } else {
         console.log('deleteModeMessageId is not >= 0, not deleting');
     }

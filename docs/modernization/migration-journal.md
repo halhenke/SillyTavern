@@ -3518,3 +3518,9 @@ This pass kept to the same renderer-decomposition pattern in the message area. I
 This follow-up moved the edit-mode presentation helpers into `public/scripts/message-edit-renderer.js`. Entering edit mode now uses a dedicated renderer helper for hiding/showing the right button groups, mounting the textarea, sizing it when CSS autofit is disabled, and focusing the cursor. Exiting edit mode likewise uses a dedicated helper to restore the normal button state.
 
 `message-core` still owns edit-state sequencing and persistence, but the visible edit-mode UI toggling is no longer embedded there.
+
+### 2026-03-31: Wave 92 - continued extracting edit/list interaction DOM out of `message-core`
+
+This follow-up kept working down the remaining interaction-oriented DOM pockets in the message area. I moved the edit-mode presentation helpers into `public/scripts/message-edit-renderer.js`, so the textarea/button toggle and focus/cursor setup are no longer embedded directly in `message-core`. I also moved the raw message-row DOM reorder operation used by edit-mode move-up/move-down into `public/scripts/message-list-renderer.js`.
+
+That leaves `message-core` more focused on edit state transitions and persistence, while the list/edit renderer modules own more of the direct `#chat` DOM manipulation.

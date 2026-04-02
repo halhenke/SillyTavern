@@ -41,6 +41,7 @@ import {
 import {
     getFirstDisplayedMessageId as getFirstDisplayedMessageIdRenderer,
     hideMessageSwipeControls,
+    moveMessageListRow,
     showMessageSwipeControls,
     updateMessageEditArrowClasses,
     updateMessageListIds,
@@ -981,15 +982,11 @@ export async function moveEditedMessageUp(trigger) {
 
     hideSwipeButtons();
     const targetId = Number(editedMessageId) - 1;
-    const triggerElement = $(trigger);
-    const target = $(`#chat .mes[mesid="${targetId}"]`);
-    const root = triggerElement.closest('.mes');
+    const { root, target, moved } = moveMessageListRow({ trigger, targetId, direction: 'up' });
 
-    if (root.length === 0 || target.length === 0) {
+    if (!moved) {
         return editedMessageId;
     }
-
-    root.insertBefore(target);
 
     target.attr('mesid', editedMessageId);
     root.attr('mesid', targetId);
@@ -1012,15 +1009,11 @@ export async function moveEditedMessageDown(trigger) {
 
     hideSwipeButtons();
     const targetId = Number(editedMessageId) + 1;
-    const triggerElement = $(trigger);
-    const target = $(`#chat .mes[mesid="${targetId}"]`);
-    const root = triggerElement.closest('.mes');
+    const { root, target, moved } = moveMessageListRow({ trigger, targetId, direction: 'down' });
 
-    if (root.length === 0 || target.length === 0) {
+    if (!moved) {
         return editedMessageId;
     }
-
-    root.insertAfter(target);
 
     target.attr('mesid', editedMessageId);
     root.attr('mesid', targetId);

@@ -111,6 +111,24 @@ export function updateMessageListIds({ startFromZero = false, editedMessageId })
     updateMessageEditArrowClasses(editedMessageId);
 }
 
+export function moveMessageListRow({ trigger, targetId, direction }) {
+    const triggerElement = $(trigger);
+    const target = $(`#chat .mes[mesid="${targetId}"]`);
+    const root = triggerElement.closest('.mes');
+
+    if (root.length === 0 || target.length === 0) {
+        return { root, target, moved: false };
+    }
+
+    if (direction === 'up') {
+        root.insertBefore(target);
+    } else {
+        root.insertAfter(target);
+    }
+
+    return { root, target, moved: true };
+}
+
 export function renderMessageListItem({
     chat,
     message,

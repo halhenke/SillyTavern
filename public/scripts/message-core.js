@@ -9,6 +9,12 @@ import { getRegexedString, regex_placement } from './extensions/regex/engine.js'
 import { groups, is_group_generating, selected_group } from './group-chats.js';
 import { t } from './i18n.js';
 import {
+    copyEditedMessageWorkflow,
+    deleteEditedMessageWorkflow,
+    moveEditedMessageDownWorkflow,
+    moveEditedMessageUpWorkflow,
+} from './message-actions-workflow.js';
+import {
     encodeHtmlTagDelimiters,
     escapeConfiguredReasoningMarkers,
     getMessageFormattingDepth,
@@ -20,7 +26,6 @@ import {
     substituteFirstChatMessage,
 } from './message-formatting-pipeline.js';
 import { converter, removeMacros, substituteParams } from './parser-core.js';
-import { POPUP_TYPE, callGenericPopup } from './popup.js';
 import { collapseNewlines, fixMarkdown, power_user } from './power-user.js';
 import {
     prependUserPromptBias,
@@ -42,7 +47,6 @@ import {
 import {
     getFirstDisplayedMessageId as getFirstDisplayedMessageIdRenderer,
     hideMessageSwipeControls,
-    moveMessageListRow,
     showMessageSwipeControls,
     updateMessageEditArrowClasses,
     updateMessageListIds,
@@ -751,135 +755,59 @@ export async function messageEditDone(div, currentEditedMessageName = editedMess
 }
 
 export async function moveEditedMessageUp(trigger) {
-    if (is_send_press || editedMessageId <= 0) {
-        return editedMessageId;
-    }
-
-    hideSwipeButtons();
-    const targetId = Number(editedMessageId) - 1;
-    const { root, target, moved } = moveMessageListRow({ trigger, targetId, direction: 'up' });
-
-    if (!moved) {
-        return editedMessageId;
-    }
-
-    target.attr('mesid', editedMessageId);
-    root.attr('mesid', targetId);
-
-    const temp = chat[targetId];
-    chat[targetId] = chat[editedMessageId];
-    chat[editedMessageId] = temp;
-
-    setEditedMessageId(targetId);
-    updateViewMessageIds();
-    await saveChatConditional();
-    showSwipeButtons();
-    return editedMessageId;
+    return moveEditedMessageUpWorkflow({
+        trigger,
+        chat,
+        editedMessageId,
+        isSendPress: is_send_press,
+        hideSwipeButtons,
+        setEditedMessageId,
+        updateViewMessageIds,
+        saveChatConditional,
+        showSwipeButtons,
+    });
 }
 
 export async function moveEditedMessageDown(trigger) {
-    if (is_send_press || editedMessageId >= chat.length - 1) {
-        return editedMessageId;
-    }
-
-    hideSwipeButtons();
-    const targetId = Number(editedMessageId) + 1;
-    const { root, target, moved } = moveMessageListRow({ trigger, targetId, direction: 'down' });
-
-    if (!moved) {
-        return editedMessageId;
-    }
-
-    target.attr('mesid', editedMessageId);
-    root.attr('mesid', targetId);
-
-    const temp = chat[targetId];
-    chat[targetId] = chat[editedMessageId];
-    chat[editedMessageId] = temp;
-
-    setEditedMessageId(targetId);
-    updateViewMessageIds();
-    await saveChatConditional();
-    showSwipeButtons();
-    return editedMessageId;
+    return moveEditedMessageDownWorkflow({
+        trigger,
+        chat,
+        editedMessageId,
+        isSendPress: is_send_press,
+        hideSwipeButtons,
+        setEditedMessageId,
+        updateViewMessageIds,
+        saveChatConditional,
+        showSwipeButtons,
+    });
 }
 
 export async function copyEditedMessage(trigger) {
-    const confirmation = await callGenericPopup(t`Create a copy of this message?`, POPUP_TYPE.CONFIRM);
-    if (!confirmation) {
-        return false;
-    }
-
-    hideSwipeButtons();
-    const chatElement = $('#chat');
-    const oldScroll = chatElement[0].scrollTop;
-    const clone = structuredClone(chat[editedMessageId]);
-    clone.send_date = Date.now();
-    clone.mes = $(trigger).closest('.mes').find('.edit_textarea').val();
-
-    if (power_user.trim_spaces) {
-        clone.mes = clone.mes.trim();
-    }
-
-    chat.splice(Number(editedMessageId) + 1, 0, clone);
-    addOneMessage(clone, { insertAfter: editedMessageId });
-
-    updateViewMessageIds();
-    await saveChatConditional();
-    chatElement[0].scrollTop = oldScroll;
-    showSwipeButtons();
-    return true;
+    return copyEditedMessageWorkflow({
+        trigger,
+        chat,
+        editedMessageId,
+        hideSwipeButtons,
+        addOneMessage,
+        updateViewMessageIds,
+        saveChatConditional,
+        showSwipeButtons,
+    });
 }
 
 export async function deleteEditedMessage(trigger, customData = {}) {
-    const fromSlashCommand = customData?.fromSlashCommand || false;
-    const canDeleteSwipe = (
-        Array.isArray(chat[editedMessageId]?.swipes) &&
-        chat[editedMessageId].swipes.length > 1 &&
-        !chat[editedMessageId].is_user &&
-        parseInt(editedMessageId) === chat.length - 1
-    );
-
-    let deleteOnlySwipe = false;
-    if (power_user.confirm_message_delete && fromSlashCommand !== true) {
-        const result = await callGenericPopup(t`Are you sure you want to delete this message?`, POPUP_TYPE.CONFIRM, null, {
-            okButton: canDeleteSwipe ? t`Delete Swipe` : t`Delete Message`,
-            cancelButton: 'Cancel',
-            customButtons: canDeleteSwipe ? [t`Delete Message`] : null,
-        });
-        if (!result) {
-            return false;
-        }
-        deleteOnlySwipe = canDeleteSwipe && result === 1;
-    }
-
-    const messageElement = $(trigger).closest('.mes');
-    if (!messageElement.length) {
-        return false;
-    }
-
-    if (deleteOnlySwipe) {
-        const message = chat[editedMessageId];
-        await deleteSwipe(message.swipe_id);
-        return true;
-    }
-
-    chat.splice(editedMessageId, 1);
-    messageElement.remove();
-
-    const startFromZero = Number(editedMessageId) === 0;
-
-    clearEditedMessageState();
-    chat_metadata.tainted = true;
-
-    updateViewMessageIds(startFromZero);
-    saveChatDebounced();
-
-    hideSwipeButtons();
-    showSwipeButtons();
-
-    await eventSource.emit(event_types.MESSAGE_DELETED, chat.length);
-    return true;
+    return deleteEditedMessageWorkflow({
+        trigger,
+        customData,
+        chat,
+        editedMessageId,
+        clearEditedMessageState,
+        updateViewMessageIds,
+        saveChatDebounced,
+        hideSwipeButtons,
+        showSwipeButtons,
+        deleteSwipe,
+    });
 }
 
 export function updateMessageBlock(...args) {

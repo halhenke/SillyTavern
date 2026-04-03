@@ -3536,3 +3536,9 @@ This batch keeps the message modernization work on the same path, but on the non
 This follow-up keeps shrinking `message-core` toward orchestration rather than implementation. I added `public/scripts/message-edit-workflow.js` and moved the main non-DOM edit flow there: regex application, prompt-bias extraction, swipe text synchronization, message bias persistence, the edit-preview refresh, and the final edit-save/rerender path now live in a dedicated workflow module instead of sitting inline inside `message-core`.
 
 `message-core` still owns the outer edit lifecycle and state variables for now, but the actual edit update/save behavior is now separated from both the renderer helpers and the broader message interaction surface. That makes the remaining message module much easier to reason about as a thin coordinator and is a better staging point for a future React message editor replacement.
+
+### 2026-04-03: Wave 95 - extracted edited-message actions out of `message-core`
+
+This batch keeps the same direction by moving the remaining edited-message action bodies into `public/scripts/message-actions-workflow.js`. Reordering edited messages, copying an edited message, and deleting either the edited message or just its active swipe now live in a dedicated workflow module instead of staying embedded in `message-core`.
+
+That leaves `message-core` with less direct ownership of chat-array mutation and DOM row action handling. The message module is now closer to a coordination layer over dedicated formatter, renderer, swipe-state, edit-workflow, and action-workflow modules, which is the right shape for eventually swapping legacy message interactions behind a React-facing shell.

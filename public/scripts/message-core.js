@@ -32,6 +32,7 @@ import {
 } from './message-cleanup-pipeline.js';
 import { renderMessageEditPreview, renderMessageElementContent } from './message-content-renderer.js';
 import { enterMessageEditMode, exitMessageEditMode } from './message-edit-renderer.js';
+import { messageEditAutoWorkflow, messageEditDoneWorkflow } from './message-edit-workflow.js';
 import {
     removeDeleteModeMessages,
     resetDeleteModeUi as resetDeleteModeUiRenderer,
@@ -46,6 +47,12 @@ import {
     updateMessageEditArrowClasses,
     updateMessageListIds,
 } from './message-list-renderer.js';
+import {
+    prepareNextSwipe,
+    preparePreviousSwipe,
+    syncMessageToSwipe,
+    syncSwipeToMessage,
+} from './message-swipe-state.js';
 import { runSwipeLeftTransition, runSwipeRightTransition } from './message-swipe-renderer.js';
 import { PromptReasoning } from './reasoning.js';
 import { COMMENT_NAME_DEFAULT } from './slash-commands.js';
@@ -138,92 +145,11 @@ function resetDeleteModeState() {
 }
 
 export function syncMesToSwipe(messageId = null) {
-    if (!chat.length) {
-        return false;
-    }
-
-    const targetMessageId = messageId ?? chat.length - 1;
-    if (targetMessageId >= chat.length || targetMessageId < 0) {
-        console.warn(`[syncMesToSwipe] Invalid message ID: ${messageId}`);
-        return false;
-    }
-
-    const targetMessage = chat[targetMessageId];
-    if (!targetMessage) {
-        return false;
-    }
-
-    if (typeof targetMessage.swipe_id !== 'number') {
-        return false;
-    }
-    if (!Array.isArray(targetMessage.swipe_info) || !Array.isArray(targetMessage.swipes)) {
-        return false;
-    }
-    if (!targetMessage.swipes[targetMessage.swipe_id] || !targetMessage.swipe_info[targetMessage.swipe_id]) {
-        return false;
-    }
-
-    const targetSwipeInfo = targetMessage.swipe_info[targetMessage.swipe_id];
-    if (typeof targetSwipeInfo !== 'object') {
-        return false;
-    }
-
-    targetMessage.swipes[targetMessage.swipe_id] = targetMessage.mes;
-
-    targetSwipeInfo.send_date = targetMessage.send_date;
-    targetSwipeInfo.gen_started = targetMessage.gen_started;
-    targetSwipeInfo.gen_finished = targetMessage.gen_finished;
-    targetSwipeInfo.extra = structuredClone(targetMessage.extra);
-
-    return true;
+    return syncMessageToSwipe(chat, messageId);
 }
 
 export function syncSwipeToMes(messageId = null, swipeId = null) {
-    if (!chat.length) {
-        return false;
-    }
-
-    const targetMessageId = messageId ?? chat.length - 1;
-    if (targetMessageId >= chat.length || targetMessageId < 0) {
-        console.warn(`[syncSwipeToMes] Invalid message ID: ${messageId}`);
-        return false;
-    }
-
-    const targetMessage = chat[targetMessageId];
-    if (!targetMessage) {
-        return false;
-    }
-
-    if (swipeId !== null) {
-        if (isNaN(swipeId) || swipeId < 0) {
-            console.warn(`[syncSwipeToMes] Invalid swipe ID: ${swipeId}`);
-            return false;
-        }
-        targetMessage.swipe_id = swipeId;
-    }
-
-    if (typeof targetMessage.swipe_id !== 'number') {
-        return false;
-    }
-    if (!Array.isArray(targetMessage.swipe_info) || !Array.isArray(targetMessage.swipes)) {
-        return false;
-    }
-    if (!targetMessage.swipes[targetMessage.swipe_id] || !targetMessage.swipe_info[targetMessage.swipe_id]) {
-        return false;
-    }
-
-    const targetSwipeInfo = targetMessage.swipe_info[targetMessage.swipe_id];
-    if (typeof targetSwipeInfo !== 'object') {
-        return false;
-    }
-
-    targetMessage.mes = targetMessage.swipes[targetMessage.swipe_id];
-    targetMessage.send_date = targetSwipeInfo.send_date;
-    targetMessage.gen_started = targetSwipeInfo.gen_started;
-    targetMessage.gen_finished = targetSwipeInfo.gen_finished;
-    targetMessage.extra = structuredClone(targetSwipeInfo.extra);
-
-    return true;
+    return syncSwipeToMessage(chat, messageId, swipeId);
 }
 
 export function showSwipeButtons() {
@@ -458,65 +384,41 @@ export function swipe_left(_event, { source, repeated } = {}) {
 
     syncMesToSwipe();
 
-    if (source === 'keyboard' && repeated && chat[chat.length - 1].swipe_id === 0) {
+    const swipeDuration = 120;
+    const swipeRange = '700px';
+
+    const swipeState = preparePreviousSwipe(chat, { source, repeated });
+    if (swipeState.aborted) {
         return;
     }
 
-    const swipeDuration = 120;
-    const swipeRange = '700px';
-    chat[chat.length - 1].swipe_id--;
+    const messageRoot = $('.last_mes');
+    runSwipeLeftTransition(messageRoot, {
+        swipeRange,
+        swipeDuration,
+        animationDuration: animation_duration,
+        animationEasing: animation_easing,
+        onRenderSwipeMessage: async () => {
+            addOneMessage(swipeState.targetMessage, { type: 'swipe' });
 
-    if (chat[chat.length - 1].swipe_id < 0) {
-        chat[chat.length - 1].swipe_id = chat[chat.length - 1].swipes.length - 1;
-    }
-
-    if (chat[chat.length - 1].swipe_id >= 0) {
-        if (!Array.isArray(chat[chat.length - 1].swipe_info)) {
-            chat[chat.length - 1].swipe_info = [];
-        }
-
-        const messageRoot = $('.last_mes');
-
-        chat[chat.length - 1].mes = chat[chat.length - 1].swipes[chat[chat.length - 1].swipe_id];
-        chat[chat.length - 1].send_date = chat[chat.length - 1].swipe_info[chat[chat.length - 1].swipe_id]?.send_date || chat[chat.length - 1].send_date;
-        chat[chat.length - 1].extra = structuredClone(chat[chat.length - 1].swipe_info[chat[chat.length - 1].swipe_id]?.extra || chat[chat.length - 1].extra);
-
-        if (chat[chat.length - 1].extra) {
-            delete chat[chat.length - 1].extra.memory;
-            delete chat[chat.length - 1].extra.display_text;
-        }
-
-        runSwipeLeftTransition(messageRoot, {
-            swipeRange,
-            swipeDuration,
-            animationDuration: animation_duration,
-            animationEasing: animation_easing,
-            onRenderSwipeMessage: async () => {
-                addOneMessage(chat[chat.length - 1], { type: 'swipe' });
-
-                if (power_user.message_token_count_enabled) {
-                    if (!chat[chat.length - 1].extra) {
-                        chat[chat.length - 1].extra = {};
-                    }
-
-                    const swipeMessage = $('#chat').find(`[mesid="${chat.length - 1}"]`);
-                    const tokenCountText = (chat[chat.length - 1]?.extra?.reasoning || '') + chat[chat.length - 1].mes;
-                    const tokenCount = await getTokenCountAsync(tokenCountText, 0);
-                    chat[chat.length - 1].extra.token_count = tokenCount;
-                    swipeMessage.find('.tokenCounterDisplay').text(`${tokenCount}t`);
+            if (power_user.message_token_count_enabled) {
+                if (!swipeState.targetMessage.extra) {
+                    swipeState.targetMessage.extra = {};
                 }
-            },
-            onFinishSwipe: async () => {
-                appendMediaToMessage(chat[chat.length - 1], messageRoot.children('.mes_block'));
-                await eventSource.emit(event_types.MESSAGE_SWIPED, chat.length - 1);
-                saveChatDebounced();
-            },
-        });
-    }
 
-    if (chat[chat.length - 1].swipe_id < 0) {
-        chat[chat.length - 1].swipe_id = 0;
-    }
+                const swipeMessage = $('#chat').find(`[mesid="${swipeState.targetMessageId}"]`);
+                const tokenCountText = (swipeState.targetMessage?.extra?.reasoning || '') + swipeState.targetMessage.mes;
+                const tokenCount = await getTokenCountAsync(tokenCountText, 0);
+                swipeState.targetMessage.extra.token_count = tokenCount;
+                swipeMessage.find('.tokenCounterDisplay').text(`${tokenCount}t`);
+            }
+        },
+        onFinishSwipe: async () => {
+            appendMediaToMessage(swipeState.targetMessage, messageRoot.children('.mes_block'));
+            await eventSource.emit(event_types.MESSAGE_SWIPED, swipeState.targetMessageId);
+            saveChatDebounced();
+        },
+    });
 }
 
 /**
@@ -553,109 +455,60 @@ export function swipe_right(_event = null, { source, repeated } = {}) {
     const isPristine = !chat_metadata?.tainted;
     const swipeDuration = 200;
     const swipeRange = 700;
-    let runGenerate = false;
-    let runSwipeRight = false;
-
-    if (chat[chat.length - 1].swipe_id === undefined) {
-        chat[chat.length - 1].swipe_id = 0;
-        chat[chat.length - 1].swipes = [];
-        chat[chat.length - 1].swipe_info = [];
-        chat[chat.length - 1].swipes[0] = chat[chat.length - 1].mes;
-        chat[chat.length - 1].swipe_info[0] = {
-            send_date: chat[chat.length - 1].send_date,
-            gen_started: chat[chat.length - 1].gen_started,
-            gen_finished: chat[chat.length - 1].gen_finished,
-            extra: structuredClone(chat[chat.length - 1].extra),
-        };
+    const swipeState = prepareNextSwipe(chat, { source, repeated, isPristine });
+    if (swipeState.aborted) {
+        return;
     }
 
-    if (chat.length === 1 && chat[0].swipe_id !== undefined && chat[0].swipe_id === chat[0].swipes.length - 1 && isPristine) {
-        chat[0].swipe_id = 0;
-    } else {
-        if (source === 'keyboard' && repeated && chat[chat.length - 1].swipe_id === chat[chat.length - 1].swipes.length - 1) {
-            return;
-        }
-        chat[chat.length - 1].swipe_id++;
-    }
-
-    if (chat[chat.length - 1].extra) {
-        delete chat[chat.length - 1].extra.memory;
-        delete chat[chat.length - 1].extra.display_text;
-        delete chat[chat.length - 1].extra.image;
-        delete chat[chat.length - 1].extra.image_swipes;
-        delete chat[chat.length - 1].extra.video;
-        delete chat[chat.length - 1].extra.inline_image;
-    }
-
-    if (!Array.isArray(chat[chat.length - 1].swipe_info)) {
-        chat[chat.length - 1].swipe_info = [];
-    }
-
-    if (parseInt(chat[chat.length - 1].swipe_id) === chat[chat.length - 1].swipes.length && (chat.length !== 1 || !isPristine)) {
-        delete chat[chat.length - 1].gen_started;
-        delete chat[chat.length - 1].gen_finished;
-        runGenerate = true;
-    } else if (parseInt(chat[chat.length - 1].swipe_id) < chat[chat.length - 1].swipes.length) {
-        chat[chat.length - 1].mes = chat[chat.length - 1].swipes[chat[chat.length - 1].swipe_id];
-        chat[chat.length - 1].send_date = chat[chat.length - 1]?.swipe_info[chat[chat.length - 1].swipe_id]?.send_date || chat[chat.length - 1].send_date;
-        chat[chat.length - 1].extra = structuredClone(chat[chat.length - 1].swipe_info[chat[chat.length - 1].swipe_id]?.extra || chat[chat.length - 1].extra || []);
-        runSwipeRight = true;
-    }
-
-    const swipeMessage = $('#chat').find(`[mesid="${chat.length - 1}"]`);
+    const swipeMessage = $('#chat').find(`[mesid="${swipeState.targetMessageId}"]`);
     const rightSwipeButton = swipeMessage.find('.swipe_right');
     const messageRoot = rightSwipeButton.parent().parent();
 
-    if (chat[chat.length - 1].swipe_id > chat[chat.length - 1].swipes.length) {
-        chat[chat.length - 1].swipe_id = chat[chat.length - 1].swipes.length;
-    }
-    if (runGenerate) {
+    if (swipeState.runGenerate) {
         rightSwipeButton.css('display', 'none');
     }
 
-    if (runGenerate || runSwipeRight) {
-        messageRoot.children('.swipe_left').css('display', 'flex');
-        runSwipeRightTransition(messageRoot, {
-            swipeRange,
-            swipeDuration,
-            animationDuration: animation_duration,
-            animationEasing: animation_easing,
-            onRenderSwipeMessage: async () => {
-                const currentSwipeMessage = $('#chat').find(`[mesid="${chat.length - 1}"]`);
+    messageRoot.children('.swipe_left').css('display', 'flex');
+    runSwipeRightTransition(messageRoot, {
+        swipeRange,
+        swipeDuration,
+        animationDuration: animation_duration,
+        animationEasing: animation_easing,
+        onRenderSwipeMessage: async () => {
+            const currentSwipeMessage = $('#chat').find(`[mesid="${swipeState.targetMessageId}"]`);
 
-                if (runGenerate && parseInt(chat[chat.length - 1].swipe_id) === chat[chat.length - 1].swipes.length) {
-                    currentSwipeMessage.find('.mes_text').html('...');
-                    currentSwipeMessage.find('.mes_timer').html('');
-                    currentSwipeMessage.find('.tokenCounterDisplay').text('');
-                    updateReasoningUIImpl(currentSwipeMessage, { reset: true });
-                } else {
-                    addOneMessage(chat[chat.length - 1], { type: 'swipe' });
+            if (swipeState.runGenerate && parseInt(swipeState.targetMessage.swipe_id) === swipeState.targetMessage.swipes.length) {
+                currentSwipeMessage.find('.mes_text').html('...');
+                currentSwipeMessage.find('.mes_timer').html('');
+                currentSwipeMessage.find('.tokenCounterDisplay').text('');
+                updateReasoningUIImpl(currentSwipeMessage, { reset: true });
+            } else {
+                addOneMessage(swipeState.targetMessage, { type: 'swipe' });
 
-                    if (power_user.message_token_count_enabled) {
-                        if (!chat[chat.length - 1].extra) {
-                            chat[chat.length - 1].extra = {};
-                        }
-
-                        const tokenCountText = (chat[chat.length - 1]?.extra?.reasoning || '') + chat[chat.length - 1].mes;
-                        const tokenCount = await getTokenCountAsync(tokenCountText, 0);
-                        chat[chat.length - 1].extra.token_count = tokenCount;
-                        currentSwipeMessage.find('.tokenCounterDisplay').text(`${tokenCount}t`);
+                if (power_user.message_token_count_enabled) {
+                    if (!swipeState.targetMessage.extra) {
+                        swipeState.targetMessage.extra = {};
                     }
+
+                    const tokenCountText = (swipeState.targetMessage?.extra?.reasoning || '') + swipeState.targetMessage.mes;
+                    const tokenCount = await getTokenCountAsync(tokenCountText, 0);
+                    swipeState.targetMessage.extra.token_count = tokenCount;
+                    currentSwipeMessage.find('.tokenCounterDisplay').text(`${tokenCount}t`);
                 }
-            },
-            onFinishSwipe: async () => {
-                const currentSwipeMessage = $('#chat').find(`[mesid="${chat.length - 1}"]`);
-                appendMediaToMessage(chat[chat.length - 1], currentSwipeMessage);
-                await eventSource.emit(event_types.MESSAGE_SWIPED, chat.length - 1);
-                if (runGenerate && !is_send_press && parseInt(chat[chat.length - 1].swipe_id) === chat[chat.length - 1].swipes.length) {
-                    setSendButtonStateImpl(true);
-                    await generateImpl('swipe');
-                } else if (parseInt(chat[chat.length - 1].swipe_id) !== chat[chat.length - 1].swipes.length) {
-                    saveChatDebounced();
-                }
-            },
-        });
-    }
+            }
+        },
+        onFinishSwipe: async () => {
+            const currentSwipeMessage = $('#chat').find(`[mesid="${swipeState.targetMessageId}"]`);
+            appendMediaToMessage(swipeState.targetMessage, currentSwipeMessage);
+            await eventSource.emit(event_types.MESSAGE_SWIPED, swipeState.targetMessageId);
+            if (swipeState.runGenerate && !is_send_press && parseInt(swipeState.targetMessage.swipe_id) === swipeState.targetMessage.swipes.length) {
+                setSendButtonStateImpl(true);
+                await generateImpl('swipe');
+            } else if (parseInt(swipeState.targetMessage.swipe_id) !== swipeState.targetMessage.swipes.length) {
+                saveChatDebounced();
+            }
+        },
+    });
 }
 
 export async function deleteSwipe(swipeId = null) {
@@ -869,110 +722,32 @@ export async function cancelMessageEdit(trigger) {
     clearEditedMessageState();
 }
 
-function updateEditedMessage(div) {
-    const mesBlock = div.closest('.mes_block');
-    let text = mesBlock.find('.edit_textarea').val()
-        ?? mesBlock.find('.mes_text').text();
-    const mesElement = div.closest('.mes');
-    const mes = chat[mesElement.attr('mesid')];
-
-    let regexPlacement;
-    if (mes.is_user) {
-        regexPlacement = regex_placement.USER_INPUT;
-    } else if (mes.extra?.type === 'narrator') {
-        regexPlacement = regex_placement.SLASH_COMMAND;
-    } else {
-        regexPlacement = regex_placement.AI_OUTPUT;
-    }
-
-    text = getRegexedString(
-        text,
-        regexPlacement,
-        {
-            characterOverride: mes.extra?.type === 'narrator' ? undefined : mes.name,
-            isEdit: true,
-        },
-    );
-
-    if (power_user.trim_spaces) {
-        text = text.trim();
-    }
-
-    const bias = substituteParams(extractMessageBias(text));
-    text = substituteParams(text);
-    if (bias) {
-        text = removeMacros(text);
-    }
-    mes.mes = text;
-    if (mes.swipe_id !== undefined) {
-        mes.swipes[mes.swipe_id] = text;
-    }
-
-    if (!mes.extra) {
-        mes.extra = {};
-    }
-
-    if (mes.is_system || mes.is_user || mes.extra.type === system_message_types.NARRATOR) {
-        mes.extra.bias = bias ?? null;
-    } else {
-        mes.extra.bias = null;
-    }
-
-    chat_metadata.tainted = true;
-
-    return { mesBlock, text, mes, bias };
-}
-
 export function messageEditAuto(div, currentEditedMessageName = editedMessageName, currentEditedMessageId = editedMessageId) {
-    const { mesBlock, text, mes, bias } = updateEditedMessage(div);
-
-    renderMessageEditPreview({
-        mesBlock,
-        text,
-        bias,
-        characterName: currentEditedMessageName,
-        isSystem: mes.is_system,
-        isUser: mes.is_user,
-        messageId: currentEditedMessageId,
-        formatMessage: messageFormatting,
+    return messageEditAutoWorkflow({
+        div,
+        chat,
+        currentEditedMessageName,
+        currentEditedMessageId,
+        messageFormatting,
+        extractMessageBias,
+        saveChatDebounced,
     });
-    saveChatDebounced();
 }
 
 export async function messageEditDone(div, currentEditedMessageName = editedMessageName, currentEditedMessageId = editedMessageId) {
-    let { mesBlock, text, mes, bias } = updateEditedMessage(div);
-    if (currentEditedMessageId == 0) {
-        text = substituteParams(text);
-    }
-
-    await eventSource.emit(event_types.MESSAGE_EDITED, currentEditedMessageId);
-    text = chat[currentEditedMessageId]?.mes ?? text;
-    exitMessageEditMode(mesBlock);
-    renderMessageElementContent({
-        messageElement: div.closest('.mes'),
-        message: mes,
-        messageId: currentEditedMessageId,
-        text,
-        bias,
-        clearText: true,
-        formatMessage: (content, name, isSystem, isUser, messageId, sanitizerOverrides = {}, isReasoning = false) => (
-            name === mes.name
-                ? messageFormatting(content, currentEditedMessageName, isSystem, isUser, messageId, sanitizerOverrides, isReasoning)
-                : messageFormatting(content, name, isSystem, isUser, messageId, sanitizerOverrides, isReasoning)
-        ),
+    return messageEditDoneWorkflow({
+        div,
+        chat,
+        currentEditedMessageName,
+        currentEditedMessageId,
+        messageFormatting,
+        extractMessageBias,
+        appendMediaToMessage,
         updateReasoningUI: updateReasoningUIImpl,
         addCopyToCodeBlocks: addCopyToCodeBlocksImpl,
-        appendMediaToMessage,
+        clearEditedMessageState,
+        saveChatConditional,
     });
-
-    const reasoningEditDone = mesBlock.find('.mes_reasoning_edit_done:visible');
-    if (reasoningEditDone.length > 0) {
-        reasoningEditDone.trigger('click');
-    }
-
-    await eventSource.emit(event_types.MESSAGE_UPDATED, currentEditedMessageId);
-    clearEditedMessageState();
-    await saveChatConditional();
 }
 
 export async function moveEditedMessageUp(trigger) {

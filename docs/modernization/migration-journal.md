@@ -3524,3 +3524,15 @@ This follow-up moved the edit-mode presentation helpers into `public/scripts/mes
 This follow-up kept working down the remaining interaction-oriented DOM pockets in the message area. I moved the edit-mode presentation helpers into `public/scripts/message-edit-renderer.js`, so the textarea/button toggle and focus/cursor setup are no longer embedded directly in `message-core`. I also moved the raw message-row DOM reorder operation used by edit-mode move-up/move-down into `public/scripts/message-list-renderer.js`.
 
 That leaves `message-core` more focused on edit state transitions and persistence, while the list/edit renderer modules own more of the direct `#chat` DOM manipulation.
+
+### 2026-04-03: Wave 93 - extracted swipe state mutation out of `message-core`
+
+This batch keeps the message modernization work on the same path, but on the non-DOM side of the swipe flow. I added `public/scripts/message-swipe-state.js` and moved the swipe array/message synchronization logic there: syncing the current message back into the active swipe, restoring a swipe into the live message, initializing first-swipe state, and the left/right swipe mutation rules now live in a standalone state helper instead of being embedded in `message-core`.
+
+`message-core` still owns the event-level orchestration around swipes, including stop-streaming behavior, token-count refresh, animation handoff, and the decision to trigger a fresh generation versus reuse an existing swipe. But the actual swipe state mutation is now separate from both the DOM transition code in `message-swipe-renderer.js` and the remaining workflow code in `message-core`, which is a better preparation step for a later React-friendly message workflow split.
+
+### 2026-04-03: Wave 94 - extracted message edit persistence workflow out of `message-core`
+
+This follow-up keeps shrinking `message-core` toward orchestration rather than implementation. I added `public/scripts/message-edit-workflow.js` and moved the main non-DOM edit flow there: regex application, prompt-bias extraction, swipe text synchronization, message bias persistence, the edit-preview refresh, and the final edit-save/rerender path now live in a dedicated workflow module instead of sitting inline inside `message-core`.
+
+`message-core` still owns the outer edit lifecycle and state variables for now, but the actual edit update/save behavior is now separated from both the renderer helpers and the broader message interaction surface. That makes the remaining message module much easier to reason about as a thin coordinator and is a better staging point for a future React message editor replacement.

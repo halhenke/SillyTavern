@@ -763,6 +763,15 @@ export function initCharacterDeleteBinding() {
     });
 }
 
+export function initCharacterCreateBindings() {
+    $('#add_avatar_button').on('change', function () {
+        const inputElement = /** @type {HTMLInputElement} */ (this);
+        read_avatar_load(inputElement);
+    });
+
+    $('#form_create').on('submit', (e) => createOrEditCharacter(e.originalEvent));
+}
+
 export function initCharacterPanelBindings() {
     $(document).on('click', '.open_alternate_greetings', openAlternateGreetings);
 

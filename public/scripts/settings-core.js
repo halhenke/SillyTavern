@@ -500,6 +500,19 @@ export function initSettingsSliderBindings() {
     });
 }
 
+export function initSwipeSettingsBindings({ showSwipeButtons, hideSwipeButtons }) {
+    $('#swipes-checkbox').on('change', function () {
+        const swipesEnabled = !!$('#swipes-checkbox').prop('checked');
+        requireBound(setSwipesImpl, 'setSwipes')(swipesEnabled);
+        if (swipesEnabled) {
+            showSwipeButtons();
+        } else {
+            hideSwipeButtons();
+        }
+        saveSettingsDebounced();
+    });
+}
+
 export async function getSettings() {
     const response = await fetch('/api/settings/get', {
         method: 'POST',

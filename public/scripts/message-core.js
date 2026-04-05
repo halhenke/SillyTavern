@@ -186,6 +186,11 @@ export function initMessageEditBindings({
     });
 }
 
+export function initLastMessageSwipeBindings() {
+    $(document).on('click', '.last_mes .swipe_right', swipe_right);
+    $(document).on('click', '.last_mes .swipe_left', swipe_left);
+}
+
 export function setEditedMessageId(value) {
     editedMessageId = value;
     return editedMessageId;

@@ -251,7 +251,7 @@ import { extractReasoningFromData, initReasoning, PromptReasoning, removeReasoni
 import { bindAppStateCore, setMenuType as setMenuTypeCore, syncDefaultPrintTimeout, syncEntitiesFilter, syncIsChatSaving, syncMenuType } from './scripts/app-state-core.js';
 import { getClientVersion as getClientVersionCore, syncClientVersion, syncConnectApiMap, syncMainApi, syncNaiSettings } from './scripts/api-core.js';
 import { bindBackendStatusCore, cancelStatusCheck as cancelStatusCheckCore, displayOnlineStatus as displayOnlineStatusCore, resultCheckStatus as resultCheckStatusCore, setAbortStatusCheck, setOnlineStatus as setOnlineStatusCore, startStatusLoading as startStatusLoadingCore, stopStatusLoading as stopStatusLoadingCore } from './scripts/backend-status-core.js';
-import { bindCharacterCore, buildAvatarList as buildAvatarListCore, characterToEntity as characterToEntityCore, closeAdvancedCharacterPopup as closeAdvancedCharacterPopupCore, createOrEditCharacter as createOrEditCharacterCore, crop_data as characterCropData, deleteCharacter as deleteCharacterCore, doCharListDisplaySwitch as doCharListDisplaySwitchCore, duplicateCharacter as duplicateCharacterCore, getCharacterCardFields as getCharacterCardFieldsCore, getCharacters as getCharactersCore, getCharacterSource as getCharacterSourceCore, getEntitiesList as getEntitiesListCore, getOneCharacter as getOneCharacterCore, groupToEntity as groupToEntityCore, importCharacter as importCharacterCore, importCharactersTags as importCharactersTagsCore, initCharacterDeleteBinding as initCharacterDeleteBindingCore, initCharacterEditorBindings as initCharacterEditorBindingsCore, initCharacterImportExportBindings as initCharacterImportExportBindingsCore, initCharacterPanelBindings as initCharacterPanelBindingsCore, initCharacterSearch as initCharacterSearchCore, openAlternateGreetings as openAlternateGreetingsCore, openCharacterWorldPopup as openCharacterWorldPopupCore, printCharacters as printCharactersCore, processDroppedFiles as processDroppedFilesCore, read_avatar_load as readAvatarLoadCore, renameCharacter as characterCoreRename, selectImportedChar as selectImportedCharCore, syncCharacterGroupOverlay, syncCharacters, syncCreateSave as syncCharacterCreateSave, syncCropData, syncDepthPromptDepthDefault as syncCharacterDepthPromptDepthDefault, syncDepthPromptRoleDefault as syncCharacterDepthPromptRoleDefault, syncPrintCharactersDebounced, syncTalkativenessDefault as syncCharacterTalkativenessDefault, tagToEntity as tagToEntityCore, toggleAdvancedCharacterPopup as toggleAdvancedCharacterPopupCore, unshallowCharacter as unshallowCharacterCore } from './scripts/character-core.js';
+import { bindCharacterCore, buildAvatarList as buildAvatarListCore, characterToEntity as characterToEntityCore, closeAdvancedCharacterPopup as closeAdvancedCharacterPopupCore, createOrEditCharacter as createOrEditCharacterCore, crop_data as characterCropData, deleteCharacter as deleteCharacterCore, doCharListDisplaySwitch as doCharListDisplaySwitchCore, duplicateCharacter as duplicateCharacterCore, getCharacterCardFields as getCharacterCardFieldsCore, getCharacters as getCharactersCore, getCharacterSource as getCharacterSourceCore, getEntitiesList as getEntitiesListCore, getOneCharacter as getOneCharacterCore, groupToEntity as groupToEntityCore, importCharacter as importCharacterCore, importCharactersTags as importCharactersTagsCore, initCharacterCreateBindings as initCharacterCreateBindingsCore, initCharacterDeleteBinding as initCharacterDeleteBindingCore, initCharacterEditorBindings as initCharacterEditorBindingsCore, initCharacterImportExportBindings as initCharacterImportExportBindingsCore, initCharacterPanelBindings as initCharacterPanelBindingsCore, initCharacterSearch as initCharacterSearchCore, openAlternateGreetings as openAlternateGreetingsCore, openCharacterWorldPopup as openCharacterWorldPopupCore, printCharacters as printCharactersCore, processDroppedFiles as processDroppedFilesCore, read_avatar_load as readAvatarLoadCore, renameCharacter as characterCoreRename, selectImportedChar as selectImportedCharCore, syncCharacterGroupOverlay, syncCharacters, syncCreateSave as syncCharacterCreateSave, syncCropData, syncDepthPromptDepthDefault as syncCharacterDepthPromptDepthDefault, syncDepthPromptRoleDefault as syncCharacterDepthPromptRoleDefault, syncPrintCharactersDebounced, syncTalkativenessDefault as syncCharacterTalkativenessDefault, tagToEntity as tagToEntityCore, toggleAdvancedCharacterPopup as toggleAdvancedCharacterPopupCore, unshallowCharacter as unshallowCharacterCore } from './scripts/character-core.js';
 import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId as setCharacterIdCore, setCharacterName as setCharacterNameCore, setUserName as setUserNameCore, syncChatMetadata, syncCommentAvatar, syncDefaultAvatar, syncDefaultUserAvatar, syncName1, syncName2, syncThisChid, syncUserAvatar } from './scripts/chat-core.js';
 import { addOneMessage as addOneMessageCore, bindChatOperationsCore, cancelDebouncedChatSave as cancelDebouncedChatSaveCore, clearChat as clearChatCore, delChat as delChatCore, deleteCharacterChatByName as deleteCharacterChatByNameCore, displayPastChats as displayPastChatsCore, formatCharacterAvatar as formatCharacterAvatarCore, formatSwipeCounter as formatSwipeCounterCore, getCharacterAvatar as getCharacterAvatarCore, getChat as getChatCore, getChatResult as getChatResultCore, getCurrentChatDetails as getCurrentChatDetailsCore, getFirstMessage as getFirstMessageCore, getPastCharacterChats as getPastCharacterChatsCore, importCharacterChat as importCharacterChatCore, initChatImportBindings as initChatImportBindingsCore, initChatManagementBindings as initChatManagementBindingsCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, replaceCurrentChat as replaceCurrentChatCore, saveChat as saveChatCore, saveChatConditional as saveChatConditionalCore, saveChatDebounced as saveChatDebouncedCore, saveMetadata as saveMetadataCore, saveReply as saveReplyCore, sendMessageAsUser as sendMessageAsUserCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { importExternalContent as importExternalContentCore, importFromURL as importFromURLCore } from './scripts/content-import-core.js';
@@ -259,12 +259,12 @@ import { addDebugFunctions as addDebugFunctionsCore, bindDebugCore } from './scr
 import { initDialogueUiBindings } from './scripts/dialogue-ui.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
 import { TempResponseLength, Generate as GenerateCore, StreamingProcessor as StreamingProcessorCore, bindGenerationCore, createRawPrompt as createRawPromptCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGenerateUrl as getGenerateUrlCore, getGeneratingApi as getGeneratingApiCore, getGeneratingModel as getGeneratingModelCore, getMaxContextSize as getMaxContextSizeCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, sendGenerationRequest as sendGenerationRequestCore, sendStreamingRequest as sendStreamingRequestCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
-import { bindMessageCore, cancelDeleteMode as cancelDeleteModeCore, cleanUpMessage as cleanUpMessageCore, closeMessageEditor as closeMessageEditorCore, confirmDeleteMode as confirmDeleteModeCore, deleteSwipe as deleteSwipeCore, editedMessageId as editedMessageIdCore, getFirstDisplayedMessageId as getFirstDisplayedMessageIdCore, hideSwipeButtons as hideSwipeButtonsCore, initMessageCopyBinding as initMessageCopyBindingCore, initMessageEditBindings as initMessageEditBindingsCore, isDeleteMode as isDeleteModeCore, messageFormatting as messageFormattingCore, openMessageDelete as openMessageDeleteCore, selectMessageDeleteTarget as selectMessageDeleteTargetCore, setEditedMessageId as setEditedMessageIdCore, showSwipeButtons as showSwipeButtonsCore, swipe_left as swipeLeftCore, swipe_right as swipeRightCore, syncMesToSwipe as syncMesToSwipeCore, syncSwipeToMes as syncSwipeToMesCore, updateEditArrowClasses as updateEditArrowClassesCore, updateMessageBlock as updateMessageBlockCore, updateViewMessageIds as updateViewMessageIdsCore } from './scripts/message-core.js';
+import { bindMessageCore, cancelDeleteMode as cancelDeleteModeCore, cleanUpMessage as cleanUpMessageCore, closeMessageEditor as closeMessageEditorCore, confirmDeleteMode as confirmDeleteModeCore, deleteSwipe as deleteSwipeCore, editedMessageId as editedMessageIdCore, getFirstDisplayedMessageId as getFirstDisplayedMessageIdCore, hideSwipeButtons as hideSwipeButtonsCore, initLastMessageSwipeBindings as initLastMessageSwipeBindingsCore, initMessageCopyBinding as initMessageCopyBindingCore, initMessageEditBindings as initMessageEditBindingsCore, isDeleteMode as isDeleteModeCore, messageFormatting as messageFormattingCore, openMessageDelete as openMessageDeleteCore, selectMessageDeleteTarget as selectMessageDeleteTargetCore, setEditedMessageId as setEditedMessageIdCore, showSwipeButtons as showSwipeButtonsCore, swipe_left as swipeLeftCore, swipe_right as swipeRightCore, syncMesToSwipe as syncMesToSwipeCore, syncSwipeToMes as syncSwipeToMesCore, updateEditArrowClasses as updateEditArrowClassesCore, updateMessageBlock as updateMessageBlockCore, updateViewMessageIds as updateViewMessageIdsCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
-import { bindSessionCore, doNewChat as doNewChatCore, handleDeleteChat as handleDeleteChatCore, initCharacterGroupNavBindings as initCharacterGroupNavBindingsCore, initCharacterManagementDropdownBindings as initCharacterManagementDropdownBindingsCore, initManageScreenBindings as initManageScreenBindingsCore, newAssistantChat as newAssistantChatCore, renameGroupOrCharacterChat as renameGroupOrCharacterChatCore, resetChatState as resetChatStateCore, selectCharacterById as selectCharacterByIdCore, selectRightMenuWithAnimation as selectRightMenuWithAnimationCore, select_rm_characters as selectRmCharactersCore, select_rm_create as selectRmCreateCore, select_rm_info as selectRmInfoCore, select_selected_character as selectSelectedCharacterCore, sendTextareaMessage as sendTextareaMessageCore, setExternalAbortController as setExternalAbortControllerCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes, updateRemoteChatName as updateRemoteChatNameCore } from './scripts/session-core.js';
-import { bindSettingsCore, changeMainAPI as changeMainAPICore, getSettings as getSettingsCore, initMainApiBindings as initMainApiBindingsCore, initSettingsSliderBindings as initSettingsSliderBindingsCore, saveSettings as saveSettingsCore } from './scripts/settings-core.js';
-import { activateSendButtons as activateSendButtonsCore, addCopyToCodeBlocks as addCopyToCodeBlocksCore, bindUiCore, deactivateSendButtons as deactivateSendButtonsCore, doDrawerOpenClick as doDrawerOpenClickCore, doNavbarIconClick as doNavbarIconClickCore, fixViewport as fixViewportCore, getSlideToggleOptions as getSlideToggleOptionsCore, hideStopButton as hideStopButtonCore, initAutoSelectBindings as initAutoSelectBindingsCore, initCharacterDragDropBindings as initCharacterDragDropBindingsCore, initChatHistoryBindings as initChatHistoryBindingsCore, initDrawerBindings as initDrawerBindingsCore, initDrawerClickAwayBindings as initDrawerClickAwayBindingsCore, initEditTextareaAutoFit as initEditTextareaAutoFitCore, initEscapeKeyBindings as initEscapeKeyBindingsCore, initExecutionControlBindings as initExecutionControlBindingsCore, initExternalImportBindings as initExternalImportBindingsCore, initInlineDrawerBindings as initInlineDrawerBindingsCore, initMessageActionRevealBindings as initMessageActionRevealBindingsCore, initOptionsActionBindings as initOptionsActionBindingsCore, initOptionsMenu as initOptionsMenuCore, initRangeInputBindings as initRangeInputBindingsCore, initSendTextareaFocusRetention as initSendTextareaFocusRetentionCore, initStandaloneMode as initStandaloneModeCore, initStatsButtonBindings as initStatsButtonBindingsCore, initUnloadBindings as initUnloadBindingsCore, initWorldInfoDrawerBindings as initWorldInfoDrawerBindingsCore, reloadMarkdownProcessor as reloadMarkdownProcessorCore, setAnimationDuration as setAnimationDurationCore, setSendButtonState as setSendButtonStateCore, showStopButton as showStopButtonCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
+import { bindSessionCore, doNewChat as doNewChatCore, handleDeleteChat as handleDeleteChatCore, initCharacterGroupNavBindings as initCharacterGroupNavBindingsCore, initCharacterManagementDropdownBindings as initCharacterManagementDropdownBindingsCore, initManageScreenBindings as initManageScreenBindingsCore, initSessionNavigationBindings as initSessionNavigationBindingsCore, newAssistantChat as newAssistantChatCore, renameGroupOrCharacterChat as renameGroupOrCharacterChatCore, resetChatState as resetChatStateCore, selectCharacterById as selectCharacterByIdCore, selectRightMenuWithAnimation as selectRightMenuWithAnimationCore, select_rm_characters as selectRmCharactersCore, select_rm_create as selectRmCreateCore, select_rm_info as selectRmInfoCore, select_selected_character as selectSelectedCharacterCore, sendTextareaMessage as sendTextareaMessageCore, setExternalAbortController as setExternalAbortControllerCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes, updateRemoteChatName as updateRemoteChatNameCore } from './scripts/session-core.js';
+import { bindSettingsCore, changeMainAPI as changeMainAPICore, getSettings as getSettingsCore, initMainApiBindings as initMainApiBindingsCore, initSettingsSliderBindings as initSettingsSliderBindingsCore, initSwipeSettingsBindings as initSwipeSettingsBindingsCore, saveSettings as saveSettingsCore } from './scripts/settings-core.js';
+import { activateSendButtons as activateSendButtonsCore, addCopyToCodeBlocks as addCopyToCodeBlocksCore, bindUiCore, deactivateSendButtons as deactivateSendButtonsCore, doDrawerOpenClick as doDrawerOpenClickCore, doNavbarIconClick as doNavbarIconClickCore, fixViewport as fixViewportCore, getSlideToggleOptions as getSlideToggleOptionsCore, hideStopButton as hideStopButtonCore, initApiLoadingBindings as initApiLoadingBindingsCore, initAutoSelectBindings as initAutoSelectBindingsCore, initCharacterDragDropBindings as initCharacterDragDropBindingsCore, initChatHistoryBindings as initChatHistoryBindingsCore, initDrawerBindings as initDrawerBindingsCore, initDrawerClickAwayBindings as initDrawerClickAwayBindingsCore, initEditTextareaAutoFit as initEditTextareaAutoFitCore, initEscapeKeyBindings as initEscapeKeyBindingsCore, initExecutionControlBindings as initExecutionControlBindingsCore, initExternalImportBindings as initExternalImportBindingsCore, initInlineDrawerBindings as initInlineDrawerBindingsCore, initMessageActionRevealBindings as initMessageActionRevealBindingsCore, initMessageShortcutBindings as initMessageShortcutBindingsCore, initOptionsActionBindings as initOptionsActionBindingsCore, initOptionsMenu as initOptionsMenuCore, initRangeInputBindings as initRangeInputBindingsCore, initSendTextareaFocusRetention as initSendTextareaFocusRetentionCore, initStandaloneMode as initStandaloneModeCore, initStatsButtonBindings as initStatsButtonBindingsCore, initUnloadBindings as initUnloadBindingsCore, initWorldInfoDrawerBindings as initWorldInfoDrawerBindingsCore, reloadMarkdownProcessor as reloadMarkdownProcessorCore, setAnimationDuration as setAnimationDurationCore, setSendButtonState as setSendButtonStateCore, showStopButton as showStopButtonCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
 import { accountStorage } from './scripts/util/AccountStorage.js';
 import { initWelcomeScreen, openPermanentAssistantChat, openPermanentAssistantCard, getPermanentAssistantAvatar } from './scripts/welcome-screen.js';
 import { initDataMaid } from './scripts/data-maid.js';
@@ -3387,73 +3387,17 @@ jQuery(async function () {
         $('#groupCurrentMemberListToggle .inline-drawer-icon').trigger('click');
     }, 200);
 
-    $(document).on('click', '.api_loading', () => cancelStatusCheck('Canceled because connecting was manually canceled'));
-
+    initApiLoadingBindingsCore({ cancelStatusCheck });
     initSendTextareaFocusRetentionCore();
-
-    $('#swipes-checkbox').on('change', function () {
-        swipes = !!$('#swipes-checkbox').prop('checked');
-        if (swipes) {
-            //console.log('toggle change calling showswipebtns');
-            showSwipeButtons();
-        } else {
-            hideSwipeButtons();
-        }
-        saveSettingsDebounced();
+    initSwipeSettingsBindingsCore({
+        showSwipeButtons,
+        hideSwipeButtons,
     });
-
-    ///// SWIPE BUTTON CLICKS ///////
-
-    //limit swiping to only last message clicks
-    $(document).on('click', '.last_mes .swipe_right', swipe_right);
-    $(document).on('click', '.last_mes .swipe_left', swipe_left);
+    initLastMessageSwipeBindingsCore();
 
     initCharacterSearch();
-
-    $('#mes_impersonate').on('click', function () {
-        $('#option_impersonate').trigger('click');
-    });
-
-    $('#mes_continue').on('click', function () {
-        $('#option_continue').trigger('click');
-    });
-
-    $('#send_but').on('click', function () {
-        sendTextareaMessage();
-    });
-
-    //menu buttons setup
-
-    $('#rm_button_settings').on('click', function () {
-        selected_button = 'settings';
-        selectRightMenuWithAnimation('rm_api_block');
-    });
-    $('#rm_button_characters').on('click', function () {
-        selected_button = 'characters';
-        select_rm_characters();
-    });
-    $('#rm_button_back').on('click', function () {
-        selected_button = 'characters';
-        select_rm_characters();
-    });
-    $('#rm_button_create').on('click', function () {
-        selected_button = 'create';
-        select_rm_create();
-    });
-    $('#rm_button_selected_ch').on('click', function () {
-        if (selected_group) {
-            select_group_chats(selected_group);
-        } else {
-            selected_button = 'character_edit';
-            select_selected_character(this_chid);
-        }
-        $('#character_search_bar').val('').trigger('input');
-    });
-
-    $(document).on('click', '.character_select', async function () {
-        const id = Number($(this).attr('data-chid'));
-        await selectCharacterById(id);
-    });
+    initMessageShortcutBindingsCore();
+    initSessionNavigationBindingsCore({ selectGroupChats: select_group_chats });
 
     $(document).on('click', '.bogus_folder_select', function () {
         const tagId = $(this).attr('tagid');
@@ -3525,13 +3469,7 @@ jQuery(async function () {
         cssSendFormDisplay: css_send_form_display,
     });
 
-    $('#add_avatar_button').on('change', function () {
-        const inputElement = /** @type {HTMLInputElement} */ (this);
-        read_avatar_load(inputElement);
-    });
-
-    $('#form_create').on('submit', (e) => createOrEditCharacter(e.originalEvent));
-
+    initCharacterCreateBindingsCore();
     initCharacterDeleteBindingCore();
 
     //////// OPTIMIZED ALL CHAR CREATION/EDITING TEXTAREA LISTENERS ///////////////

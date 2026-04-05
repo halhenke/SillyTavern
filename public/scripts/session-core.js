@@ -66,6 +66,14 @@ function throwUnbound(name) {
     throw new Error(`[session-core] ${name} was called before bindings were initialized`);
 }
 
+function requireBound(value, name) {
+    if (!value) {
+        throwUnbound(name);
+    }
+
+    return value;
+}
+
 /**
  * Binds legacy session/orchestration implementations to standalone wrappers.
  * @param {{
@@ -737,6 +745,48 @@ export function initCharacterGroupNavBindings({
 
     $('#dupe_button').on('click', async function () {
         await duplicateCharacter();
+    });
+}
+
+export function initSessionNavigationBindings({ selectGroupChats }) {
+    $('#send_but').on('click', function () {
+        sendTextareaMessage();
+    });
+
+    $('#rm_button_settings').on('click', function () {
+        requireBound(setSelectedButtonImpl, 'setSelectedButton')('settings');
+        selectRightMenuWithAnimation('rm_api_block');
+    });
+
+    $('#rm_button_characters').on('click', function () {
+        requireBound(setSelectedButtonImpl, 'setSelectedButton')('characters');
+        select_rm_characters();
+    });
+
+    $('#rm_button_back').on('click', function () {
+        requireBound(setSelectedButtonImpl, 'setSelectedButton')('characters');
+        select_rm_characters();
+    });
+
+    $('#rm_button_create').on('click', function () {
+        requireBound(setSelectedButtonImpl, 'setSelectedButton')('create');
+        select_rm_create();
+    });
+
+    $('#rm_button_selected_ch').on('click', function () {
+        const selectedGroup = getSelectedGroupImpl?.();
+        if (selectedGroup) {
+            selectGroupChats(selectedGroup);
+        } else {
+            requireBound(setSelectedButtonImpl, 'setSelectedButton')('character_edit');
+            select_selected_character(this_chid);
+        }
+        $('#character_search_bar').val('').trigger('input');
+    });
+
+    $(document).on('click', '.character_select', async function () {
+        const id = Number($(this).attr('data-chid'));
+        await selectCharacterById(id);
     });
 }
 

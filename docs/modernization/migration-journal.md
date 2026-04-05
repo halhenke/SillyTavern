@@ -3602,3 +3602,9 @@ This is another worthwhile cut because that cluster was still a dense pocket of 
 This batch keeps working directly on the remaining end-of-file bootstrap seam by moving the main API change listener and the legacy amount/context range-slider bindings into `public/scripts/settings-core.js`. The bootstrap block now initializes those through `initMainApiBindings(...)` and `initSettingsSliderBindings(...)` instead of keeping the `#main_api` change handler plus the old touch/unlock slider logic inline in `script.js`.
 
 I also moved the manage-screen “new chat” button binding into `public/scripts/session-core.js` as `initManageScreenBindings(...)`. None of these are deep refactors; they are still relocation-style extractions that leave `script.js` closer to a composition root made of initializer calls, which is the shape we need before we can say the giant anonymous bootstrap function has really been broken up.
+
+### 2026-04-05: Wave 106 - extracted the remaining command and navigation listener cluster out of the `script.js` tail
+
+This follow-up takes another meaningful chunk out of the same bootstrap seam. The API loading cancel click, swipe-settings toggle, last-message swipe listeners, quick impersonate/continue shortcut clicks, right-menu navigation buttons, character selection clicks, and character create-form bindings are now initialized through the existing domain modules (`ui-core`, `settings-core`, `message-core`, `session-core`, and `character-core`) instead of being spelled out inline in `script.js`.
+
+This matters because these were some of the last obvious places where the end-of-file bootstrap still looked like a hand-written jQuery event bucket rather than a composition root. After this batch, the remaining inline tail is much smaller and mostly limited to a couple of residual DOM-specific handlers plus the final bootstrap/init calls.

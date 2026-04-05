@@ -516,6 +516,20 @@ export function initSendTextareaFocusRetention() {
     });
 }
 
+export function initApiLoadingBindings({ cancelStatusCheck }) {
+    $(document).on('click', '.api_loading', () => cancelStatusCheck('Canceled because connecting was manually canceled'));
+}
+
+export function initMessageShortcutBindings() {
+    $('#mes_impersonate').on('click', function () {
+        $('#option_impersonate').trigger('click');
+    });
+
+    $('#mes_continue').on('click', function () {
+        $('#option_continue').trigger('click');
+    });
+}
+
 export function initEditTextareaAutoFit({ chatElement, debounceMs }) {
     if (CSS.supports('field-sizing', 'content')) {
         return;

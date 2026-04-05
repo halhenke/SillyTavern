@@ -719,6 +719,27 @@ export function select_rm_characters() {
     printCharactersImpl(doFullRefresh);
 }
 
+export function initCharacterGroupNavBindings({
+    setSelectedButton,
+    selectGroupChats,
+    selectRmCharacters,
+    duplicateCharacter,
+}) {
+    $('#rm_button_group_chats').on('click', function () {
+        setSelectedButton('group_chats');
+        selectGroupChats();
+    });
+
+    $('#rm_button_back_from_group').on('click', function () {
+        setSelectedButton('characters');
+        selectRmCharacters();
+    });
+
+    $('#dupe_button').on('click', async function () {
+        await duplicateCharacter();
+    });
+}
+
 export function sendSystemMessage(...args) {
     if (!sendSystemMessageImpl) {
         throwUnbound('sendSystemMessage');

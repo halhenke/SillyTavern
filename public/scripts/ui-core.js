@@ -277,6 +277,14 @@ export async function doNavbarIconClick() {
     }
 }
 
+export function initDrawerBindings({
+    doDrawerOpenClick,
+    doNavbarIconClick,
+}) {
+    $(document).on('click', '.drawer-opener', doDrawerOpenClick);
+    $('.drawer-toggle').on('click', doNavbarIconClick);
+}
+
 export async function fixViewport() {
     document.body.style.position = 'absolute';
     await delayBound(1);

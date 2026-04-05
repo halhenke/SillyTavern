@@ -3578,3 +3578,9 @@ Individually these handlers were not as large as the options menu or avatar zoom
 This batch keeps reducing the remaining anonymous bootstrap block by moving two more UI-only listener clusters into `public/scripts/ui-core.js`: the click-away logic that collapses unpinned open drawers, and the reveal/collapse behavior for the extra message action button strip. These were both still self-contained DOM behaviors living inline in `script.js`.
 
 The important point here is not just line count. These handlers were pure UI behavior with no reason to remain embedded in the application bootstrap root. Pulling them behind `initDrawerClickAwayBindings(...)` and `initMessageActionRevealBindings(...)` makes the tail of `script.js` more explicitly about composition and less about hand-written DOM interaction code.
+
+### 2026-04-05: Wave 102 - extracted remaining drawer and character/group shortcut bindings out of the `script.js` tail
+
+This follow-up keeps shaving down the same anonymous bootstrap block by moving the raw drawer opener/toggle wiring into `public/scripts/ui-core.js` and the small character/group navigation shortcut cluster into `public/scripts/session-core.js`. The `#rm_button_group_chats`, `#rm_button_back_from_group`, and `#dupe_button` bindings are now initialized through `initCharacterGroupNavBindings(...)`, and the generic drawer opener/toggle listeners are now initialized through `initDrawerBindings(...)`.
+
+These were not the biggest remaining blocks, but they were still exactly the sort of leftover direct listener setup that kept the end of `script.js` from reading like a clean composition root. This keeps the same strategy: move concrete listener ownership into domain modules, and leave `script.js` to compose them.

@@ -261,9 +261,9 @@ import { TempResponseLength, Generate as GenerateCore, StreamingProcessor as Str
 import { beginMessageEdit as beginMessageEditCore, bindMessageCore, cancelDeleteMode as cancelDeleteModeCore, cancelMessageEdit as cancelMessageEditCore, cleanUpMessage as cleanUpMessageCore, closeMessageEditor as closeMessageEditorCore, confirmDeleteMode as confirmDeleteModeCore, copyEditedMessage as copyEditedMessageCore, deleteEditedMessage as deleteEditedMessageCore, deleteSwipe as deleteSwipeCore, editedMessageId as editedMessageIdCore, getFirstDisplayedMessageId as getFirstDisplayedMessageIdCore, hideSwipeButtons as hideSwipeButtonsCore, initMessageCopyBinding as initMessageCopyBindingCore, isDeleteMode as isDeleteModeCore, messageEditAuto as messageEditAutoCore, messageEditDone as messageEditDoneCore, messageFormatting as messageFormattingCore, moveEditedMessageDown as moveEditedMessageDownCore, moveEditedMessageUp as moveEditedMessageUpCore, openMessageDelete as openMessageDeleteCore, selectMessageDeleteTarget as selectMessageDeleteTargetCore, setEditedMessageId as setEditedMessageIdCore, showSwipeButtons as showSwipeButtonsCore, swipe_left as swipeLeftCore, swipe_right as swipeRightCore, syncMesToSwipe as syncMesToSwipeCore, syncSwipeToMes as syncSwipeToMesCore, updateEditArrowClasses as updateEditArrowClassesCore, updateMessageBlock as updateMessageBlockCore, updateViewMessageIds as updateViewMessageIdsCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
-import { bindSessionCore, doNewChat as doNewChatCore, handleDeleteChat as handleDeleteChatCore, initCharacterManagementDropdownBindings as initCharacterManagementDropdownBindingsCore, newAssistantChat as newAssistantChatCore, renameGroupOrCharacterChat as renameGroupOrCharacterChatCore, resetChatState as resetChatStateCore, selectCharacterById as selectCharacterByIdCore, selectRightMenuWithAnimation as selectRightMenuWithAnimationCore, select_rm_characters as selectRmCharactersCore, select_rm_create as selectRmCreateCore, select_rm_info as selectRmInfoCore, select_selected_character as selectSelectedCharacterCore, sendTextareaMessage as sendTextareaMessageCore, setExternalAbortController as setExternalAbortControllerCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes, updateRemoteChatName as updateRemoteChatNameCore } from './scripts/session-core.js';
+import { bindSessionCore, doNewChat as doNewChatCore, handleDeleteChat as handleDeleteChatCore, initCharacterGroupNavBindings as initCharacterGroupNavBindingsCore, initCharacterManagementDropdownBindings as initCharacterManagementDropdownBindingsCore, newAssistantChat as newAssistantChatCore, renameGroupOrCharacterChat as renameGroupOrCharacterChatCore, resetChatState as resetChatStateCore, selectCharacterById as selectCharacterByIdCore, selectRightMenuWithAnimation as selectRightMenuWithAnimationCore, select_rm_characters as selectRmCharactersCore, select_rm_create as selectRmCreateCore, select_rm_info as selectRmInfoCore, select_selected_character as selectSelectedCharacterCore, sendTextareaMessage as sendTextareaMessageCore, setExternalAbortController as setExternalAbortControllerCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes, updateRemoteChatName as updateRemoteChatNameCore } from './scripts/session-core.js';
 import { bindSettingsCore, changeMainAPI as changeMainAPICore, getSettings as getSettingsCore, saveSettings as saveSettingsCore } from './scripts/settings-core.js';
-import { activateSendButtons as activateSendButtonsCore, addCopyToCodeBlocks as addCopyToCodeBlocksCore, bindUiCore, deactivateSendButtons as deactivateSendButtonsCore, doDrawerOpenClick as doDrawerOpenClickCore, doNavbarIconClick as doNavbarIconClickCore, fixViewport as fixViewportCore, getSlideToggleOptions as getSlideToggleOptionsCore, hideStopButton as hideStopButtonCore, initAutoSelectBindings as initAutoSelectBindingsCore, initCharacterDragDropBindings as initCharacterDragDropBindingsCore, initChatHistoryBindings as initChatHistoryBindingsCore, initDrawerClickAwayBindings as initDrawerClickAwayBindingsCore, initEditTextareaAutoFit as initEditTextareaAutoFitCore, initEscapeKeyBindings as initEscapeKeyBindingsCore, initExecutionControlBindings as initExecutionControlBindingsCore, initExternalImportBindings as initExternalImportBindingsCore, initInlineDrawerBindings as initInlineDrawerBindingsCore, initMessageActionRevealBindings as initMessageActionRevealBindingsCore, initOptionsActionBindings as initOptionsActionBindingsCore, initOptionsMenu as initOptionsMenuCore, initRangeInputBindings as initRangeInputBindingsCore, initSendTextareaFocusRetention as initSendTextareaFocusRetentionCore, initStandaloneMode as initStandaloneModeCore, initStatsButtonBindings as initStatsButtonBindingsCore, initUnloadBindings as initUnloadBindingsCore, initWorldInfoDrawerBindings as initWorldInfoDrawerBindingsCore, reloadMarkdownProcessor as reloadMarkdownProcessorCore, setAnimationDuration as setAnimationDurationCore, setSendButtonState as setSendButtonStateCore, showStopButton as showStopButtonCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
+import { activateSendButtons as activateSendButtonsCore, addCopyToCodeBlocks as addCopyToCodeBlocksCore, bindUiCore, deactivateSendButtons as deactivateSendButtonsCore, doDrawerOpenClick as doDrawerOpenClickCore, doNavbarIconClick as doNavbarIconClickCore, fixViewport as fixViewportCore, getSlideToggleOptions as getSlideToggleOptionsCore, hideStopButton as hideStopButtonCore, initAutoSelectBindings as initAutoSelectBindingsCore, initCharacterDragDropBindings as initCharacterDragDropBindingsCore, initChatHistoryBindings as initChatHistoryBindingsCore, initDrawerBindings as initDrawerBindingsCore, initDrawerClickAwayBindings as initDrawerClickAwayBindingsCore, initEditTextareaAutoFit as initEditTextareaAutoFitCore, initEscapeKeyBindings as initEscapeKeyBindingsCore, initExecutionControlBindings as initExecutionControlBindingsCore, initExternalImportBindings as initExternalImportBindingsCore, initInlineDrawerBindings as initInlineDrawerBindingsCore, initMessageActionRevealBindings as initMessageActionRevealBindingsCore, initOptionsActionBindings as initOptionsActionBindingsCore, initOptionsMenu as initOptionsMenuCore, initRangeInputBindings as initRangeInputBindingsCore, initSendTextareaFocusRetention as initSendTextareaFocusRetentionCore, initStandaloneMode as initStandaloneModeCore, initStatsButtonBindings as initStatsButtonBindingsCore, initUnloadBindings as initUnloadBindingsCore, initWorldInfoDrawerBindings as initWorldInfoDrawerBindingsCore, reloadMarkdownProcessor as reloadMarkdownProcessorCore, setAnimationDuration as setAnimationDurationCore, setSendButtonState as setSendButtonStateCore, showStopButton as showStopButtonCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
 import { accountStorage } from './scripts/util/AccountStorage.js';
 import { initWelcomeScreen, openPermanentAssistantChat, openPermanentAssistantCard, getPermanentAssistantAvatar } from './scripts/welcome-screen.js';
 import { initDataMaid } from './scripts/data-maid.js';
@@ -3800,26 +3800,20 @@ jQuery(async function () {
     initCharacterImportExportBindingsCore({ exportPopper });
     //**************************CHAT IMPORT EXPORT*************************//
     initChatImportBindingsCore();
-
-    $('#rm_button_group_chats').on('click', function () {
-        selected_button = 'group_chats';
-        select_group_chats();
-    });
-
-    $('#rm_button_back_from_group').on('click', function () {
-        selected_button = 'characters';
-        select_rm_characters();
-    });
-
-    $('#dupe_button').on('click', async function () {
-        await duplicateCharacter();
+    initCharacterGroupNavBindingsCore({
+        setSelectedButton: (value) => {
+            selected_button = value;
+        },
+        selectGroupChats: select_group_chats,
+        selectRmCharacters: select_rm_characters,
+        duplicateCharacter,
     });
 
     initExecutionControlBindingsCore();
-
-    $(document).on('click', '.drawer-opener', doDrawerOpenClick);
-
-    $('.drawer-toggle').on('click', doNavbarIconClick);
+    initDrawerBindingsCore({
+        doDrawerOpenClick,
+        doNavbarIconClick,
+    });
     initDrawerClickAwayBindingsCore();
 
     initInlineDrawerBindingsCore();

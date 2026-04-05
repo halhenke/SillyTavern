@@ -3554,3 +3554,9 @@ This is important because the “big jQuery function” is no longer sitting ins
 This batch switches focus to the other large remaining legacy seam: the long anonymous DOM bootstrap block at the end of `public/script.js`. I moved the large `#options [id]` click handler into `public/scripts/ui-core.js` as `initOptionsActionBindings(...)`, and changed the bootstrap block to call that initializer instead of keeping the entire branch-heavy menu action handler inline.
 
 This does not remove the full anonymous bootstrap yet, but it is the right first cut. The options menu handler was one of the biggest remaining inline clusters in that block, and moving it behind an initializer makes the tail of `script.js` more like a composition root and less like a 700-line mixed event handler.
+
+### 2026-04-05: Wave 98 - extracted avatar zoom handling out of the `script.js` bootstrap block
+
+This follow-up keeps working on the same anonymous DOM bootstrap seam. I moved the inline `.mes .avatar` click handler into `public/scripts/avatar-zoom-ui.js` as `initMessageAvatarZoomBindings(...)`, and changed `script.js` to initialize that module instead of keeping the entire zoom popup lifecycle inline.
+
+This is another good bootstrap-block reduction because the avatar zoom handler was a self-contained but still fairly large DOM cluster. Pulling it out leaves the end of `script.js` with less direct UI behavior and more explicit module initialization, which is the direction we want before tackling the remaining global key/click/bootstrap handlers.

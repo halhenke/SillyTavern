@@ -247,6 +247,7 @@ import { applyBrowserFixes } from './scripts/browser-fixes.js';
 import { initServerHistory } from './scripts/server-history.js';
 import { initSettingsSearch } from './scripts/setting-search.js';
 import { initBulkEdit } from './scripts/bulk-edit.js';
+import { initMessageAvatarZoomBindings } from './scripts/avatar-zoom-ui.js';
 import { getContext } from './scripts/st-context.js';
 import { extractReasoningFromData, initReasoning, PromptReasoning, removeReasoningFromString, updateReasoningUI } from './scripts/reasoning.js';
 import { bindAppStateCore, setMenuType as setMenuTypeCore, syncDefaultPrintTimeout, syncEntitiesFilter, syncIsChatSaving, syncMenuType } from './scripts/app-state-core.js';
@@ -3921,81 +3922,14 @@ jQuery(async function () {
     });
 
     initInlineDrawerBindingsCore();
-
-    $(document).on('click', '.mes .avatar', function () {
-        const messageElement = $(this).closest('.mes');
-        const thumbURL = $(this).children('img').attr('src');
-        const charsPath = '/characters/';
-        const targetAvatarImg = thumbURL.substring(thumbURL.lastIndexOf('=') + 1);
-        const charname = targetAvatarImg.replace('.png', '');
-        const isValidCharacter = characters.some(x => x.avatar === decodeURIComponent(targetAvatarImg));
-
-        // Remove existing zoomed avatars for characters that are not the clicked character when moving UI is not enabled
-        if (!power_user.movingUI) {
-            $('.zoomed_avatar').each(function () {
-                const currentForChar = $(this).attr('forChar');
-                if (currentForChar !== charname && typeof currentForChar !== 'undefined') {
-                    console.debug(`Removing zoomed avatar for character: ${currentForChar}`);
-                    $(this).remove();
-                }
-            });
-        }
-
-        const avatarSrc = (isDataURL(thumbURL) || /^\/?img\/(?:.+)/.test(thumbURL)) ? thumbURL : charsPath + targetAvatarImg;
-        if ($(`.zoomed_avatar[forChar="${charname}"]`).length) {
-            console.debug('removing container as it already existed');
-            $(`.zoomed_avatar[forChar="${charname}"]`).fadeOut(animation_duration, () => {
-                $(`.zoomed_avatar[forChar="${charname}"]`).remove();
-            });
-        } else {
-            console.debug('making new container from template');
-            const template = $('#zoomed_avatar_template').html();
-            const newElement = $(template);
-            newElement.attr('forChar', charname);
-            newElement.attr('id', `zoomFor_${charname}`);
-            newElement.addClass('draggable');
-            newElement.find('.drag-grabber').attr('id', `zoomFor_${charname}header`);
-
-            $('body').append(newElement);
-            newElement.fadeIn(animation_duration);
-            const zoomedAvatarImgElement = $(`.zoomed_avatar[forChar="${charname}"] img`);
-            if (messageElement.attr('is_user') == 'true' || (messageElement.attr('is_system') == 'true' && !isValidCharacter)) {
-                //handle user and system avatars
-                const isValidPersona = decodeURIComponent(targetAvatarImg) in power_user.personas;
-                if (isValidPersona) {
-                    const personaSrc = getUserAvatar(targetAvatarImg);
-                    zoomedAvatarImgElement.attr('src', personaSrc);
-                    zoomedAvatarImgElement.attr('data-izoomify-url', personaSrc);
-                } else {
-                    zoomedAvatarImgElement.attr('src', thumbURL);
-                    zoomedAvatarImgElement.attr('data-izoomify-url', thumbURL);
-                }
-            } else if (messageElement.attr('is_user') == 'false') { //handle char avatars
-                zoomedAvatarImgElement.attr('src', avatarSrc);
-                zoomedAvatarImgElement.attr('data-izoomify-url', avatarSrc);
-            }
-            loadMovingUIState();
-            $(`.zoomed_avatar[forChar="${charname}"]`).css('display', 'flex');
-            dragElement(newElement);
-
-            if (power_user.zoomed_avatar_magnification) {
-                $('.zoomed_avatar_container').izoomify();
-            }
-
-            $('.zoomed_avatar, .zoomed_avatar .dragClose').on('click touchend', (e) => {
-                if (e.target.closest('.dragClose')) {
-                    $(`.zoomed_avatar[forChar="${charname}"]`).fadeOut(animation_duration, () => {
-                        $(`.zoomed_avatar[forChar="${charname}"]`).remove();
-                    });
-                }
-            });
-
-            zoomedAvatarImgElement.on('dragstart', (e) => {
-                console.log('saw drag on avatar!');
-                e.preventDefault();
-                return false;
-            });
-        }
+    initMessageAvatarZoomBindings({
+        getCharacters: () => characters,
+        getPowerUser: () => power_user,
+        getUserAvatar,
+        loadMovingUIState,
+        dragElement,
+        isDataUrl: isDataURL,
+        getAnimationDuration: () => animation_duration,
     });
 
     document.addEventListener('click', function (e) {

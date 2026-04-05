@@ -256,6 +256,7 @@ import { bindChatCore, getCurrentChatId as getCurrentChatIdCore, setCharacterId 
 import { addOneMessage as addOneMessageCore, bindChatOperationsCore, cancelDebouncedChatSave as cancelDebouncedChatSaveCore, clearChat as clearChatCore, delChat as delChatCore, deleteCharacterChatByName as deleteCharacterChatByNameCore, displayPastChats as displayPastChatsCore, formatCharacterAvatar as formatCharacterAvatarCore, formatSwipeCounter as formatSwipeCounterCore, getCharacterAvatar as getCharacterAvatarCore, getChat as getChatCore, getChatResult as getChatResultCore, getCurrentChatDetails as getCurrentChatDetailsCore, getFirstMessage as getFirstMessageCore, getPastCharacterChats as getPastCharacterChatsCore, importCharacterChat as importCharacterChatCore, initChatImportBindings as initChatImportBindingsCore, initChatManagementBindings as initChatManagementBindingsCore, openCharacterChat as openCharacterChatCore, printMessages as printMessagesCore, reloadCurrentChat as reloadCurrentChatCore, replaceCurrentChat as replaceCurrentChatCore, saveChat as saveChatCore, saveChatConditional as saveChatConditionalCore, saveChatDebounced as saveChatDebouncedCore, saveMetadata as saveMetadataCore, saveReply as saveReplyCore, sendMessageAsUser as sendMessageAsUserCore, syncChat, syncCreateSave, syncDisplayVersion, syncSystemAvatar, syncSystemUserName, updateChatMetadata as updateChatMetadataCore } from './scripts/chat-operations-core.js';
 import { importExternalContent as importExternalContentCore, importFromURL as importFromURLCore } from './scripts/content-import-core.js';
 import { addDebugFunctions as addDebugFunctionsCore, bindDebugCore } from './scripts/debug-core.js';
+import { initDialogueUiBindings } from './scripts/dialogue-ui.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
 import { TempResponseLength, Generate as GenerateCore, StreamingProcessor as StreamingProcessorCore, bindGenerationCore, createRawPrompt as createRawPromptCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGenerateUrl as getGenerateUrlCore, getGeneratingApi as getGeneratingApiCore, getGeneratingModel as getGeneratingModelCore, getMaxContextSize as getMaxContextSizeCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, sendGenerationRequest as sendGenerationRequestCore, sendStreamingRequest as sendStreamingRequestCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
 import { bindMessageCore, cancelDeleteMode as cancelDeleteModeCore, cleanUpMessage as cleanUpMessageCore, closeMessageEditor as closeMessageEditorCore, confirmDeleteMode as confirmDeleteModeCore, deleteSwipe as deleteSwipeCore, editedMessageId as editedMessageIdCore, getFirstDisplayedMessageId as getFirstDisplayedMessageIdCore, hideSwipeButtons as hideSwipeButtonsCore, initMessageCopyBinding as initMessageCopyBindingCore, initMessageEditBindings as initMessageEditBindingsCore, isDeleteMode as isDeleteModeCore, messageFormatting as messageFormattingCore, openMessageDelete as openMessageDeleteCore, selectMessageDeleteTarget as selectMessageDeleteTargetCore, setEditedMessageId as setEditedMessageIdCore, showSwipeButtons as showSwipeButtonsCore, swipe_left as swipeLeftCore, swipe_right as swipeRightCore, syncMesToSwipe as syncMesToSwipeCore, syncSwipeToMes as syncSwipeToMesCore, updateEditArrowClasses as updateEditArrowClassesCore, updateMessageBlock as updateMessageBlockCore, updateViewMessageIds as updateViewMessageIdsCore } from './scripts/message-core.js';
@@ -3493,98 +3494,35 @@ jQuery(async function () {
         selectMessageDeleteTargetCore(Number($(this).attr('mesid')));
     });
 
-    /**
-     * Handles the deletion of a chat file, including group chats.
-     *
-     * @param {string} chatFile - The name of the chat file to delete.
-     * @param {object} group - The group object if the chat is part of a group.
-     * @param {boolean} [fromSlashCommand=false] - Whether the deletion was triggered from a slash command.
-     * @returns {Promise<void>}
-     */
-    async function handleDeleteChat(chatFile, group, fromSlashCommand = false) {
-        return handleDeleteChatCore(chatFile, group, { fromSlashCommand });
-    }
-
-    $(document).on('click', '.PastChat_cross', async function (e, { fromSlashCommand = false } = {}) {
-        e.stopPropagation();
-        chat_file_for_del = $(this).attr('file_name');
-        console.debug('detected cross click for' + chat_file_for_del);
-
-        // Skip confirmation if called from a slash command.
-        if (fromSlashCommand) {
-            await handleDeleteChat(chat_file_for_del, selected_group, true);
-            return;
-        }
-
-        const result = await callGenericPopup('<h3>' + t`Delete the Chat File?` + '</h3>', POPUP_TYPE.CONFIRM);
-        if (result === POPUP_RESULT.AFFIRMATIVE) {
-            await handleDeleteChat(chat_file_for_del, selected_group, false);
-        }
-    });
-
-    $('#advanced_div').on('click', function () {
-        toggleAdvancedCharacterPopupCore();
-    });
-
-    $('#character_cross').on('click', function () {
-        closeAdvancedCharacterPopupCore();
-    });
-
-    $('#character_popup_ok').on('click', function () {
-        closeAdvancedCharacterPopupCore({ animate: false });
-    });
-
-    $('#dialogue_popup_ok').on('click', async function (_e, customData) {
-        const fromSlashCommand = customData?.fromSlashCommand || false;
-        dialogueCloseStop = false;
-        $('#shadow_popup').transition({
-            opacity: 0,
-            duration: animation_duration,
-            easing: animation_easing,
-        });
-        setTimeout(function () {
-            if (dialogueCloseStop) return;
-            $('#shadow_popup').css('display', 'none');
-            $('#dialogue_popup').removeClass('large_dialogue_popup');
-            $('#dialogue_popup').removeClass('wide_dialogue_popup');
-        }, animation_duration);
-
-        if (popup_type == 'del_chat') {
-            await handleDeleteChat(chat_file_for_del, selected_group, fromSlashCommand);
-        }
-
-        if (dialogueResolve) {
-            if (popup_type == 'input') {
-                dialogueResolve($('#dialogue_popup_input').val());
-                $('#dialogue_popup_input').val('');
-            }
-            else {
-                dialogueResolve(true);
-            }
-
-            dialogueResolve = null;
-        }
-    });
-
-    $('#dialogue_popup_cancel').on('click', function (e) {
-        dialogueCloseStop = false;
-        $('#shadow_popup').transition({
-            opacity: 0,
-            duration: animation_duration,
-            easing: animation_easing,
-        });
-        setTimeout(function () {
-            if (dialogueCloseStop) return;
-            $('#shadow_popup').css('display', 'none');
-            $('#dialogue_popup').removeClass('large_dialogue_popup');
-        }, animation_duration);
-
-        popup_type = '';
-
-        if (dialogueResolve) {
-            dialogueResolve(false);
-            dialogueResolve = null;
-        }
+    initDialogueUiBindings({
+        getAnimationDuration: () => animation_duration,
+        getAnimationEasing: () => animation_easing,
+        handleDeleteChat: (chatFile, group, fromSlashCommand = false) => handleDeleteChatCore(chatFile, group, { fromSlashCommand }),
+        getSelectedGroup: () => selected_group,
+        getChatFileForDelete: () => chat_file_for_del,
+        setChatFileForDelete: (value) => {
+            chat_file_for_del = value;
+        },
+        showDeleteChatConfirm: async () => (
+            await callGenericPopup('<h3>' + t`Delete the Chat File?` + '</h3>', POPUP_TYPE.CONFIRM)
+        ) === POPUP_RESULT.AFFIRMATIVE,
+        toggleAdvancedCharacterPopup: toggleAdvancedCharacterPopupCore,
+        closeAdvancedCharacterPopup: closeAdvancedCharacterPopupCore,
+        getDialogueCloseStop: () => dialogueCloseStop,
+        setDialogueCloseStop: (value) => {
+            dialogueCloseStop = value;
+        },
+        getPopupType: () => popup_type,
+        setPopupType: (value) => {
+            popup_type = value;
+        },
+        getDialogueResolve: () => dialogueResolve,
+        setDialogueResolve: (value) => {
+            dialogueResolve = value;
+        },
+        cancelDeleteMode: cancelDeleteModeCore,
+        confirmDeleteMode: confirmDeleteModeCore,
+        cssSendFormDisplay: css_send_form_display,
     });
 
     $('#add_avatar_button').on('change', function () {
@@ -3653,16 +3591,6 @@ jQuery(async function () {
 
     //////////////////////////////////////////////////////////////////////////////////////////////
 
-    //functionality for the cancel delete messages button, reverts to normal display of input form
-    $('#dialogue_del_mes_cancel').on('click', function () {
-        cancelDeleteModeCore(css_send_form_display);
-    });
-
-    //confirms message deletion with the "ok" button
-    $('#dialogue_del_mes_ok').on('click', async function () {
-        await confirmDeleteModeCore(css_send_form_display);
-    });
-
     $('#main_api').on('change', async function () {
         cancelStatusCheck('Canceled because main api changed');
         changeMainAPI();
@@ -3727,15 +3655,6 @@ jQuery(async function () {
     });
 
     //////////////////////////////////////////////////////////////
-
-    $('#select_chat_cross').on('click', function () {
-        $('#shadow_select_chat_popup').transition({
-            opacity: 0,
-            duration: animation_duration,
-            easing: animation_easing,
-        });
-        setTimeout(function () { $('#shadow_select_chat_popup').css('display', 'none'); }, animation_duration);
-    });
 
     initMessageCopyBindingCore();
     initMessageEditBindingsCore({

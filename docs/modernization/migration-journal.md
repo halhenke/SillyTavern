@@ -3590,3 +3590,9 @@ These were not the biggest remaining blocks, but they were still exactly the sor
 This batch keeps reducing the same anonymous bootstrap block by moving the message-edit listener cluster into `public/scripts/message-core.js` as `initMessageEditBindings(...)`. The `.mes_edit` open handler, the edit textarea auto-save listener, and the edit cancel/up/down/copy/delete/done handlers are now initialized through that helper instead of being spelled out inline in `script.js`.
 
 That is useful for two reasons. First, it removes another cohesive chunk of concrete listener code from the tail of `script.js`. Second, those listeners were already just bridging into `message-core` behavior, so moving the wiring next to the implementation makes the composition root thinner and the message domain more self-contained.
+
+### 2026-04-05: Wave 104 - extracted popup and dialogue handling out of the `script.js` tail
+
+This follow-up keeps reducing the same anonymous bootstrap block by moving the popup/dialogue cluster into `public/scripts/dialogue-ui.js` as `initDialogueUiBindings(...)`. The past-chat delete button handling, advanced character popup open/close buttons, the main dialogue OK/cancel behavior, the delete-message confirmation buttons, and the select-chat popup close animation are now initialized through that module instead of remaining inline in `script.js`.
+
+This is another worthwhile cut because that cluster was still a dense pocket of imperative UI behavior with its own small state surface (`chat_file_for_del`, `popup_type`, `dialogueResolve`, `dialogueCloseStop`). Pulling it behind a dedicated initializer makes the tail of `script.js` more obviously a composition root rather than a long mixed event implementation.

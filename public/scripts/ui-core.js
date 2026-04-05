@@ -722,6 +722,64 @@ export function initUnloadBindings({
     });
 }
 
+export function initAutoSelectBindings({ getAutoSelectEnabled }) {
+    $(document).on('focus', 'input.auto-select, textarea.auto-select', function () {
+        if (!getAutoSelectEnabled()) {
+            return;
+        }
+
+        const control = $(this)[0];
+        if (control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement) {
+            control.select();
+            console.debug('Auto-selecting content of input control', control);
+        }
+    });
+}
+
+export function initStatsButtonBindings({ userStatsHandler }) {
+    $('.user_stats_button').on('click', function () {
+        userStatsHandler();
+    });
+}
+
+export function initExternalImportBindings({ importExternalContent }) {
+    $(document).on('click', '.external_import_button, #external_import_button', async () => {
+        await importExternalContent();
+    });
+}
+
+export function initCharacterDragDropBindings({
+    createDragAndDropHandler,
+    importFromURL,
+    processDroppedFiles,
+    setCharDragDropHandler,
+}) {
+    const handler = createDragAndDropHandler(async (files, event) => {
+        if (!files.length) {
+            await importFromURL(event.originalEvent.dataTransfer.items, files);
+        }
+        await processDroppedFiles(files);
+    });
+
+    setCharDragDropHandler(handler);
+    return handler;
+}
+
+export function initChatHistoryBindings({
+    showMoreMessages,
+    getCharacters,
+    emitOpenCharacterLibrary,
+}) {
+    $(document).on('mouseup touchend', '#show_more_messages', async function () {
+        await showMoreMessages();
+    });
+
+    $(document).on('click', '.open_characters_library', async function () {
+        await getCharacters();
+        await emitOpenCharacterLibrary();
+    });
+}
+
 export function showStopButton() {
     document.getElementById('mes_stop')?.style.setProperty('display', 'flex');
 }

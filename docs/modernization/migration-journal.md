@@ -3566,3 +3566,9 @@ This is another good bootstrap-block reduction because the avatar zoom handler w
 This batch keeps reducing the long end-of-file bootstrap block by moving three more global handler clusters into `public/scripts/ui-core.js`: the world-info “open all / close all” drawer handler, the global Escape-key behavior for message editing and stop-generation, and the unload hooks for stopping TTS/streaming and warning while chat saves are in flight.
 
 These were still sitting inline in the anonymous bootstrap and were contributing to the sense that `script.js` remained a large DOM-behavior bucket even after many other listener groups had moved out. They now live behind `initWorldInfoDrawerBindings(...)`, `initEscapeKeyBindings(...)`, and `initUnloadBindings(...)`, which leaves the tail of `script.js` closer to a pure composition root.
+
+### 2026-04-05: Wave 100 - extracted remaining app-level bootstrap bindings out of the `script.js` tail
+
+This follow-up keeps working down the same anonymous bootstrap block by moving several smaller but still app-level listener groups into `public/scripts/ui-core.js`: auto-select input focus handling, the user stats button binding, the external import button binding, the character drag/drop bootstrap wiring, and the “show more messages” / “open character library” history bindings are now all initialized through dedicated helpers instead of living inline in `script.js`.
+
+Individually these handlers were not as large as the options menu or avatar zoom blocks, but together they were still part of the reason the end-of-file bootstrap remained long and cluttered. This batch keeps the same direction: make `script.js` initialize modules and pass callbacks, rather than directly owning every small global listener and setup call itself.

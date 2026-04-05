@@ -2,8 +2,10 @@ import { chat } from './chat-operations-core.js';
 import { event_types, eventSource } from './events.js';
 import { t } from './i18n.js';
 import { syncConverter } from './parser-core.js';
+import { Popup } from './popup.js';
 import { markdownExclusionExt } from './showdown-exclusion.js';
 import { markdownUnderscoreExt } from './showdown-underscore.js';
+import { renderTemplateAsync } from './templates.js';
 import { copyText } from './utils.js';
 
 import { hljs, showdown } from '../lib.js';
@@ -19,6 +21,10 @@ let showBookmarksButtonsImpl = null;
 let pauseScriptExecutionImpl = null;
 let stopGenerationImpl = null;
 let stopScriptExecutionImpl = null;
+let optionsMenuButton = null;
+let optionsMenuElement = null;
+let optionsMenuPopper = null;
+let isOptionsMenuVisible = false;
 
 export let ANIMATION_DURATION_DEFAULT = 0;
 export let animation_duration = 0;
@@ -284,33 +290,41 @@ export function initStandaloneMode() {
     }
 }
 
+function showOptionsMenu() {
+    if (!optionsMenuElement) {
+        return;
+    }
+
+    showBookmarksButtonsBound();
+    optionsMenuElement.fadeIn(animation_duration);
+    optionsMenuPopper?.update();
+    isOptionsMenuVisible = true;
+}
+
+export function hideOptionsMenu() {
+    if (!optionsMenuElement) {
+        return;
+    }
+
+    optionsMenuElement.fadeOut(animation_duration);
+    optionsMenuPopper?.update();
+    isOptionsMenuVisible = false;
+}
+
 export function initOptionsMenu({ buttonSelector = '#options_button', menuSelector = '#options', popper } = {}) {
-    const button = $(buttonSelector);
-    const menu = $(menuSelector);
-    let isOptionsMenuVisible = false;
-
-    function showMenu() {
-        showBookmarksButtonsBound();
-        menu.fadeIn(animation_duration);
-        popper?.update();
-        isOptionsMenuVisible = true;
-    }
-
-    function hideMenu() {
-        menu.fadeOut(animation_duration);
-        popper?.update();
-        isOptionsMenuVisible = false;
-    }
+    optionsMenuButton = $(buttonSelector);
+    optionsMenuElement = $(menuSelector);
+    optionsMenuPopper = popper ?? null;
 
     function isMouseOverButtonOrMenu() {
-        return menu.is(':hover, :focus-within') || button.is(':hover, :focus');
+        return optionsMenuElement.is(':hover, :focus-within') || optionsMenuButton.is(':hover, :focus');
     }
 
-    button.on('click', function () {
+    optionsMenuButton.on('click', function () {
         if (isOptionsMenuVisible) {
-            hideMenu();
+            hideOptionsMenu();
         } else {
-            showMenu();
+            showOptionsMenu();
         }
     });
 
@@ -319,8 +333,153 @@ export function initOptionsMenu({ buttonSelector = '#options_button', menuSelect
             return;
         }
         if (!isMouseOverButtonOrMenu()) {
-            hideMenu();
+            hideOptionsMenu();
         }
+    });
+}
+
+export function initOptionsActionBindings({
+    openPermanentAssistantCard,
+    displayPastChats,
+    getThisChid,
+    getIsSendPress,
+    getSelectedGroup,
+    getIsGroupGenerating,
+    doNewChat,
+    newAssistantChat,
+    getCharacterName,
+    getNeutralCharacterName,
+    closeMessageEditor,
+    regenerateGroup,
+    setSendButtonState,
+    Generate,
+    openMessageDelete,
+    getEditedMessageId,
+    awaitChatNotSaving,
+    clearChat,
+    getChat,
+    resetSelectedGroup,
+    setCharacterId,
+    setCharacterName,
+    setActiveCharacter,
+    setActiveGroup,
+    setEditedMessageId,
+    setChatMetadata,
+    setSelectedButton,
+    selectRmCharacters,
+    getCurrentChatId,
+}) {
+    $('#options [id]').on('click', async function (_event, customData) {
+        const fromSlashCommand = customData?.fromSlashCommand || false;
+        const id = $(this).attr('id');
+        const additionalPrompt = customData?.additionalPrompt?.trim() || undefined;
+        const thisChid = getThisChid();
+        const isSendPress = getIsSendPress();
+        const selectedGroup = getSelectedGroup();
+        const isGroupGenerating = getIsGroupGenerating();
+
+        const buildOrFillAdditionalArgs = (args = {}) => ({
+            ...args,
+            ...(additionalPrompt !== undefined && { quiet_prompt: additionalPrompt, quietToLoud: true }),
+        });
+
+        if (id == 'option_select_chat') {
+            if (thisChid === undefined && !isSendPress && !selectedGroup) {
+                await openPermanentAssistantCard();
+            }
+            if ((selectedGroup && !isGroupGenerating) || (thisChid !== undefined && !isSendPress) || fromSlashCommand) {
+                await displayPastChats();
+                if (!fromSlashCommand) {
+                    $('#shadow_select_chat_popup').css('display', 'block');
+                    $('#shadow_select_chat_popup').css('opacity', 0.0);
+                    $('#shadow_select_chat_popup').transition({
+                        opacity: 1.0,
+                        duration: animation_duration,
+                        easing: animation_easing,
+                    });
+                }
+            }
+        } else if (id == 'option_start_new_chat') {
+            if ((selectedGroup || thisChid !== undefined) && !isSendPress) {
+                let deleteCurrentChat = false;
+                const result = await Popup.show.confirm(t`Start new chat?`, await renderTemplateAsync('newChatConfirm'), {
+                    onClose: () => { deleteCurrentChat = !!$('#del_chat_checkbox').prop('checked'); },
+                });
+                if (!result) {
+                    return;
+                }
+
+                await doNewChat({ deleteCurrentChat });
+            }
+            if (!selectedGroup && thisChid === undefined && !isSendPress) {
+                const alreadyInTempChat = thisChid === undefined && getCharacterName() === getNeutralCharacterName();
+                await newAssistantChat({ temporary: alreadyInTempChat });
+            }
+        } else if (id == 'option_regenerate') {
+            closeMessageEditor();
+            if (isSendPress == false) {
+                if (selectedGroup) {
+                    regenerateGroup();
+                } else {
+                    setSendButtonState(true);
+                    Generate('regenerate', buildOrFillAdditionalArgs());
+                }
+            }
+        } else if (id == 'option_impersonate') {
+            if (isSendPress == false || fromSlashCommand) {
+                setSendButtonState(true);
+                Generate('impersonate', buildOrFillAdditionalArgs());
+            }
+        } else if (id == 'option_continue') {
+            if (getEditedMessageId()) {
+                return;
+            }
+
+            if (isSendPress == false || fromSlashCommand) {
+                setSendButtonState(true);
+                Generate('continue', buildOrFillAdditionalArgs());
+            }
+        } else if (id == 'option_delete_mes') {
+            setTimeout(() => openMessageDelete(fromSlashCommand), animation_duration);
+        } else if (id == 'option_close_chat') {
+            if (isSendPress == false) {
+                await awaitChatNotSaving();
+                const chat = getChat();
+                await clearChat();
+                chat.length = 0;
+                resetSelectedGroup();
+                setCharacterId(undefined);
+                setCharacterName('');
+                setActiveCharacter(null);
+                setActiveGroup(null);
+                setEditedMessageId(undefined);
+                setChatMetadata({});
+                setSelectedButton('characters');
+                $('#rm_button_selected_ch').children('h2').text('');
+                selectRmCharacters();
+                await eventSource.emit(event_types.CHAT_CHANGED, getCurrentChatId());
+            } else {
+                toastr.info(t`Please stop the message generation first.`);
+            }
+        } else if (id === 'option_settings') {
+            const topBar = document.getElementById('top-bar');
+            const topSettingsHolder = document.getElementById('top-settings-holder');
+            const divchat = document.getElementById('chat');
+
+            if (topBar.style.display === 'none') {
+                topBar.style.display = '';
+                topSettingsHolder.style.display = '';
+                divchat.style.borderRadius = '';
+                divchat.style.backgroundColor = '';
+            } else {
+                divchat.style.borderRadius = '10px';
+                divchat.style.backgroundColor = '';
+                topBar.style.display = 'none';
+                topSettingsHolder.style.display = 'none';
+            }
+        }
+
+        hideOptionsMenu();
     });
 }
 

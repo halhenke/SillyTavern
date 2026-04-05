@@ -264,7 +264,7 @@ import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumb
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
 import { bindSessionCore, doNewChat as doNewChatCore, handleDeleteChat as handleDeleteChatCore, initCharacterManagementDropdownBindings as initCharacterManagementDropdownBindingsCore, newAssistantChat as newAssistantChatCore, renameGroupOrCharacterChat as renameGroupOrCharacterChatCore, resetChatState as resetChatStateCore, selectCharacterById as selectCharacterByIdCore, selectRightMenuWithAnimation as selectRightMenuWithAnimationCore, select_rm_characters as selectRmCharactersCore, select_rm_create as selectRmCreateCore, select_rm_info as selectRmInfoCore, select_selected_character as selectSelectedCharacterCore, sendTextareaMessage as sendTextareaMessageCore, setExternalAbortController as setExternalAbortControllerCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes, updateRemoteChatName as updateRemoteChatNameCore } from './scripts/session-core.js';
 import { bindSettingsCore, changeMainAPI as changeMainAPICore, getSettings as getSettingsCore, saveSettings as saveSettingsCore } from './scripts/settings-core.js';
-import { activateSendButtons as activateSendButtonsCore, addCopyToCodeBlocks as addCopyToCodeBlocksCore, bindUiCore, deactivateSendButtons as deactivateSendButtonsCore, doDrawerOpenClick as doDrawerOpenClickCore, doNavbarIconClick as doNavbarIconClickCore, fixViewport as fixViewportCore, getSlideToggleOptions as getSlideToggleOptionsCore, hideStopButton as hideStopButtonCore, initEditTextareaAutoFit as initEditTextareaAutoFitCore, initExecutionControlBindings as initExecutionControlBindingsCore, initInlineDrawerBindings as initInlineDrawerBindingsCore, initOptionsMenu as initOptionsMenuCore, initRangeInputBindings as initRangeInputBindingsCore, initSendTextareaFocusRetention as initSendTextareaFocusRetentionCore, initStandaloneMode as initStandaloneModeCore, reloadMarkdownProcessor as reloadMarkdownProcessorCore, setAnimationDuration as setAnimationDurationCore, setSendButtonState as setSendButtonStateCore, showStopButton as showStopButtonCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
+import { activateSendButtons as activateSendButtonsCore, addCopyToCodeBlocks as addCopyToCodeBlocksCore, bindUiCore, deactivateSendButtons as deactivateSendButtonsCore, doDrawerOpenClick as doDrawerOpenClickCore, doNavbarIconClick as doNavbarIconClickCore, fixViewport as fixViewportCore, getSlideToggleOptions as getSlideToggleOptionsCore, hideStopButton as hideStopButtonCore, initEditTextareaAutoFit as initEditTextareaAutoFitCore, initExecutionControlBindings as initExecutionControlBindingsCore, initInlineDrawerBindings as initInlineDrawerBindingsCore, initOptionsActionBindings as initOptionsActionBindingsCore, initOptionsMenu as initOptionsMenuCore, initRangeInputBindings as initRangeInputBindingsCore, initSendTextareaFocusRetention as initSendTextareaFocusRetentionCore, initStandaloneMode as initStandaloneModeCore, reloadMarkdownProcessor as reloadMarkdownProcessorCore, setAnimationDuration as setAnimationDurationCore, setSendButtonState as setSendButtonStateCore, showStopButton as showStopButtonCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
 import { accountStorage } from './scripts/util/AccountStorage.js';
 import { initWelcomeScreen, openPermanentAssistantChat, openPermanentAssistantCard, getPermanentAssistantAvatar } from './scripts/welcome-screen.js';
 import { initDataMaid } from './scripts/data-maid.js';
@@ -3614,143 +3614,47 @@ jQuery(async function () {
     initChatManagementBindingsCore();
 
     initOptionsMenuCore({ popper: optionsPopper });
+    initOptionsActionBindingsCore({
+        openPermanentAssistantCard,
+        displayPastChats,
+        getThisChid: () => this_chid,
+        getIsSendPress: () => is_send_press,
+        getSelectedGroup: () => selected_group,
+        getIsGroupGenerating: () => is_group_generating,
+        doNewChat,
+        newAssistantChat,
+        getCharacterName: () => name2,
+        getNeutralCharacterName: () => neutralCharacterName,
+        closeMessageEditor,
+        regenerateGroup,
+        setSendButtonState,
+        Generate,
+        openMessageDelete,
+        getEditedMessageId: () => this_edit_mes_id,
+        awaitChatNotSaving: () => waitUntilCondition(() => !isChatSaving, debounce_timeout.extended, 10),
+        clearChat,
+        getChat: () => chat,
+        resetSelectedGroup,
+        setCharacterId,
+        setCharacterName,
+        setActiveCharacter,
+        setActiveGroup,
+        setEditedMessageId: (value) => {
+            this_edit_mes_id = setEditedMessageIdCore(value);
+            return this_edit_mes_id;
+        },
+        setChatMetadata: (value) => {
+            chat_metadata = value;
+            syncChatMetadata(chat_metadata);
+        },
+        setSelectedButton: (value) => {
+            selected_button = value;
+        },
+        selectRmCharacters: select_rm_characters,
+        getCurrentChatId,
+    });
 
     /* $('#set_chat_scenario').on('click', setScenarioOverride); */
-
-    ///////////// OPTIMIZED LISTENERS FOR LEFT SIDE OPTIONS POPUP MENU //////////////////////
-    $('#options [id]').on('click', async function (event, customData) {
-        const fromSlashCommand = customData?.fromSlashCommand || false;
-        var id = $(this).attr('id');
-
-        // Check whether a custom prompt was provided via custom data (for example through a slash command)
-        const additionalPrompt = customData?.additionalPrompt?.trim() || undefined;
-        const buildOrFillAdditionalArgs = (args = {}) => ({
-            ...args,
-            ...(additionalPrompt !== undefined && { quiet_prompt: additionalPrompt, quietToLoud: true }),
-        });
-
-        if (id == 'option_select_chat') {
-            if (this_chid === undefined && !is_send_press && !selected_group) {
-                await openPermanentAssistantCard();
-            }
-            if ((selected_group && !is_group_generating) || (this_chid !== undefined && !is_send_press) || fromSlashCommand) {
-                await displayPastChats();
-                //this is just to avoid the shadow for past chat view when using /delchat
-                //however, the dialog popup still gets one..
-                if (!fromSlashCommand) {
-                    console.log('displaying shadow');
-                    $('#shadow_select_chat_popup').css('display', 'block');
-                    $('#shadow_select_chat_popup').css('opacity', 0.0);
-                    $('#shadow_select_chat_popup').transition({
-                        opacity: 1.0,
-                        duration: animation_duration,
-                        easing: animation_easing,
-                    });
-                }
-            }
-        }
-
-        else if (id == 'option_start_new_chat') {
-            if ((selected_group || this_chid !== undefined) && !is_send_press) {
-                let deleteCurrentChat = false;
-                const result = await Popup.show.confirm(t`Start new chat?`, await renderTemplateAsync('newChatConfirm'), {
-                    onClose: () => { deleteCurrentChat = !!$('#del_chat_checkbox').prop('checked'); },
-                });
-                if (!result) {
-                    return;
-                }
-
-                await doNewChat({ deleteCurrentChat: deleteCurrentChat });
-            }
-            if (!selected_group && this_chid === undefined && !is_send_press) {
-                const alreadyInTempChat = this_chid === undefined && name2 === neutralCharacterName;
-                await newAssistantChat({ temporary: alreadyInTempChat });
-            }
-        }
-
-        else if (id == 'option_regenerate') {
-            closeMessageEditor();
-            if (is_send_press == false) {
-                //hideSwipeButtons();
-
-                if (selected_group) {
-                    regenerateGroup();
-                }
-                else {
-                    setSendButtonState(true);
-                    Generate('regenerate', buildOrFillAdditionalArgs());
-                }
-            }
-        }
-
-        else if (id == 'option_impersonate') {
-            if (is_send_press == false || fromSlashCommand) {
-                setSendButtonState(true);
-                Generate('impersonate', buildOrFillAdditionalArgs());
-            }
-        }
-
-        else if (id == 'option_continue') {
-            if (this_edit_mes_id) return; // don't proceed if editing a message
-
-            if (is_send_press == false || fromSlashCommand) {
-                setSendButtonState(true);
-                Generate('continue', buildOrFillAdditionalArgs());
-            }
-        }
-
-        else if (id == 'option_delete_mes') {
-            setTimeout(() => openMessageDelete(fromSlashCommand), animation_duration);
-        }
-
-        else if (id == 'option_close_chat') {
-            if (is_send_press == false) {
-                await waitUntilCondition(() => !isChatSaving, debounce_timeout.extended, 10);
-                await clearChat();
-                chat.length = 0;
-                resetSelectedGroup();
-                setCharacterId(undefined);
-                setCharacterName('');
-                setActiveCharacter(null);
-                setActiveGroup(null);
-                this_edit_mes_id = setEditedMessageIdCore(undefined);
-                chat_metadata = {};
-                syncChatMetadata(chat_metadata);
-                selected_button = 'characters';
-                $('#rm_button_selected_ch').children('h2').text('');
-                select_rm_characters();
-                await eventSource.emit(event_types.CHAT_CHANGED, getCurrentChatId());
-            } else {
-                toastr.info(t`Please stop the message generation first.`);
-            }
-        }
-
-        else if (id === 'option_settings') {
-            //var checkBox = document.getElementById("waifuMode");
-            var topBar = document.getElementById('top-bar');
-            var topSettingsHolder = document.getElementById('top-settings-holder');
-            var divchat = document.getElementById('chat');
-
-            //if (checkBox.checked) {
-            if (topBar.style.display === 'none') {
-                topBar.style.display = ''; // or "inline-block" if that's the original display value
-                topSettingsHolder.style.display = ''; // or "inline-block" if that's the original display value
-
-                divchat.style.borderRadius = '';
-                divchat.style.backgroundColor = '';
-
-            } else {
-
-                divchat.style.borderRadius = '10px'; // Adjust the value to control the roundness of the corners
-                divchat.style.backgroundColor = ''; // Set the background color to your preference
-
-                topBar.style.display = 'none';
-                topSettingsHolder.style.display = 'none';
-            }
-            //}
-        }
-        hideMenu();
-    });
 
     $('#newChatFromManageScreenButton').on('click', async function () {
         await doNewChat({ deleteCurrentChat: false });

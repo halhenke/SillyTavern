@@ -3548,3 +3548,9 @@ That leaves `message-core` with less direct ownership of chat-array mutation and
 This batch takes the next major step toward the eventual jQuery/message replacement. I added `public/scripts/message-insertion-workflow.js` and moved the remaining insertion/history-render orchestration there: the old `addOneMessageInternal()` path now delegates to a dedicated workflow module for timestamp/avatar selection, template view-model creation, legacy template rendering handoff, and list insertion wiring. The `printMessagesInternal()` history render loop now delegates there as well.
 
 This is important because the “big jQuery function” is no longer sitting inside `chat-operations-core` as a mixed blob. The actual template DOM work had already moved earlier into dedicated renderer modules; this pass moves the surrounding orchestration too, leaving `chat-operations-core` with a thin compatibility shell over a dedicated message insertion workflow. That is a much better seam for either further cleanup or a future React replacement.
+
+### 2026-04-05: Wave 97 - started breaking up the giant end-of-file DOM bootstrap block in `script.js`
+
+This batch switches focus to the other large remaining legacy seam: the long anonymous DOM bootstrap block at the end of `public/script.js`. I moved the large `#options [id]` click handler into `public/scripts/ui-core.js` as `initOptionsActionBindings(...)`, and changed the bootstrap block to call that initializer instead of keeping the entire branch-heavy menu action handler inline.
+
+This does not remove the full anonymous bootstrap yet, but it is the right first cut. The options menu handler was one of the biggest remaining inline clusters in that block, and moving it behind an initializer makes the tail of `script.js` more like a composition root and less like a 700-line mixed event handler.

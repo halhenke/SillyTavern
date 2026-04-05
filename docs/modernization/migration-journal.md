@@ -3560,3 +3560,9 @@ This does not remove the full anonymous bootstrap yet, but it is the right first
 This follow-up keeps working on the same anonymous DOM bootstrap seam. I moved the inline `.mes .avatar` click handler into `public/scripts/avatar-zoom-ui.js` as `initMessageAvatarZoomBindings(...)`, and changed `script.js` to initialize that module instead of keeping the entire zoom popup lifecycle inline.
 
 This is another good bootstrap-block reduction because the avatar zoom handler was a self-contained but still fairly large DOM cluster. Pulling it out leaves the end of `script.js` with less direct UI behavior and more explicit module initialization, which is the direction we want before tackling the remaining global key/click/bootstrap handlers.
+
+### 2026-04-05: Wave 99 - extracted global world-info, escape, and unload handlers out of the `script.js` bootstrap block
+
+This batch keeps reducing the long end-of-file bootstrap block by moving three more global handler clusters into `public/scripts/ui-core.js`: the world-info “open all / close all” drawer handler, the global Escape-key behavior for message editing and stop-generation, and the unload hooks for stopping TTS/streaming and warning while chat saves are in flight.
+
+These were still sitting inline in the anonymous bootstrap and were contributing to the sense that `script.js` remained a large DOM-behavior bucket even after many other listener groups had moved out. They now live behind `initWorldInfoDrawerBindings(...)`, `initEscapeKeyBindings(...)`, and `initUnloadBindings(...)`, which leaves the tail of `script.js` closer to a pure composition root.

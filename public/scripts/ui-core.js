@@ -6,7 +6,7 @@ import { Popup } from './popup.js';
 import { markdownExclusionExt } from './showdown-exclusion.js';
 import { markdownUnderscoreExt } from './showdown-underscore.js';
 import { renderTemplateAsync } from './templates.js';
-import { copyText } from './utils.js';
+import { copyText, toggleDrawer } from './utils.js';
 
 import { hljs, showdown } from '../lib.js';
 
@@ -647,6 +647,78 @@ export function initRangeInputBindings() {
             }
         }
         isManualInput = false;
+    });
+}
+
+export function initWorldInfoDrawerBindings({ delay }) {
+    document.addEventListener('click', function (e) {
+        if (!(e.target instanceof HTMLElement)) {
+            return;
+        }
+
+        if (e.target.matches('#OpenAllWIEntries')) {
+            document.querySelectorAll('#world_popup_entries_list .inline-drawer').forEach((/** @type {HTMLElement} */ drawer) => {
+                delay(0).then(() => toggleDrawer(drawer, true));
+            });
+        } else if (e.target.matches('#CloseAllWIEntries')) {
+            document.querySelectorAll('#world_popup_entries_list .inline-drawer').forEach((/** @type {HTMLElement} */ drawer) => {
+                toggleDrawer(drawer, false);
+            });
+        }
+    });
+}
+
+export function initEscapeKeyBindings({
+    getAutoSaveMessageEditsEnabled,
+    closeMessageEditor,
+    getEditedMessageId,
+}) {
+    $(document).on('keyup', function (e) {
+        if (e.key !== 'Escape') {
+            return;
+        }
+
+        const editedMessageId = getEditedMessageId();
+        const isEditVisible = $('#curEditTextarea').is(':visible') || $('.reasoning_edit_textarea').length > 0;
+        if (isEditVisible && getAutoSaveMessageEditsEnabled() === false) {
+            closeMessageEditor('all');
+            $('#send_textarea').trigger('focus');
+            return;
+        }
+        if (isEditVisible && getAutoSaveMessageEditsEnabled() === true) {
+            $(`#chat .mes[mesid="${editedMessageId}"] .mes_edit_done`).trigger('click');
+            closeMessageEditor('reasoning');
+            $('#send_textarea').trigger('focus');
+            return;
+        }
+        if (!editedMessageId && $('#mes_stop').is(':visible')) {
+            $('#mes_stop').trigger('click');
+            if (chat.length && Array.isArray(chat[chat.length - 1].swipes) && chat[chat.length - 1].swipe_id == chat[chat.length - 1].swipes.length) {
+                $('.last_mes .swipe_left').trigger('click');
+            }
+        }
+    });
+}
+
+export function initUnloadBindings({
+    cancelTtsPlay,
+    getStreamingProcessor,
+    getIsChatSaving,
+}) {
+    $(window).on('beforeunload', () => {
+        cancelTtsPlay();
+        const streamingProcessor = getStreamingProcessor();
+        if (streamingProcessor) {
+            console.log('Page reloaded. Aborting streaming...');
+            streamingProcessor.onStopStreaming();
+        }
+    });
+
+    window.addEventListener('beforeunload', (e) => {
+        if (getIsChatSaving()) {
+            e.preventDefault();
+            e.returnValue = true;
+        }
     });
 }
 

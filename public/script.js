@@ -263,7 +263,7 @@ import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumb
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
 import { bindSessionCore, doNewChat as doNewChatCore, handleDeleteChat as handleDeleteChatCore, initCharacterManagementDropdownBindings as initCharacterManagementDropdownBindingsCore, newAssistantChat as newAssistantChatCore, renameGroupOrCharacterChat as renameGroupOrCharacterChatCore, resetChatState as resetChatStateCore, selectCharacterById as selectCharacterByIdCore, selectRightMenuWithAnimation as selectRightMenuWithAnimationCore, select_rm_characters as selectRmCharactersCore, select_rm_create as selectRmCreateCore, select_rm_info as selectRmInfoCore, select_selected_character as selectSelectedCharacterCore, sendTextareaMessage as sendTextareaMessageCore, setExternalAbortController as setExternalAbortControllerCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes, updateRemoteChatName as updateRemoteChatNameCore } from './scripts/session-core.js';
 import { bindSettingsCore, changeMainAPI as changeMainAPICore, getSettings as getSettingsCore, saveSettings as saveSettingsCore } from './scripts/settings-core.js';
-import { activateSendButtons as activateSendButtonsCore, addCopyToCodeBlocks as addCopyToCodeBlocksCore, bindUiCore, deactivateSendButtons as deactivateSendButtonsCore, doDrawerOpenClick as doDrawerOpenClickCore, doNavbarIconClick as doNavbarIconClickCore, fixViewport as fixViewportCore, getSlideToggleOptions as getSlideToggleOptionsCore, hideStopButton as hideStopButtonCore, initAutoSelectBindings as initAutoSelectBindingsCore, initCharacterDragDropBindings as initCharacterDragDropBindingsCore, initChatHistoryBindings as initChatHistoryBindingsCore, initEditTextareaAutoFit as initEditTextareaAutoFitCore, initEscapeKeyBindings as initEscapeKeyBindingsCore, initExecutionControlBindings as initExecutionControlBindingsCore, initExternalImportBindings as initExternalImportBindingsCore, initInlineDrawerBindings as initInlineDrawerBindingsCore, initOptionsActionBindings as initOptionsActionBindingsCore, initOptionsMenu as initOptionsMenuCore, initRangeInputBindings as initRangeInputBindingsCore, initSendTextareaFocusRetention as initSendTextareaFocusRetentionCore, initStandaloneMode as initStandaloneModeCore, initStatsButtonBindings as initStatsButtonBindingsCore, initUnloadBindings as initUnloadBindingsCore, initWorldInfoDrawerBindings as initWorldInfoDrawerBindingsCore, reloadMarkdownProcessor as reloadMarkdownProcessorCore, setAnimationDuration as setAnimationDurationCore, setSendButtonState as setSendButtonStateCore, showStopButton as showStopButtonCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
+import { activateSendButtons as activateSendButtonsCore, addCopyToCodeBlocks as addCopyToCodeBlocksCore, bindUiCore, deactivateSendButtons as deactivateSendButtonsCore, doDrawerOpenClick as doDrawerOpenClickCore, doNavbarIconClick as doNavbarIconClickCore, fixViewport as fixViewportCore, getSlideToggleOptions as getSlideToggleOptionsCore, hideStopButton as hideStopButtonCore, initAutoSelectBindings as initAutoSelectBindingsCore, initCharacterDragDropBindings as initCharacterDragDropBindingsCore, initChatHistoryBindings as initChatHistoryBindingsCore, initDrawerClickAwayBindings as initDrawerClickAwayBindingsCore, initEditTextareaAutoFit as initEditTextareaAutoFitCore, initEscapeKeyBindings as initEscapeKeyBindingsCore, initExecutionControlBindings as initExecutionControlBindingsCore, initExternalImportBindings as initExternalImportBindingsCore, initInlineDrawerBindings as initInlineDrawerBindingsCore, initMessageActionRevealBindings as initMessageActionRevealBindingsCore, initOptionsActionBindings as initOptionsActionBindingsCore, initOptionsMenu as initOptionsMenuCore, initRangeInputBindings as initRangeInputBindingsCore, initSendTextareaFocusRetention as initSendTextareaFocusRetentionCore, initStandaloneMode as initStandaloneModeCore, initStatsButtonBindings as initStatsButtonBindingsCore, initUnloadBindings as initUnloadBindingsCore, initWorldInfoDrawerBindings as initWorldInfoDrawerBindingsCore, reloadMarkdownProcessor as reloadMarkdownProcessorCore, setAnimationDuration as setAnimationDurationCore, setSendButtonState as setSendButtonStateCore, showStopButton as showStopButtonCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
 import { accountStorage } from './scripts/util/AccountStorage.js';
 import { initWelcomeScreen, openPermanentAssistantChat, openPermanentAssistantCard, getPermanentAssistantAvatar } from './scripts/welcome-screen.js';
 import { initDataMaid } from './scripts/data-maid.js';
@@ -3764,73 +3764,8 @@ jQuery(async function () {
             messageEditAuto($(this));
         }
     });
-
-    $(document).on('click', '.extraMesButtonsHint', function (e) {
-        const $hint = $(e.target);
-        const $buttons = $hint.siblings('.extraMesButtons');
-
-        $hint.transition({
-            opacity: 0,
-            duration: animation_duration,
-            easing: animation_easing,
-            complete: function () {
-                $hint.hide();
-                $buttons
-                    .addClass('visible')
-                    .css({
-                        opacity: 0,
-                        display: 'flex',
-                    })
-                    .transition({
-                        opacity: 1,
-                        duration: animation_duration,
-                        easing: animation_easing,
-                    });
-            },
-        });
-    });
-
-    $(document).on('click', function (e) {
-        // Expanded options don't need to be closed
-        if (power_user.expand_message_actions) {
-            return;
-        }
-
-        // Check if the click was outside the relevant elements
-        if (!$(e.target).closest('.extraMesButtons, .extraMesButtonsHint').length) {
-            const $visibleButtons = $('.extraMesButtons.visible');
-
-            if (!$visibleButtons.length) {
-                return;
-            }
-
-            const $hiddenHints = $('.extraMesButtonsHint:hidden');
-
-            // Transition out the .extraMesButtons first
-            $visibleButtons.transition({
-                opacity: 0,
-                duration: animation_duration,
-                easing: animation_easing,
-                complete: function () {
-                    // Hide the .extraMesButtons after the transition
-                    $(this)
-                        .hide()
-                        .removeClass('visible');
-
-                    // Transition the .extraMesButtonsHint back in
-                    $hiddenHints
-                        .show()
-                        .transition({
-                            opacity: 0.3,
-                            duration: animation_duration,
-                            easing: animation_easing,
-                            complete: function () {
-                                $(this).css('opacity', '');
-                            },
-                        });
-                },
-            });
-        }
+    initMessageActionRevealBindingsCore({
+        getExpandMessageActionsEnabled: () => power_user.expand_message_actions,
     });
 
     $(document).on('click', '.mes_edit_cancel', async function () {
@@ -3885,39 +3820,7 @@ jQuery(async function () {
     $(document).on('click', '.drawer-opener', doDrawerOpenClick);
 
     $('.drawer-toggle').on('click', doNavbarIconClick);
-
-    $('html').on('touchstart mousedown', async function (e) {
-        const clickTarget = $(e.target);
-
-        const forbiddenTargets = [
-            '#character_cross',
-            '#avatar-and-name-block',
-            '#shadow_popup',
-            '.popup',
-            '#world_popup',
-            '.ui-widget',
-            '.text_pole',
-            '#toast-container',
-            '.select2-results',
-        ];
-
-        for (const id of forbiddenTargets) {
-            if (clickTarget.closest(id).length > 0) {
-                return;
-            }
-        }
-
-        // This autocloses open drawers that are not pinned if a click happens inside the app which does not target them.
-        const targetParentHasOpenDrawer = clickTarget.parents('.openDrawer').length;
-        if (!clickTarget.hasClass('drawer-icon') && !clickTarget.hasClass('openDrawer')) {
-            const $openDrawers = $('.openDrawer').not('.pinnedOpen');
-            if ($openDrawers.length && targetParentHasOpenDrawer === 0) {
-                // Toggle icon and drawer classes
-                $('.openIcon').not('.drawerPinnedOpen').toggleClass('closedIcon openIcon');
-                $openDrawers.toggleClass('closedDrawer openDrawer');
-            }
-        }
-    });
+    initDrawerClickAwayBindingsCore();
 
     initInlineDrawerBindingsCore();
     initMessageAvatarZoomBindings({

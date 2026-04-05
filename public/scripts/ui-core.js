@@ -594,6 +594,102 @@ export function initExecutionControlBindings() {
     });
 }
 
+export function initMessageActionRevealBindings({ getExpandMessageActionsEnabled }) {
+    $(document).on('click', '.extraMesButtonsHint', function (e) {
+        const $hint = $(e.target);
+        const $buttons = $hint.siblings('.extraMesButtons');
+
+        $hint.transition({
+            opacity: 0,
+            duration: animation_duration,
+            easing: animation_easing,
+            complete: function () {
+                $hint.hide();
+                $buttons
+                    .addClass('visible')
+                    .css({
+                        opacity: 0,
+                        display: 'flex',
+                    })
+                    .transition({
+                        opacity: 1,
+                        duration: animation_duration,
+                        easing: animation_easing,
+                    });
+            },
+        });
+    });
+
+    $(document).on('click', function (e) {
+        if (getExpandMessageActionsEnabled()) {
+            return;
+        }
+
+        if (!$(e.target).closest('.extraMesButtons, .extraMesButtonsHint').length) {
+            const $visibleButtons = $('.extraMesButtons.visible');
+            if (!$visibleButtons.length) {
+                return;
+            }
+
+            const $hiddenHints = $('.extraMesButtonsHint:hidden');
+            $visibleButtons.transition({
+                opacity: 0,
+                duration: animation_duration,
+                easing: animation_easing,
+                complete: function () {
+                    $(this)
+                        .hide()
+                        .removeClass('visible');
+
+                    $hiddenHints
+                        .show()
+                        .transition({
+                            opacity: 0.3,
+                            duration: animation_duration,
+                            easing: animation_easing,
+                            complete: function () {
+                                $(this).css('opacity', '');
+                            },
+                        });
+                },
+            });
+        }
+    });
+}
+
+export function initDrawerClickAwayBindings() {
+    $('html').on('touchstart mousedown', async function (e) {
+        const clickTarget = $(e.target);
+
+        const forbiddenTargets = [
+            '#character_cross',
+            '#avatar-and-name-block',
+            '#shadow_popup',
+            '.popup',
+            '#world_popup',
+            '.ui-widget',
+            '.text_pole',
+            '#toast-container',
+            '.select2-results',
+        ];
+
+        for (const id of forbiddenTargets) {
+            if (clickTarget.closest(id).length > 0) {
+                return;
+            }
+        }
+
+        const targetParentHasOpenDrawer = clickTarget.parents('.openDrawer').length;
+        if (!clickTarget.hasClass('drawer-icon') && !clickTarget.hasClass('openDrawer')) {
+            const $openDrawers = $('.openDrawer').not('.pinnedOpen');
+            if ($openDrawers.length && targetParentHasOpenDrawer === 0) {
+                $('.openIcon').not('.drawerPinnedOpen').toggleClass('closedIcon openIcon');
+                $openDrawers.toggleClass('closedDrawer openDrawer');
+            }
+        }
+    });
+}
+
 export function initRangeInputBindings() {
     let isManualInput = false;
     let valueBeforeManualInput;

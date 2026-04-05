@@ -3572,3 +3572,9 @@ These were still sitting inline in the anonymous bootstrap and were contributing
 This follow-up keeps working down the same anonymous bootstrap block by moving several smaller but still app-level listener groups into `public/scripts/ui-core.js`: auto-select input focus handling, the user stats button binding, the external import button binding, the character drag/drop bootstrap wiring, and the “show more messages” / “open character library” history bindings are now all initialized through dedicated helpers instead of living inline in `script.js`.
 
 Individually these handlers were not as large as the options menu or avatar zoom blocks, but together they were still part of the reason the end-of-file bootstrap remained long and cluttered. This batch keeps the same direction: make `script.js` initialize modules and pass callbacks, rather than directly owning every small global listener and setup call itself.
+
+### 2026-04-05: Wave 101 - extracted drawer click-away and message action reveal handling out of the `script.js` tail
+
+This batch keeps reducing the remaining anonymous bootstrap block by moving two more UI-only listener clusters into `public/scripts/ui-core.js`: the click-away logic that collapses unpinned open drawers, and the reveal/collapse behavior for the extra message action button strip. These were both still self-contained DOM behaviors living inline in `script.js`.
+
+The important point here is not just line count. These handlers were pure UI behavior with no reason to remain embedded in the application bootstrap root. Pulling them behind `initDrawerClickAwayBindings(...)` and `initMessageActionRevealBindings(...)` makes the tail of `script.js` more explicitly about composition and less about hand-written DOM interaction code.

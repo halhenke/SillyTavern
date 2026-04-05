@@ -133,6 +133,59 @@ export function initMessageCopyBinding() {
     });
 }
 
+export function initMessageEditBindings({
+    getCssAutofit,
+    getCanEditMessages,
+    getAutoSaveMessageEditsEnabled,
+    setCurrentEditedMessageId,
+}) {
+    $(document).on('click', '.mes_edit', async function () {
+        if (isDeleteMode) {
+            return;
+        }
+
+        if (getCanEditMessages()) {
+            const nextEditedMessageId = await beginMessageEdit($(this), getCssAutofit());
+            setCurrentEditedMessageId(nextEditedMessageId);
+        }
+    });
+
+    $(document).on('input', '#curEditTextarea', function () {
+        if (getAutoSaveMessageEditsEnabled()) {
+            messageEditAuto($(this));
+        }
+    });
+
+    $(document).on('click', '.mes_edit_cancel', async function () {
+        await cancelMessageEdit($(this));
+        setCurrentEditedMessageId(editedMessageId);
+    });
+
+    $(document).on('click', '.mes_edit_up', async function () {
+        const nextEditedMessageId = await moveEditedMessageUp($(this));
+        setCurrentEditedMessageId(nextEditedMessageId);
+    });
+
+    $(document).on('click', '.mes_edit_down', async function () {
+        const nextEditedMessageId = await moveEditedMessageDown($(this));
+        setCurrentEditedMessageId(nextEditedMessageId);
+    });
+
+    $(document).on('click', '.mes_edit_copy', async function () {
+        await copyEditedMessage($(this));
+    });
+
+    $(document).on('click', '.mes_edit_delete', async function (_event, customData) {
+        await deleteEditedMessage($(this), customData);
+        setCurrentEditedMessageId(editedMessageId);
+    });
+
+    $(document).on('click', '.mes_edit_done', async function () {
+        await messageEditDone($(this));
+        setCurrentEditedMessageId(editedMessageId);
+    });
+}
+
 export function setEditedMessageId(value) {
     editedMessageId = value;
     return editedMessageId;

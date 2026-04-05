@@ -258,7 +258,7 @@ import { importExternalContent as importExternalContentCore, importFromURL as im
 import { addDebugFunctions as addDebugFunctionsCore, bindDebugCore } from './scripts/debug-core.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
 import { TempResponseLength, Generate as GenerateCore, StreamingProcessor as StreamingProcessorCore, bindGenerationCore, createRawPrompt as createRawPromptCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGenerateUrl as getGenerateUrlCore, getGeneratingApi as getGeneratingApiCore, getGeneratingModel as getGeneratingModelCore, getMaxContextSize as getMaxContextSizeCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, sendGenerationRequest as sendGenerationRequestCore, sendStreamingRequest as sendStreamingRequestCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
-import { beginMessageEdit as beginMessageEditCore, bindMessageCore, cancelDeleteMode as cancelDeleteModeCore, cancelMessageEdit as cancelMessageEditCore, cleanUpMessage as cleanUpMessageCore, closeMessageEditor as closeMessageEditorCore, confirmDeleteMode as confirmDeleteModeCore, copyEditedMessage as copyEditedMessageCore, deleteEditedMessage as deleteEditedMessageCore, deleteSwipe as deleteSwipeCore, editedMessageId as editedMessageIdCore, getFirstDisplayedMessageId as getFirstDisplayedMessageIdCore, hideSwipeButtons as hideSwipeButtonsCore, initMessageCopyBinding as initMessageCopyBindingCore, isDeleteMode as isDeleteModeCore, messageEditAuto as messageEditAutoCore, messageEditDone as messageEditDoneCore, messageFormatting as messageFormattingCore, moveEditedMessageDown as moveEditedMessageDownCore, moveEditedMessageUp as moveEditedMessageUpCore, openMessageDelete as openMessageDeleteCore, selectMessageDeleteTarget as selectMessageDeleteTargetCore, setEditedMessageId as setEditedMessageIdCore, showSwipeButtons as showSwipeButtonsCore, swipe_left as swipeLeftCore, swipe_right as swipeRightCore, syncMesToSwipe as syncMesToSwipeCore, syncSwipeToMes as syncSwipeToMesCore, updateEditArrowClasses as updateEditArrowClassesCore, updateMessageBlock as updateMessageBlockCore, updateViewMessageIds as updateViewMessageIdsCore } from './scripts/message-core.js';
+import { bindMessageCore, cancelDeleteMode as cancelDeleteModeCore, cleanUpMessage as cleanUpMessageCore, closeMessageEditor as closeMessageEditorCore, confirmDeleteMode as confirmDeleteModeCore, deleteSwipe as deleteSwipeCore, editedMessageId as editedMessageIdCore, getFirstDisplayedMessageId as getFirstDisplayedMessageIdCore, hideSwipeButtons as hideSwipeButtonsCore, initMessageCopyBinding as initMessageCopyBindingCore, initMessageEditBindings as initMessageEditBindingsCore, isDeleteMode as isDeleteModeCore, messageFormatting as messageFormattingCore, openMessageDelete as openMessageDeleteCore, selectMessageDeleteTarget as selectMessageDeleteTargetCore, setEditedMessageId as setEditedMessageIdCore, showSwipeButtons as showSwipeButtonsCore, swipe_left as swipeLeftCore, swipe_right as swipeRightCore, syncMesToSwipe as syncMesToSwipeCore, syncSwipeToMes as syncSwipeToMesCore, updateEditArrowClasses as updateEditArrowClassesCore, updateMessageBlock as updateMessageBlockCore, updateViewMessageIds as updateViewMessageIdsCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
 import { bindSessionCore, doNewChat as doNewChatCore, handleDeleteChat as handleDeleteChatCore, initCharacterGroupNavBindings as initCharacterGroupNavBindingsCore, initCharacterManagementDropdownBindings as initCharacterManagementDropdownBindingsCore, newAssistantChat as newAssistantChatCore, renameGroupOrCharacterChat as renameGroupOrCharacterChatCore, resetChatState as resetChatStateCore, selectCharacterById as selectCharacterByIdCore, selectRightMenuWithAnimation as selectRightMenuWithAnimationCore, select_rm_characters as selectRmCharactersCore, select_rm_create as selectRmCreateCore, select_rm_info as selectRmInfoCore, select_selected_character as selectSelectedCharacterCore, sendTextareaMessage as sendTextareaMessageCore, setExternalAbortController as setExternalAbortControllerCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes, updateRemoteChatName as updateRemoteChatNameCore } from './scripts/session-core.js';
@@ -2817,15 +2817,6 @@ function openMessageDelete(fromSlashCommand) {
     return openMessageDeleteCore(fromSlashCommand);
 }
 
-function messageEditAuto(div) {
-    return messageEditAutoCore(div, undefined, this_edit_mes_id);
-}
-
-async function messageEditDone(div) {
-    await messageEditDoneCore(div, undefined, this_edit_mes_id);
-    this_edit_mes_id = editedMessageIdCore;
-}
-
 /**
  * Fetches the chat content for each chat file from the server and compiles them into a dictionary.
  * The function iterates over a provided list of chat metadata and requests the actual chat content
@@ -3747,51 +3738,16 @@ jQuery(async function () {
     });
 
     initMessageCopyBindingCore();
-
-    //********************
-    //***Message Editor***
-    $(document).on('click', '.mes_edit', async function () {
-        if (isDeleteModeCore) {
-            return;
-        }
-        if (this_chid !== undefined || selected_group || name2 === neutralCharacterName) {
-            this_edit_mes_id = await beginMessageEditCore($(this), cssAutofit);
-        }
-    });
-
-    $(document).on('input', '#curEditTextarea', function () {
-        if (power_user.auto_save_msg_edits === true) {
-            messageEditAuto($(this));
-        }
+    initMessageEditBindingsCore({
+        getCssAutofit: () => cssAutofit,
+        getCanEditMessages: () => this_chid !== undefined || selected_group || name2 === neutralCharacterName,
+        getAutoSaveMessageEditsEnabled: () => power_user.auto_save_msg_edits,
+        setCurrentEditedMessageId: (value) => {
+            this_edit_mes_id = value;
+        },
     });
     initMessageActionRevealBindingsCore({
         getExpandMessageActionsEnabled: () => power_user.expand_message_actions,
-    });
-
-    $(document).on('click', '.mes_edit_cancel', async function () {
-        await cancelMessageEditCore($(this));
-        this_edit_mes_id = editedMessageIdCore;
-    });
-
-    $(document).on('click', '.mes_edit_up', async function () {
-        this_edit_mes_id = await moveEditedMessageUpCore($(this));
-    });
-
-    $(document).on('click', '.mes_edit_down', async function () {
-        this_edit_mes_id = await moveEditedMessageDownCore($(this));
-    });
-
-    $(document).on('click', '.mes_edit_copy', async function () {
-        await copyEditedMessageCore($(this));
-    });
-
-    $(document).on('click', '.mes_edit_delete', async function (event, customData) {
-        await deleteEditedMessageCore($(this), customData);
-        this_edit_mes_id = editedMessageIdCore;
-    });
-
-    $(document).on('click', '.mes_edit_done', async function () {
-        await messageEditDone($(this));
     });
 
     //Select chat

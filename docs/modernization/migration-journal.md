@@ -3584,3 +3584,9 @@ The important point here is not just line count. These handlers were pure UI beh
 This follow-up keeps shaving down the same anonymous bootstrap block by moving the raw drawer opener/toggle wiring into `public/scripts/ui-core.js` and the small character/group navigation shortcut cluster into `public/scripts/session-core.js`. The `#rm_button_group_chats`, `#rm_button_back_from_group`, and `#dupe_button` bindings are now initialized through `initCharacterGroupNavBindings(...)`, and the generic drawer opener/toggle listeners are now initialized through `initDrawerBindings(...)`.
 
 These were not the biggest remaining blocks, but they were still exactly the sort of leftover direct listener setup that kept the end of `script.js` from reading like a clean composition root. This keeps the same strategy: move concrete listener ownership into domain modules, and leave `script.js` to compose them.
+
+### 2026-04-05: Wave 103 - extracted message edit listener wiring out of the `script.js` tail
+
+This batch keeps reducing the same anonymous bootstrap block by moving the message-edit listener cluster into `public/scripts/message-core.js` as `initMessageEditBindings(...)`. The `.mes_edit` open handler, the edit textarea auto-save listener, and the edit cancel/up/down/copy/delete/done handlers are now initialized through that helper instead of being spelled out inline in `script.js`.
+
+That is useful for two reasons. First, it removes another cohesive chunk of concrete listener code from the tail of `script.js`. Second, those listeners were already just bridging into `message-core` behavior, so moving the wiring next to the implementation makes the composition root thinner and the message domain more self-contained.

@@ -237,7 +237,7 @@ import { initCustomSelectedSamplers, validateDisabledSamplers } from './scripts/
 import { INTERACTABLE_CONTROL_CLASS, initKeyboard } from './scripts/keyboard.js';
 import { initDynamicStyles } from './scripts/dynamic-styles.js';
 import { initInputMarkdown } from './scripts/input-md-formatting.js';
-import { DragAndDropHandler } from './scripts/dragdrop.js';
+import { initLegacyDomBootstrap } from './scripts/legacy-dom-bootstrap.js';
 import { initSystemPrompts } from './scripts/sysprompt.js';
 import { registerExtensionSlashCommands as initExtensionSlashCommands } from './scripts/extensions-slashcommands.js';
 import { ToolManager } from './scripts/tool-calling.js';
@@ -3383,212 +3383,173 @@ function initCharacterSearch() {
 
 // MARK: DOM Handlers Start
 jQuery(async function () {
-    setTimeout(function () {
-        $('#groupControlsToggle').trigger('click');
-        $('#groupCurrentMemberListToggle .inline-drawer-icon').trigger('click');
-    }, 200);
-
-    initApiLoadingBindingsCore({ cancelStatusCheck });
-    initSendTextareaFocusRetentionCore();
-    initSwipeSettingsBindingsCore({
+    await initLegacyDomBootstrap({
+        cancelStatusCheck,
+        initApiLoadingBindings: initApiLoadingBindingsCore,
+        initSendTextareaFocusRetention: initSendTextareaFocusRetentionCore,
+        initSwipeSettingsBindings: initSwipeSettingsBindingsCore,
         showSwipeButtons,
         hideSwipeButtons,
-    });
-    initLastMessageSwipeBindingsCore();
-
-    initCharacterSearch();
-    initMessageShortcutBindingsCore();
-    initSessionNavigationBindingsCore({ selectGroupChats: select_group_chats });
-    initBogusFolderBindings();
-
-    const cssAutofit = CSS.supports('field-sizing', 'content');
-    initEditTextareaAutoFitCore({ chatElement, debounceMs: debounce_timeout.short });
-    initChatScrollBindingsCore({
-        chatElement: document.getElementById('chat'),
+        initLastMessageSwipeBindings: initLastMessageSwipeBindingsCore,
+        initCharacterSearch,
+        initMessageShortcutBindings: initMessageShortcutBindingsCore,
+        initSessionNavigationBindings: initSessionNavigationBindingsCore,
+        selectGroupChats: select_group_chats,
+        initBogusFolderBindings,
+        chatElement,
+        debounceMs: debounce_timeout.short,
+        initEditTextareaAutoFit: initEditTextareaAutoFitCore,
+        initChatScrollBindings: initChatScrollBindingsCore,
         getWaifuModeEnabled: () => power_user.waifuMode,
         getScrollLock: () => scrollLock,
         setScrollLock: (value) => {
             scrollLock = value;
         },
-    });
-    initDeleteModeSelectionBindingsCore();
-
-    initDialogueUiBindings({
-        getAnimationDuration: () => animation_duration,
-        getAnimationEasing: () => animation_easing,
-        handleDeleteChat: (chatFile, group, fromSlashCommand = false) => handleDeleteChatCore(chatFile, group, { fromSlashCommand }),
-        getSelectedGroup: () => selected_group,
-        getChatFileForDelete: () => chat_file_for_del,
-        setChatFileForDelete: (value) => {
-            chat_file_for_del = value;
+        initDeleteModeSelectionBindings: initDeleteModeSelectionBindingsCore,
+        initDialogueUiBindings,
+        dialogueUiDeps: {
+            getAnimationDuration: () => animation_duration,
+            getAnimationEasing: () => animation_easing,
+            handleDeleteChat: (chatFile, group, fromSlashCommand = false) => handleDeleteChatCore(chatFile, group, { fromSlashCommand }),
+            getSelectedGroup: () => selected_group,
+            getChatFileForDelete: () => chat_file_for_del,
+            setChatFileForDelete: (value) => {
+                chat_file_for_del = value;
+            },
+            showDeleteChatConfirm: async () => (
+                await callGenericPopup('<h3>' + t`Delete the Chat File?` + '</h3>', POPUP_TYPE.CONFIRM)
+            ) === POPUP_RESULT.AFFIRMATIVE,
+            toggleAdvancedCharacterPopup: toggleAdvancedCharacterPopupCore,
+            closeAdvancedCharacterPopup: closeAdvancedCharacterPopupCore,
+            getDialogueCloseStop: () => dialogueCloseStop,
+            setDialogueCloseStop: (value) => {
+                dialogueCloseStop = value;
+            },
+            getPopupType: () => popup_type,
+            setPopupType: (value) => {
+                popup_type = value;
+            },
+            getDialogueResolve: () => dialogueResolve,
+            setDialogueResolve: (value) => {
+                dialogueResolve = value;
+            },
+            cancelDeleteMode: cancelDeleteModeCore,
+            confirmDeleteMode: confirmDeleteModeCore,
+            cssSendFormDisplay: css_send_form_display,
         },
-        showDeleteChatConfirm: async () => (
-            await callGenericPopup('<h3>' + t`Delete the Chat File?` + '</h3>', POPUP_TYPE.CONFIRM)
-        ) === POPUP_RESULT.AFFIRMATIVE,
-        toggleAdvancedCharacterPopup: toggleAdvancedCharacterPopupCore,
-        closeAdvancedCharacterPopup: closeAdvancedCharacterPopupCore,
-        getDialogueCloseStop: () => dialogueCloseStop,
-        setDialogueCloseStop: (value) => {
-            dialogueCloseStop = value;
+        initCharacterCreateBindings: initCharacterCreateBindingsCore,
+        initCharacterDeleteBinding: initCharacterDeleteBindingCore,
+        initCharacterEditorBindings: initCharacterEditorBindingsCore,
+        initChatManagementBindings: initChatManagementBindingsCore,
+        initOptionsMenu: initOptionsMenuCore,
+        optionsPopper,
+        initOptionsActionBindings: initOptionsActionBindingsCore,
+        optionsActionDeps: {
+            openPermanentAssistantCard,
+            displayPastChats,
+            getThisChid: () => this_chid,
+            getIsSendPress: () => is_send_press,
+            getSelectedGroup: () => selected_group,
+            getIsGroupGenerating: () => is_group_generating,
+            doNewChat,
+            newAssistantChat,
+            getCharacterName: () => name2,
+            getNeutralCharacterName: () => neutralCharacterName,
+            closeMessageEditor,
+            regenerateGroup,
+            setSendButtonState,
+            Generate,
+            openMessageDelete,
+            getEditedMessageId: () => this_edit_mes_id,
+            awaitChatNotSaving: () => waitUntilCondition(() => !isChatSaving, debounce_timeout.extended, 10),
+            clearChat,
+            getChat: () => chat,
+            resetSelectedGroup,
+            setCharacterId,
+            setCharacterName,
+            setActiveCharacter,
+            setActiveGroup,
+            setEditedMessageId: (value) => {
+                this_edit_mes_id = setEditedMessageIdCore(value);
+                return this_edit_mes_id;
+            },
+            setChatMetadata: (value) => {
+                chat_metadata = value;
+                syncChatMetadata(chat_metadata);
+            },
+            setSelectedButton: (value) => {
+                selected_button = value;
+            },
+            selectRmCharacters: select_rm_characters,
+            getCurrentChatId,
         },
-        getPopupType: () => popup_type,
-        setPopupType: (value) => {
-            popup_type = value;
-        },
-        getDialogueResolve: () => dialogueResolve,
-        setDialogueResolve: (value) => {
-            dialogueResolve = value;
-        },
-        cancelDeleteMode: cancelDeleteModeCore,
-        confirmDeleteMode: confirmDeleteModeCore,
-        cssSendFormDisplay: css_send_form_display,
-    });
-
-    initCharacterCreateBindingsCore();
-    initCharacterDeleteBindingCore();
-
-    //////// OPTIMIZED ALL CHAR CREATION/EDITING TEXTAREA LISTENERS ///////////////
-    initCharacterEditorBindingsCore();
-
-    /* $("#renameCharButton").on('click', renameCharacter); */
-
-    initChatManagementBindingsCore();
-
-    initOptionsMenuCore({ popper: optionsPopper });
-    initOptionsActionBindingsCore({
-        openPermanentAssistantCard,
-        displayPastChats,
-        getThisChid: () => this_chid,
-        getIsSendPress: () => is_send_press,
-        getSelectedGroup: () => selected_group,
-        getIsGroupGenerating: () => is_group_generating,
-        doNewChat,
-        newAssistantChat,
-        getCharacterName: () => name2,
-        getNeutralCharacterName: () => neutralCharacterName,
-        closeMessageEditor,
-        regenerateGroup,
-        setSendButtonState,
-        Generate,
-        openMessageDelete,
-        getEditedMessageId: () => this_edit_mes_id,
-        awaitChatNotSaving: () => waitUntilCondition(() => !isChatSaving, debounce_timeout.extended, 10),
-        clearChat,
-        getChat: () => chat,
-        resetSelectedGroup,
-        setCharacterId,
-        setCharacterName,
-        setActiveCharacter,
-        setActiveGroup,
-        setEditedMessageId: (value) => {
-            this_edit_mes_id = setEditedMessageIdCore(value);
-            return this_edit_mes_id;
-        },
-        setChatMetadata: (value) => {
-            chat_metadata = value;
-            syncChatMetadata(chat_metadata);
-        },
-        setSelectedButton: (value) => {
-            selected_button = value;
-        },
-        selectRmCharacters: select_rm_characters,
-        getCurrentChatId,
-    });
-
-    /* $('#set_chat_scenario').on('click', setScenarioOverride); */
-
-    initMainApiBindingsCore({ cancelStatusCheck });
-    initSettingsSliderBindingsCore();
-
-    initMessageCopyBindingCore();
-    initMessageEditBindingsCore({
-        getCssAutofit: () => cssAutofit,
+        initMainApiBindings: initMainApiBindingsCore,
+        initSettingsSliderBindings: initSettingsSliderBindingsCore,
+        initMessageCopyBinding: initMessageCopyBindingCore,
+        initMessageEditBindings: initMessageEditBindingsCore,
         getCanEditMessages: () => this_chid !== undefined || selected_group || name2 === neutralCharacterName,
         getAutoSaveMessageEditsEnabled: () => power_user.auto_save_msg_edits,
         setCurrentEditedMessageId: (value) => {
             this_edit_mes_id = value;
         },
-    });
-    initMessageActionRevealBindingsCore({
+        initMessageActionRevealBindings: initMessageActionRevealBindingsCore,
         getExpandMessageActionsEnabled: () => power_user.expand_message_actions,
-    });
-
-    //Select chat
-
-    //**************************CHARACTER IMPORT EXPORT*************************//
-    initCharacterImportExportBindingsCore({ exportPopper });
-    //**************************CHAT IMPORT EXPORT*************************//
-    initChatImportBindingsCore();
-    initCharacterGroupNavBindingsCore({
+        initCharacterImportExportBindings: initCharacterImportExportBindingsCore,
+        exportPopper,
+        initChatImportBindings: initChatImportBindingsCore,
+        initCharacterGroupNavBindings: initCharacterGroupNavBindingsCore,
         setSelectedButton: (value) => {
             selected_button = value;
         },
-        selectGroupChats: select_group_chats,
         selectRmCharacters: select_rm_characters,
         duplicateCharacter,
-    });
-
-    initExecutionControlBindingsCore();
-    initDrawerBindingsCore({
+        initExecutionControlBindings: initExecutionControlBindingsCore,
+        initDrawerBindings: initDrawerBindingsCore,
         doDrawerOpenClick,
         doNavbarIconClick,
-    });
-    initDrawerClickAwayBindingsCore();
-
-    initInlineDrawerBindingsCore();
-    initMessageAvatarZoomBindings({
-        getCharacters: () => characters,
-        getPowerUser: () => power_user,
-        getUserAvatar,
-        loadMovingUIState,
-        dragElement,
-        isDataUrl: isDataURL,
-        getAnimationDuration: () => animation_duration,
-    });
-    initWorldInfoDrawerBindingsCore({ delay });
-
-    initCharacterPanelBindingsCore();
-    /* $('#set_character_world').on('click', openCharacterWorldPopup); */
-
-    initAutoSelectBindingsCore({
+        initDrawerClickAwayBindings: initDrawerClickAwayBindingsCore,
+        initInlineDrawerBindings: initInlineDrawerBindingsCore,
+        initMessageAvatarZoomBindings,
+        avatarZoomDeps: {
+            getCharacters: () => characters,
+            getPowerUser: () => power_user,
+            getUserAvatar,
+            loadMovingUIState,
+            dragElement,
+            isDataUrl: isDataURL,
+            getAnimationDuration: () => animation_duration,
+        },
+        initWorldInfoDrawerBindings: initWorldInfoDrawerBindingsCore,
+        delay,
+        initCharacterPanelBindings: initCharacterPanelBindingsCore,
+        initAutoSelectBindings: initAutoSelectBindingsCore,
         getAutoSelectEnabled: () => power_user.enable_auto_select_input,
-    });
-
-    initEscapeKeyBindingsCore({
-        getAutoSaveMessageEditsEnabled: () => power_user.auto_save_msg_edits,
+        initEscapeKeyBindings: initEscapeKeyBindingsCore,
         closeMessageEditor,
         getEditedMessageId: () => this_edit_mes_id,
-    });
-
-    initCharacterManagementDropdownBindingsCore({ getCharacterSource, importTags });
-    initManageScreenBindingsCore({
-        closeSelectChatPopup: () => $('#select_chat_cross').trigger('click'),
-    });
-
-    initUnloadBindingsCore({
+        initCharacterManagementDropdownBindings: initCharacterManagementDropdownBindingsCore,
+        getCharacterSource,
+        importTags,
+        initManageScreenBindings: initManageScreenBindingsCore,
+        initUnloadBindings: initUnloadBindingsCore,
         cancelTtsPlay,
         getStreamingProcessor: () => streamingProcessor,
         getIsChatSaving: () => isChatSaving,
-    });
-
-    initRangeInputBindingsCore();
-    initStatsButtonBindingsCore({ userStatsHandler });
-    initExternalImportBindingsCore({ importExternalContent: importExternalContentCore });
-    initCharacterDragDropBindingsCore({
-        createDragAndDropHandler: (onDrop) => new DragAndDropHandler('body', onDrop, { noAnimation: true }),
+        initRangeInputBindings: initRangeInputBindingsCore,
+        initStatsButtonBindings: initStatsButtonBindingsCore,
+        userStatsHandler,
+        initExternalImportBindings: initExternalImportBindingsCore,
+        importExternalContent: importExternalContentCore,
+        initCharacterDragDropBindings: initCharacterDragDropBindingsCore,
         importFromURL,
         processDroppedFiles,
         setCharDragDropHandler: (handler) => {
             charDragDropHandler = handler;
         },
-    });
-    initChatHistoryBindingsCore({
+        initChatHistoryBindings: initChatHistoryBindingsCore,
         showMoreMessages,
         getCharacters,
         emitOpenCharacterLibrary: () => eventSource.emit(event_types.OPEN_CHARACTER_LIBRARY),
+        firstLoadInit,
     });
-
-    // Added here to prevent execution before script.js is loaded and get rid of quirky timeouts
-    await firstLoadInit();
-
 });

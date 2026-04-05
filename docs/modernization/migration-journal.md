@@ -3614,3 +3614,9 @@ This matters because these were some of the last obvious places where the end-of
 This pass takes out the three remaining inline handlers that were still visually breaking up the initializer-only shape of the bootstrap block: the bogus-folder tag click binding now lives in `public/scripts/tags.js`, the chat scroll-lock/autoscroll guard now lives in `public/scripts/ui-core.js`, and the delete-mode message-click selection binding now lives in `public/scripts/message-core.js`.
 
 That leaves the end of `script.js` very close to the intended end state for this phase: mostly initializer calls and bootstrap composition, rather than a large anonymous function full of hand-written DOM behavior. The remaining work on this seam is now more about whether to coalesce some initializer call sites, not about peeling more imperative jQuery clusters out of the tail.
+
+### 2026-04-05: Wave 108 - moved the remaining DOM bootstrap composition out of `script.js`
+
+This is the extraction the previous waves were building toward. I added `public/scripts/legacy-dom-bootstrap.js` and moved the remaining end-of-file DOM bootstrap composition there. The long `jQuery(async function () { ... })` block in `public/script.js` now delegates into `initLegacyDomBootstrap(...)` with the same bound callbacks, getters, and initializer calls that were already in use.
+
+This is still a relocation-style move, not a redesign. The point was to get the anonymous bootstrap function out of `script.js` once its inline jQuery behavior had already been peeled away into focused modules. After this batch, `script.js` is much closer to a compatibility shell plus composition entrypoint, which is a better position for either future cleanup of the legacy bootstrap surface or an eventual React-oriented replacement strategy.

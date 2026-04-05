@@ -191,6 +191,15 @@ export function initLastMessageSwipeBindings() {
     $(document).on('click', '.last_mes .swipe_left', swipe_left);
 }
 
+export function initDeleteModeSelectionBindings() {
+    $(document).on('click', '.mes', function () {
+        if (!isDeleteMode || !$(this).children('.del_checkbox').is(':visible')) {
+            return;
+        }
+        selectMessageDeleteTarget(Number($(this).attr('mesid')));
+    });
+}
+
 export function setEditedMessageId(value) {
     editedMessageId = value;
     return editedMessageId;

@@ -530,6 +530,32 @@ export function initMessageShortcutBindings() {
     });
 }
 
+export function initChatScrollBindings({
+    chatElement,
+    getWaifuModeEnabled,
+    getScrollLock,
+    setScrollLock,
+}) {
+    const chatScrollHandler = function () {
+        if (getWaifuModeEnabled()) {
+            setScrollLock(true);
+            return;
+        }
+
+        const scrollIsAtBottom = Math.abs(chatElement.scrollHeight - chatElement.clientHeight - chatElement.scrollTop) < 5;
+
+        if (getScrollLock() && scrollIsAtBottom) {
+            setScrollLock(false);
+        }
+
+        if (!getScrollLock() && !scrollIsAtBottom) {
+            setScrollLock(true);
+        }
+    };
+
+    chatElement.addEventListener('scroll', chatScrollHandler, { passive: true });
+}
+
 export function initEditTextareaAutoFit({ chatElement, debounceMs }) {
     if (CSS.supports('field-sizing', 'content')) {
         return;

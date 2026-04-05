@@ -46,6 +46,7 @@ export {
     sortTags,
     compareTagsForSort,
     removeTagFromMap,
+    initBogusFolderBindings,
 };
 
 /** @typedef {import('../script.js').Character} Character */
@@ -299,6 +300,14 @@ function chooseBogusFolder(source, tagId, remove = false) {
     const tagElement = $(FILTER_SELECTOR).find(`.tag[id=${tagId}]`);
 
     toggleTagThreeState(tagElement, { stateOverride: !remove ? FILTER_STATES.SELECTED : DEFAULT_FILTER_STATE, simulateClick: true });
+}
+
+function initBogusFolderBindings() {
+    $(document).on('click', '.bogus_folder_select', function () {
+        const tagId = $(this).attr('tagid');
+        console.debug('Bogus folder clicked', tagId);
+        chooseBogusFolder($(this), tagId);
+    });
 }
 
 /**

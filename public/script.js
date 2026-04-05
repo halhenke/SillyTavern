@@ -177,7 +177,6 @@ import {
     filterByTagState,
     isBogusFolder,
     isBogusFolderOpen,
-    chooseBogusFolder,
     getTagBlock,
     loadTagsSettings,
     printTagFilters,
@@ -193,6 +192,7 @@ import {
     applyTagsOnGroupSelect,
     tag_import_setting,
     applyCharacterTagsToMessageDivs,
+    initBogusFolderBindings,
 } from './scripts/tags.js';
 import { initSecrets, readSecretState } from './scripts/secrets.js';
 import { NOTE_MODULE_NAME, initAuthorsNote, metadata_keys, setFloatingPrompt, shouldWIAddPrompt } from './scripts/authors-note.js';
@@ -259,12 +259,12 @@ import { addDebugFunctions as addDebugFunctionsCore, bindDebugCore } from './scr
 import { initDialogueUiBindings } from './scripts/dialogue-ui.js';
 import { bindExtensionsCore, syncExtensionPromptRoles, syncExtensionPromptTypes, syncExtensionPrompts } from './scripts/extensions-core.js';
 import { TempResponseLength, Generate as GenerateCore, StreamingProcessor as StreamingProcessorCore, bindGenerationCore, createRawPrompt as createRawPromptCore, generateQuietPrompt as generateQuietPromptCore, generateRaw as generateRawCore, getGenerateUrl as getGenerateUrlCore, getGeneratingApi as getGeneratingApiCore, getGeneratingModel as getGeneratingModelCore, getMaxContextSize as getMaxContextSizeCore, getNextMessageId as getNextMessageIdCore, getStoppingStrings as getStoppingStringsCore, processCommands as processCommandsCore, removeLastMessage as removeLastMessageCore, sendGenerationRequest as sendGenerationRequestCore, sendStreamingRequest as sendStreamingRequestCore, shouldAutoContinue as shouldAutoContinueCore, stopGeneration as stopGenerationCore, syncAmountGen, syncDepthPromptDepthDefault, syncDepthPromptRoleDefault, syncMaxContext, syncOnlineStatus, syncStreamingProcessor, syncTalkativenessDefault, triggerAutoContinue as triggerAutoContinueCore } from './scripts/generation-core.js';
-import { bindMessageCore, cancelDeleteMode as cancelDeleteModeCore, cleanUpMessage as cleanUpMessageCore, closeMessageEditor as closeMessageEditorCore, confirmDeleteMode as confirmDeleteModeCore, deleteSwipe as deleteSwipeCore, editedMessageId as editedMessageIdCore, getFirstDisplayedMessageId as getFirstDisplayedMessageIdCore, hideSwipeButtons as hideSwipeButtonsCore, initLastMessageSwipeBindings as initLastMessageSwipeBindingsCore, initMessageCopyBinding as initMessageCopyBindingCore, initMessageEditBindings as initMessageEditBindingsCore, isDeleteMode as isDeleteModeCore, messageFormatting as messageFormattingCore, openMessageDelete as openMessageDeleteCore, selectMessageDeleteTarget as selectMessageDeleteTargetCore, setEditedMessageId as setEditedMessageIdCore, showSwipeButtons as showSwipeButtonsCore, swipe_left as swipeLeftCore, swipe_right as swipeRightCore, syncMesToSwipe as syncMesToSwipeCore, syncSwipeToMes as syncSwipeToMesCore, updateEditArrowClasses as updateEditArrowClassesCore, updateMessageBlock as updateMessageBlockCore, updateViewMessageIds as updateViewMessageIdsCore } from './scripts/message-core.js';
+import { bindMessageCore, cancelDeleteMode as cancelDeleteModeCore, cleanUpMessage as cleanUpMessageCore, closeMessageEditor as closeMessageEditorCore, confirmDeleteMode as confirmDeleteModeCore, deleteSwipe as deleteSwipeCore, editedMessageId as editedMessageIdCore, getFirstDisplayedMessageId as getFirstDisplayedMessageIdCore, hideSwipeButtons as hideSwipeButtonsCore, initDeleteModeSelectionBindings as initDeleteModeSelectionBindingsCore, initLastMessageSwipeBindings as initLastMessageSwipeBindingsCore, initMessageCopyBinding as initMessageCopyBindingCore, initMessageEditBindings as initMessageEditBindingsCore, isDeleteMode as isDeleteModeCore, messageFormatting as messageFormattingCore, openMessageDelete as openMessageDeleteCore, setEditedMessageId as setEditedMessageIdCore, showSwipeButtons as showSwipeButtonsCore, swipe_left as swipeLeftCore, swipe_right as swipeRightCore, syncMesToSwipe as syncMesToSwipeCore, syncSwipeToMes as syncSwipeToMesCore, updateEditArrowClasses as updateEditArrowClassesCore, updateMessageBlock as updateMessageBlockCore, updateViewMessageIds as updateViewMessageIdsCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
 import { bindSessionCore, doNewChat as doNewChatCore, handleDeleteChat as handleDeleteChatCore, initCharacterGroupNavBindings as initCharacterGroupNavBindingsCore, initCharacterManagementDropdownBindings as initCharacterManagementDropdownBindingsCore, initManageScreenBindings as initManageScreenBindingsCore, initSessionNavigationBindings as initSessionNavigationBindingsCore, newAssistantChat as newAssistantChatCore, renameGroupOrCharacterChat as renameGroupOrCharacterChatCore, resetChatState as resetChatStateCore, selectCharacterById as selectCharacterByIdCore, selectRightMenuWithAnimation as selectRightMenuWithAnimationCore, select_rm_characters as selectRmCharactersCore, select_rm_create as selectRmCreateCore, select_rm_info as selectRmInfoCore, select_selected_character as selectSelectedCharacterCore, sendTextareaMessage as sendTextareaMessageCore, setExternalAbortController as setExternalAbortControllerCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes, updateRemoteChatName as updateRemoteChatNameCore } from './scripts/session-core.js';
 import { bindSettingsCore, changeMainAPI as changeMainAPICore, getSettings as getSettingsCore, initMainApiBindings as initMainApiBindingsCore, initSettingsSliderBindings as initSettingsSliderBindingsCore, initSwipeSettingsBindings as initSwipeSettingsBindingsCore, saveSettings as saveSettingsCore } from './scripts/settings-core.js';
-import { activateSendButtons as activateSendButtonsCore, addCopyToCodeBlocks as addCopyToCodeBlocksCore, bindUiCore, deactivateSendButtons as deactivateSendButtonsCore, doDrawerOpenClick as doDrawerOpenClickCore, doNavbarIconClick as doNavbarIconClickCore, fixViewport as fixViewportCore, getSlideToggleOptions as getSlideToggleOptionsCore, hideStopButton as hideStopButtonCore, initApiLoadingBindings as initApiLoadingBindingsCore, initAutoSelectBindings as initAutoSelectBindingsCore, initCharacterDragDropBindings as initCharacterDragDropBindingsCore, initChatHistoryBindings as initChatHistoryBindingsCore, initDrawerBindings as initDrawerBindingsCore, initDrawerClickAwayBindings as initDrawerClickAwayBindingsCore, initEditTextareaAutoFit as initEditTextareaAutoFitCore, initEscapeKeyBindings as initEscapeKeyBindingsCore, initExecutionControlBindings as initExecutionControlBindingsCore, initExternalImportBindings as initExternalImportBindingsCore, initInlineDrawerBindings as initInlineDrawerBindingsCore, initMessageActionRevealBindings as initMessageActionRevealBindingsCore, initMessageShortcutBindings as initMessageShortcutBindingsCore, initOptionsActionBindings as initOptionsActionBindingsCore, initOptionsMenu as initOptionsMenuCore, initRangeInputBindings as initRangeInputBindingsCore, initSendTextareaFocusRetention as initSendTextareaFocusRetentionCore, initStandaloneMode as initStandaloneModeCore, initStatsButtonBindings as initStatsButtonBindingsCore, initUnloadBindings as initUnloadBindingsCore, initWorldInfoDrawerBindings as initWorldInfoDrawerBindingsCore, reloadMarkdownProcessor as reloadMarkdownProcessorCore, setAnimationDuration as setAnimationDurationCore, setSendButtonState as setSendButtonStateCore, showStopButton as showStopButtonCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
+import { activateSendButtons as activateSendButtonsCore, addCopyToCodeBlocks as addCopyToCodeBlocksCore, bindUiCore, deactivateSendButtons as deactivateSendButtonsCore, doDrawerOpenClick as doDrawerOpenClickCore, doNavbarIconClick as doNavbarIconClickCore, fixViewport as fixViewportCore, getSlideToggleOptions as getSlideToggleOptionsCore, hideStopButton as hideStopButtonCore, initApiLoadingBindings as initApiLoadingBindingsCore, initAutoSelectBindings as initAutoSelectBindingsCore, initCharacterDragDropBindings as initCharacterDragDropBindingsCore, initChatHistoryBindings as initChatHistoryBindingsCore, initChatScrollBindings as initChatScrollBindingsCore, initDrawerBindings as initDrawerBindingsCore, initDrawerClickAwayBindings as initDrawerClickAwayBindingsCore, initEditTextareaAutoFit as initEditTextareaAutoFitCore, initEscapeKeyBindings as initEscapeKeyBindingsCore, initExecutionControlBindings as initExecutionControlBindingsCore, initExternalImportBindings as initExternalImportBindingsCore, initInlineDrawerBindings as initInlineDrawerBindingsCore, initMessageActionRevealBindings as initMessageActionRevealBindingsCore, initMessageShortcutBindings as initMessageShortcutBindingsCore, initOptionsActionBindings as initOptionsActionBindingsCore, initOptionsMenu as initOptionsMenuCore, initRangeInputBindings as initRangeInputBindingsCore, initSendTextareaFocusRetention as initSendTextareaFocusRetentionCore, initStandaloneMode as initStandaloneModeCore, initStatsButtonBindings as initStatsButtonBindingsCore, initUnloadBindings as initUnloadBindingsCore, initWorldInfoDrawerBindings as initWorldInfoDrawerBindingsCore, reloadMarkdownProcessor as reloadMarkdownProcessorCore, setAnimationDuration as setAnimationDurationCore, setSendButtonState as setSendButtonStateCore, showStopButton as showStopButtonCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
 import { accountStorage } from './scripts/util/AccountStorage.js';
 import { initWelcomeScreen, openPermanentAssistantChat, openPermanentAssistantCard, getPermanentAssistantAvatar } from './scripts/welcome-screen.js';
 import { initDataMaid } from './scripts/data-maid.js';
@@ -3398,45 +3398,19 @@ jQuery(async function () {
     initCharacterSearch();
     initMessageShortcutBindingsCore();
     initSessionNavigationBindingsCore({ selectGroupChats: select_group_chats });
-
-    $(document).on('click', '.bogus_folder_select', function () {
-        const tagId = $(this).attr('tagid');
-        console.debug('Bogus folder clicked', tagId);
-        chooseBogusFolder($(this), tagId);
-    });
+    initBogusFolderBindings();
 
     const cssAutofit = CSS.supports('field-sizing', 'content');
     initEditTextareaAutoFitCore({ chatElement, debounceMs: debounce_timeout.short });
-
-    const chatElementScroll = document.getElementById('chat');
-    const chatScrollHandler = function () {
-        if (power_user.waifuMode) {
-            scrollLock = true;
-            return;
-        }
-
-        const scrollIsAtBottom = Math.abs(chatElementScroll.scrollHeight - chatElementScroll.clientHeight - chatElementScroll.scrollTop) < 5;
-
-        // Resume autoscroll if the user scrolls to the bottom
-        if (scrollLock && scrollIsAtBottom) {
-            scrollLock = false;
-        }
-
-        // Cancel autoscroll if the user scrolls up
-        if (!scrollLock && !scrollIsAtBottom) {
-            scrollLock = true;
-        }
-    };
-    chatElementScroll.addEventListener('scroll', chatScrollHandler, { passive: true });
-
-    $(document).on('click', '.mes', function () {
-        //when a 'delete message' parent div is clicked
-        // and we are in delete mode and del_checkbox is visible
-        if (!isDeleteModeCore || !$(this).children('.del_checkbox').is(':visible')) {
-            return;
-        }
-        selectMessageDeleteTargetCore(Number($(this).attr('mesid')));
+    initChatScrollBindingsCore({
+        chatElement: document.getElementById('chat'),
+        getWaifuModeEnabled: () => power_user.waifuMode,
+        getScrollLock: () => scrollLock,
+        setScrollLock: (value) => {
+            scrollLock = value;
+        },
     });
+    initDeleteModeSelectionBindingsCore();
 
     initDialogueUiBindings({
         getAnimationDuration: () => animation_duration,

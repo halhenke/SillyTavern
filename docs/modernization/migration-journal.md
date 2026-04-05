@@ -3608,3 +3608,9 @@ I also moved the manage-screen “new chat” button binding into `public/script
 This follow-up takes another meaningful chunk out of the same bootstrap seam. The API loading cancel click, swipe-settings toggle, last-message swipe listeners, quick impersonate/continue shortcut clicks, right-menu navigation buttons, character selection clicks, and character create-form bindings are now initialized through the existing domain modules (`ui-core`, `settings-core`, `message-core`, `session-core`, and `character-core`) instead of being spelled out inline in `script.js`.
 
 This matters because these were some of the last obvious places where the end-of-file bootstrap still looked like a hand-written jQuery event bucket rather than a composition root. After this batch, the remaining inline tail is much smaller and mostly limited to a couple of residual DOM-specific handlers plus the final bootstrap/init calls.
+
+### 2026-04-05: Wave 107 - extracted the last obvious residual DOM handlers out of the `script.js` tail
+
+This pass takes out the three remaining inline handlers that were still visually breaking up the initializer-only shape of the bootstrap block: the bogus-folder tag click binding now lives in `public/scripts/tags.js`, the chat scroll-lock/autoscroll guard now lives in `public/scripts/ui-core.js`, and the delete-mode message-click selection binding now lives in `public/scripts/message-core.js`.
+
+That leaves the end of `script.js` very close to the intended end state for this phase: mostly initializer calls and bootstrap composition, rather than a large anonymous function full of hand-written DOM behavior. The remaining work on this seam is now more about whether to coalesce some initializer call sites, not about peeling more imperative jQuery clusters out of the tail.

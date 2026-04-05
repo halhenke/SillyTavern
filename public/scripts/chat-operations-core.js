@@ -12,11 +12,9 @@ import { POPUP_TYPE, callGenericPopup } from './popup.js';
 import { power_user } from './power-user.js';
 import { parseReasoningInSwipes } from './reasoning.js';
 import { statMesProcess } from './stats.js';
-import { renderChatHistoryWindow, renderMessageListItem } from './message-list-renderer.js';
-import { renderMessageTemplate } from './message-template-renderer.js';
-import { createMessageTemplateViewModel } from './message-template-view-model.js';
+import { addOneMessageWorkflow, printMessagesWorkflow } from './message-insertion-workflow.js';
 import { getTokenCountAsync, saveTokenCache } from './tokenizers.js';
-import { debounce, delay, download, humanFileSize, isDataURL, isElementInViewport, saveBase64AsFile, sortMoments, timestampToMoment, waitUntilCondition, uuidv4 } from './utils.js';
+import { debounce, delay, download, humanFileSize, isDataURL, isElementInViewport, saveBase64AsFile, sortMoments, waitUntilCondition, uuidv4 } from './utils.js';
 import { humanizedDateTime } from './RossAscends-mods.js';
 import { renderTemplateAsync } from './templates.js';
 
@@ -1009,18 +1007,6 @@ async function saveChatInternal({ chatName, withMetadata, mesId, force = false }
     }
 }
 
-function getMessageFromTemplate(params) {
-    if (!updateReasoningUIImpl) throwUnbound('updateReasoningUI');
-    if (!shouldShowTimestampModelIconImpl) throwUnbound('shouldShowTimestampModelIcon');
-    if (!updateBookmarkDisplayImpl) throwUnbound('updateBookmarkDisplay');
-
-    return renderMessageTemplate(params, {
-        updateReasoningUI: updateReasoningUIImpl,
-        shouldShowTimestampModelIcon: shouldShowTimestampModelIconImpl,
-        updateBookmarkDisplay: updateBookmarkDisplayImpl,
-    });
-}
-
 export function formatGenerationTimer(gen_started, gen_finished, tokenCount, reasoningDuration = null, timeToFirstToken = null) {
     if (!gen_started || !gen_finished) {
         return {};
@@ -1061,51 +1047,27 @@ function addOneMessageInternal(mes, { type = 'normal', insertAfter = null, scrol
     if (!addCopyToCodeBlocksImpl) throwUnbound('addCopyToCodeBlocks');
     if (!scrollChatToBottomImpl) throwUnbound('scrollChatToBottom');
     if (!applyCharacterTagsToMessageDivsImpl) throwUnbound('applyCharacterTagsToMessageDivs');
+    if (!updateReasoningUIImpl) throwUnbound('updateReasoningUI');
+    if (!shouldShowTimestampModelIconImpl) throwUnbound('shouldShowTimestampModelIcon');
+    if (!updateBookmarkDisplayImpl) throwUnbound('updateBookmarkDisplay');
 
-    const momentDate = timestampToMoment(mes.send_date);
-    const timestamp = momentDate.isValid() ? momentDate.format('LL LT') : '';
-
-    if (type === 'swipe' && mes.swipe_id === undefined) {
-        mes.swipe_id = 0;
-        mes.swipes = [mes.mes];
-    }
-
-    const selectedCharacterAvatarUrl = this_chid === undefined
-        ? null
-        : (characters[this_chid].avatar !== 'none'
-            ? getThumbnailUrl('avatar', characters[this_chid].avatar)
-            : default_avatar);
-
-    const { messageText, params } = createMessageTemplateViewModel({
-        message: mes,
-        type,
-        forceId,
-        chatLength: chat.length,
-        messageIndex: chat.indexOf(mes),
-        personaAvatarUrl: getThumbnailUrl('persona', user_avatar),
-        selectedCharacterAvatarUrl,
-        hasSelectedCharacter: this_chid !== undefined,
-        systemAvatar: system_avatar,
-        defaultAvatar: default_avatar,
-        timestamp,
-        formatMessage: messageFormattingImpl,
-        formatGenerationTimer,
-    });
-
-    renderMessageListItem({
-        chat,
-        message: mes,
-        params,
-        messageText,
-        renderedMessage: getMessageFromTemplate(params),
+    return addOneMessageWorkflow(mes, {
         type,
         insertAfter,
+        scroll,
         insertBefore,
         forceId,
-        scroll,
         showSwipes,
-        itemizedPrompts: getItemizedPromptsImpl(),
     }, {
+        chat,
+        characters,
+        thisChid: this_chid,
+        defaultAvatar: default_avatar,
+        userAvatar: user_avatar,
+        systemAvatar: system_avatar,
+        getThumbnailUrl,
+        messageFormatting: messageFormattingImpl,
+        getItemizedPrompts: getItemizedPromptsImpl,
         appendMediaToMessage,
         addCopyToCodeBlocks: addCopyToCodeBlocksImpl,
         hideSwipeButtons,
@@ -1115,6 +1077,8 @@ function addOneMessageInternal(mes, { type = 'normal', insertAfter = null, scrol
         formatSwipeCounter,
         updateReasoningUI: updateReasoningUIImpl,
         shouldShowTimestampModelIcon: shouldShowTimestampModelIconImpl,
+        updateBookmarkDisplay: updateBookmarkDisplayImpl,
+        formatGenerationTimer,
     });
 }
 
@@ -1123,11 +1087,10 @@ async function printMessagesInternal() {
     if (!scrollChatToBottomImpl) throwUnbound('scrollChatToBottom');
     if (!applyStylePinsImpl) throwUnbound('applyStylePins');
 
-    renderChatHistoryWindow({
+    return printMessagesWorkflow({
         chat,
         count: getChatTruncationImpl() || Number.MAX_SAFE_INTEGER,
         renderMessage: addOneMessageInternal,
-    }, {
         scrollChatToBottom: scrollChatToBottomImpl,
         hideSwipeButtons,
         showSwipeButtons,

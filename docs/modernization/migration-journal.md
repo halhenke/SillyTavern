@@ -3542,3 +3542,9 @@ This follow-up keeps shrinking `message-core` toward orchestration rather than i
 This batch keeps the same direction by moving the remaining edited-message action bodies into `public/scripts/message-actions-workflow.js`. Reordering edited messages, copying an edited message, and deleting either the edited message or just its active swipe now live in a dedicated workflow module instead of staying embedded in `message-core`.
 
 That leaves `message-core` with less direct ownership of chat-array mutation and DOM row action handling. The message module is now closer to a coordination layer over dedicated formatter, renderer, swipe-state, edit-workflow, and action-workflow modules, which is the right shape for eventually swapping legacy message interactions behind a React-facing shell.
+
+### 2026-04-05: Wave 96 - extracted legacy message insertion orchestration out of `chat-operations-core`
+
+This batch takes the next major step toward the eventual jQuery/message replacement. I added `public/scripts/message-insertion-workflow.js` and moved the remaining insertion/history-render orchestration there: the old `addOneMessageInternal()` path now delegates to a dedicated workflow module for timestamp/avatar selection, template view-model creation, legacy template rendering handoff, and list insertion wiring. The `printMessagesInternal()` history render loop now delegates there as well.
+
+This is important because the “big jQuery function” is no longer sitting inside `chat-operations-core` as a mixed blob. The actual template DOM work had already moved earlier into dedicated renderer modules; this pass moves the surrounding orchestration too, leaving `chat-operations-core` with a thin compatibility shell over a dedicated message insertion workflow. That is a much better seam for either further cleanup or a future React replacement.

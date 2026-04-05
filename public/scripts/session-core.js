@@ -740,6 +740,13 @@ export function initCharacterGroupNavBindings({
     });
 }
 
+export function initManageScreenBindings({ closeSelectChatPopup }) {
+    $('#newChatFromManageScreenButton').on('click', async function () {
+        await doNewChat({ deleteCurrentChat: false });
+        closeSelectChatPopup();
+    });
+}
+
 export function sendSystemMessage(...args) {
     if (!sendSystemMessageImpl) {
         throwUnbound('sendSystemMessage');

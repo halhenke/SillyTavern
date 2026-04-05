@@ -262,8 +262,8 @@ import { TempResponseLength, Generate as GenerateCore, StreamingProcessor as Str
 import { bindMessageCore, cancelDeleteMode as cancelDeleteModeCore, cleanUpMessage as cleanUpMessageCore, closeMessageEditor as closeMessageEditorCore, confirmDeleteMode as confirmDeleteModeCore, deleteSwipe as deleteSwipeCore, editedMessageId as editedMessageIdCore, getFirstDisplayedMessageId as getFirstDisplayedMessageIdCore, hideSwipeButtons as hideSwipeButtonsCore, initMessageCopyBinding as initMessageCopyBindingCore, initMessageEditBindings as initMessageEditBindingsCore, isDeleteMode as isDeleteModeCore, messageFormatting as messageFormattingCore, openMessageDelete as openMessageDeleteCore, selectMessageDeleteTarget as selectMessageDeleteTargetCore, setEditedMessageId as setEditedMessageIdCore, showSwipeButtons as showSwipeButtonsCore, swipe_left as swipeLeftCore, swipe_right as swipeRightCore, syncMesToSwipe as syncMesToSwipeCore, syncSwipeToMes as syncSwipeToMesCore, updateEditArrowClasses as updateEditArrowClassesCore, updateMessageBlock as updateMessageBlockCore, updateViewMessageIds as updateViewMessageIdsCore } from './scripts/message-core.js';
 import { getRequestHeaders as getRequestHeadersCore, getThumbnailUrl as getThumbnailUrlCore, pingServer as pingServerCore, setCsrfToken } from './scripts/network-core.js';
 import { bindParserCore, syncConverter } from './scripts/parser-core.js';
-import { bindSessionCore, doNewChat as doNewChatCore, handleDeleteChat as handleDeleteChatCore, initCharacterGroupNavBindings as initCharacterGroupNavBindingsCore, initCharacterManagementDropdownBindings as initCharacterManagementDropdownBindingsCore, newAssistantChat as newAssistantChatCore, renameGroupOrCharacterChat as renameGroupOrCharacterChatCore, resetChatState as resetChatStateCore, selectCharacterById as selectCharacterByIdCore, selectRightMenuWithAnimation as selectRightMenuWithAnimationCore, select_rm_characters as selectRmCharactersCore, select_rm_create as selectRmCreateCore, select_rm_info as selectRmInfoCore, select_selected_character as selectSelectedCharacterCore, sendTextareaMessage as sendTextareaMessageCore, setExternalAbortController as setExternalAbortControllerCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes, updateRemoteChatName as updateRemoteChatNameCore } from './scripts/session-core.js';
-import { bindSettingsCore, changeMainAPI as changeMainAPICore, getSettings as getSettingsCore, saveSettings as saveSettingsCore } from './scripts/settings-core.js';
+import { bindSessionCore, doNewChat as doNewChatCore, handleDeleteChat as handleDeleteChatCore, initCharacterGroupNavBindings as initCharacterGroupNavBindingsCore, initCharacterManagementDropdownBindings as initCharacterManagementDropdownBindingsCore, initManageScreenBindings as initManageScreenBindingsCore, newAssistantChat as newAssistantChatCore, renameGroupOrCharacterChat as renameGroupOrCharacterChatCore, resetChatState as resetChatStateCore, selectCharacterById as selectCharacterByIdCore, selectRightMenuWithAnimation as selectRightMenuWithAnimationCore, select_rm_characters as selectRmCharactersCore, select_rm_create as selectRmCreateCore, select_rm_info as selectRmInfoCore, select_selected_character as selectSelectedCharacterCore, sendTextareaMessage as sendTextareaMessageCore, setExternalAbortController as setExternalAbortControllerCore, syncActiveCharacter, syncActiveGroup, syncNeutralCharacterName, syncSystemMessageTypes, updateRemoteChatName as updateRemoteChatNameCore } from './scripts/session-core.js';
+import { bindSettingsCore, changeMainAPI as changeMainAPICore, getSettings as getSettingsCore, initMainApiBindings as initMainApiBindingsCore, initSettingsSliderBindings as initSettingsSliderBindingsCore, saveSettings as saveSettingsCore } from './scripts/settings-core.js';
 import { activateSendButtons as activateSendButtonsCore, addCopyToCodeBlocks as addCopyToCodeBlocksCore, bindUiCore, deactivateSendButtons as deactivateSendButtonsCore, doDrawerOpenClick as doDrawerOpenClickCore, doNavbarIconClick as doNavbarIconClickCore, fixViewport as fixViewportCore, getSlideToggleOptions as getSlideToggleOptionsCore, hideStopButton as hideStopButtonCore, initAutoSelectBindings as initAutoSelectBindingsCore, initCharacterDragDropBindings as initCharacterDragDropBindingsCore, initChatHistoryBindings as initChatHistoryBindingsCore, initDrawerBindings as initDrawerBindingsCore, initDrawerClickAwayBindings as initDrawerClickAwayBindingsCore, initEditTextareaAutoFit as initEditTextareaAutoFitCore, initEscapeKeyBindings as initEscapeKeyBindingsCore, initExecutionControlBindings as initExecutionControlBindingsCore, initExternalImportBindings as initExternalImportBindingsCore, initInlineDrawerBindings as initInlineDrawerBindingsCore, initMessageActionRevealBindings as initMessageActionRevealBindingsCore, initOptionsActionBindings as initOptionsActionBindingsCore, initOptionsMenu as initOptionsMenuCore, initRangeInputBindings as initRangeInputBindingsCore, initSendTextareaFocusRetention as initSendTextareaFocusRetentionCore, initStandaloneMode as initStandaloneModeCore, initStatsButtonBindings as initStatsButtonBindingsCore, initUnloadBindings as initUnloadBindingsCore, initWorldInfoDrawerBindings as initWorldInfoDrawerBindingsCore, reloadMarkdownProcessor as reloadMarkdownProcessorCore, setAnimationDuration as setAnimationDurationCore, setSendButtonState as setSendButtonStateCore, showStopButton as showStopButtonCore, syncAnimationDuration, syncAnimationDurationDefault, syncAnimationEasing, syncIsSendPress, syncMaxInjectionDepth } from './scripts/ui-core.js';
 import { accountStorage } from './scripts/util/AccountStorage.js';
 import { initWelcomeScreen, openPermanentAssistantChat, openPermanentAssistantCard, getPermanentAssistantAvatar } from './scripts/welcome-screen.js';
@@ -3584,77 +3584,8 @@ jQuery(async function () {
 
     /* $('#set_chat_scenario').on('click', setScenarioOverride); */
 
-    $('#newChatFromManageScreenButton').on('click', async function () {
-        await doNewChat({ deleteCurrentChat: false });
-        $('#select_chat_cross').trigger('click');
-    });
-
-    //////////////////////////////////////////////////////////////////////////////////////////////
-
-    $('#main_api').on('change', async function () {
-        cancelStatusCheck('Canceled because main api changed');
-        changeMainAPI();
-        saveSettingsDebounced();
-        await eventSource.emit(event_types.MAIN_API_CHANGED, { apiId: main_api });
-    });
-
-    ////////////////// OPTIMIZED RANGE SLIDER LISTENERS////////////////
-
-    var sliderLocked = true;
-    var sliderTimer;
-
-    $('input[type=\'range\']').on('touchstart', function () {
-        // Unlock the slider after 300ms
-        setTimeout(function () {
-            sliderLocked = false;
-            $(this).css('background-color', 'var(--SmartThemeQuoteColor)');
-        }.bind(this), 300);
-    });
-
-    $('input[type=\'range\']').on('touchend', function () {
-        clearTimeout(sliderTimer);
-        $(this).css('background-color', '');
-        sliderLocked = true;
-    });
-
-    $('input[type=\'range\']').on('touchmove', function (event) {
-        if (sliderLocked) {
-            event.preventDefault();
-        }
-    });
-
-    const sliders = [
-        {
-            sliderId: '#amount_gen',
-            counterId: '#amount_gen_counter',
-            format: (val) => `${val}`,
-            setValue: (val) => {
-                amount_gen = Number(val);
-                syncAmountGen(amount_gen);
-            },
-        },
-        {
-            sliderId: '#max_context',
-            counterId: '#max_context_counter',
-            format: (val) => `${val}`,
-            setValue: (val) => {
-                max_context = Number(val);
-                syncMaxContext(max_context);
-            },
-        },
-    ];
-
-    sliders.forEach(slider => {
-        $(document).on('input', slider.sliderId, function () {
-            const value = $(this).val();
-            const formattedValue = slider.format(value);
-            slider.setValue(value);
-            $(slider.counterId).val(formattedValue);
-            saveSettingsDebounced();
-        });
-    });
-
-    //////////////////////////////////////////////////////////////
+    initMainApiBindingsCore({ cancelStatusCheck });
+    initSettingsSliderBindingsCore();
 
     initMessageCopyBindingCore();
     initMessageEditBindingsCore({
@@ -3717,6 +3648,9 @@ jQuery(async function () {
     });
 
     initCharacterManagementDropdownBindingsCore({ getCharacterSource, importTags });
+    initManageScreenBindingsCore({
+        closeSelectChatPopup: () => $('#select_chat_cross').trigger('click'),
+    });
 
     initUnloadBindingsCore({
         cancelTtsPlay,

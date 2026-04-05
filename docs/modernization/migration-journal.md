@@ -3596,3 +3596,9 @@ That is useful for two reasons. First, it removes another cohesive chunk of conc
 This follow-up keeps reducing the same anonymous bootstrap block by moving the popup/dialogue cluster into `public/scripts/dialogue-ui.js` as `initDialogueUiBindings(...)`. The past-chat delete button handling, advanced character popup open/close buttons, the main dialogue OK/cancel behavior, the delete-message confirmation buttons, and the select-chat popup close animation are now initialized through that module instead of remaining inline in `script.js`.
 
 This is another worthwhile cut because that cluster was still a dense pocket of imperative UI behavior with its own small state surface (`chat_file_for_del`, `popup_type`, `dialogueResolve`, `dialogueCloseStop`). Pulling it behind a dedicated initializer makes the tail of `script.js` more obviously a composition root rather than a long mixed event implementation.
+
+### 2026-04-05: Wave 105 - extracted settings and manage-screen bindings out of the `script.js` tail
+
+This batch keeps working directly on the remaining end-of-file bootstrap seam by moving the main API change listener and the legacy amount/context range-slider bindings into `public/scripts/settings-core.js`. The bootstrap block now initializes those through `initMainApiBindings(...)` and `initSettingsSliderBindings(...)` instead of keeping the `#main_api` change handler plus the old touch/unlock slider logic inline in `script.js`.
+
+I also moved the manage-screen “new chat” button binding into `public/scripts/session-core.js` as `initManageScreenBindings(...)`. None of these are deep refactors; they are still relocation-style extractions that leave `script.js` closer to a composition root made of initializer calls, which is the shape we need before we can say the giant anonymous bootstrap function has really been broken up.

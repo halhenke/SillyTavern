@@ -440,6 +440,66 @@ export function changeMainAPI() {
     requireBound(forceCharacterEditorTokenizeImpl, 'forceCharacterEditorTokenize')();
 }
 
+export function initMainApiBindings({ cancelStatusCheck }) {
+    $('#main_api').on('change', async function () {
+        cancelStatusCheck('Canceled because main api changed');
+        const apiId = String($('#main_api').val() ?? '');
+        changeMainAPI();
+        saveSettingsDebounced();
+        await requireBound(eventSourceImpl, 'eventSource').emit(requireBound(eventTypesImpl, 'eventTypes').MAIN_API_CHANGED, { apiId });
+    });
+}
+
+export function initSettingsSliderBindings() {
+    let sliderLocked = true;
+    let sliderTimer;
+
+    $('input[type=\'range\']').on('touchstart', function () {
+        // Unlock the slider after 300ms
+        sliderTimer = setTimeout(function () {
+            sliderLocked = false;
+            $(this).css('background-color', 'var(--SmartThemeQuoteColor)');
+        }.bind(this), 300);
+    });
+
+    $('input[type=\'range\']').on('touchend', function () {
+        clearTimeout(sliderTimer);
+        $(this).css('background-color', '');
+        sliderLocked = true;
+    });
+
+    $('input[type=\'range\']').on('touchmove', function (event) {
+        if (sliderLocked) {
+            event.preventDefault();
+        }
+    });
+
+    const sliders = [
+        {
+            sliderId: '#amount_gen',
+            counterId: '#amount_gen_counter',
+            format: (val) => `${val}`,
+            setValue: (val) => requireBound(setAmountGenImpl, 'setAmountGen')(Number(val)),
+        },
+        {
+            sliderId: '#max_context',
+            counterId: '#max_context_counter',
+            format: (val) => `${val}`,
+            setValue: (val) => requireBound(setMaxContextImpl, 'setMaxContext')(Number(val)),
+        },
+    ];
+
+    sliders.forEach(slider => {
+        $(document).on('input', slider.sliderId, function () {
+            const value = $(this).val();
+            const formattedValue = slider.format(value);
+            slider.setValue(value);
+            $(slider.counterId).val(formattedValue);
+            saveSettingsDebounced();
+        });
+    });
+}
+
 export async function getSettings() {
     const response = await fetch('/api/settings/get', {
         method: 'POST',

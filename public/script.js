@@ -246,6 +246,7 @@ import { applyBrowserFixes } from './scripts/browser-fixes.js';
 import { initServerHistory } from './scripts/server-history.js';
 import { initSettingsSearch } from './scripts/setting-search.js';
 import { initBulkEdit } from './scripts/bulk-edit.js';
+import { runFirstLoadInit } from './scripts/app-bootstrap.js';
 import { initMessageAvatarZoomBindings } from './scripts/avatar-zoom-ui.js';
 import { getContext } from './scripts/st-context.js';
 import { extractReasoningFromData, initReasoning, PromptReasoning, removeReasoningFromString, updateReasoningUI } from './scripts/reasoning.js';
@@ -1107,75 +1108,75 @@ export async function pingServer() {
 
 //MARK: firstLoadInit
 async function firstLoadInit() {
-    try {
-        const tokenResponse = await fetch('/csrf-token');
-        const tokenData = await tokenResponse.json();
-        token = tokenData.token;
-        setCsrfToken(token);
-    } catch {
-        toastr.error(t`Couldn't get CSRF token. Please refresh the page.`, t`Error`, { timeOut: 0, extendedTimeOut: 0, preventDuplicates: true });
-        throw new Error('Initialization failed');
-    }
-
-    showLoader();
-    registerPromptManagerMigration();
-    initStandaloneMode();
-    initLibraryShims();
-    addShowdownPatch(showdown);
-    addDOMPurifyHooks();
-    reloadMarkdownProcessor();
-    applyBrowserFixes();
-    await getClientVersion();
-    await initSecrets();
-    await readSecretState();
-    await initLocales();
-    initChatUtilities();
-    initDefaultSlashCommands();
-    initTextGenModels();
-    initOpenAI();
-    initTextGenSettings();
-    initKoboldSettings();
-    initNovelAISettings();
-    initSystemPrompts();
-    initExtensions();
-    initExtensionSlashCommands();
-    ToolManager.initToolSlashCommands();
-    await initPresetManager();
-    await initSystemMessages();
-    await getSettings();
-    initKeyboard();
-    initDynamicStyles();
-    initTags();
-    initBookmarks();
-    initMacros();
-    await getUserAvatars(true, user_avatar);
-    await getCharacters();
-    await getBackgrounds();
-    await initTokenizers();
-    initBackgrounds();
-    initAuthorsNote();
-    await initPersonas();
-    initWorldInfo();
-    initHorde();
-    initRossMods();
-    initStats();
-    initCfg();
-    initLogprobs();
-    initInputMarkdown();
-    initServerHistory();
-    initSettingsSearch();
-    initBulkEdit();
-    initReasoning();
-    initWelcomeScreen();
-    await initScrapers();
-    initCustomSelectedSamplers();
-    initDataMaid();
-    initItemizedPrompts();
-    addDebugFunctions();
-    doDailyExtensionUpdatesCheck();
-    await hideLoader();
-    await fixViewport();
-    await eventSource.emit(event_types.APP_READY);
+    return runFirstLoadInit({
+        setToken: (value) => {
+            token = value;
+        },
+        setCsrfToken,
+        t,
+        showLoader,
+        hideLoader,
+        registerPromptManagerMigration,
+        initStandaloneMode,
+        initLibraryShims,
+        addShowdownPatch,
+        showdown,
+        addDOMPurifyHooks,
+        reloadMarkdownProcessor,
+        applyBrowserFixes,
+        getClientVersion,
+        initSecrets,
+        readSecretState,
+        initLocales,
+        initChatUtilities,
+        initDefaultSlashCommands,
+        initTextGenModels,
+        initOpenAI,
+        initTextGenSettings,
+        initKoboldSettings,
+        initNovelAISettings,
+        initSystemPrompts,
+        initExtensions,
+        initExtensionSlashCommands,
+        toolManager: ToolManager,
+        initPresetManager,
+        initSystemMessages,
+        getSettings,
+        initKeyboard,
+        initDynamicStyles,
+        initTags,
+        initBookmarks,
+        initMacros,
+        getUserAvatars,
+        getUserAvatar: () => user_avatar,
+        getCharacters,
+        getBackgrounds,
+        initTokenizers,
+        initBackgrounds,
+        initAuthorsNote,
+        initPersonas,
+        initWorldInfo,
+        initHorde,
+        initRossMods,
+        initStats,
+        initCfg,
+        initLogprobs,
+        initInputMarkdown,
+        initServerHistory,
+        initSettingsSearch,
+        initBulkEdit,
+        initReasoning,
+        initWelcomeScreen,
+        initScrapers,
+        initCustomSelectedSamplers,
+        initDataMaid,
+        initItemizedPrompts,
+        addDebugFunctions,
+        doDailyExtensionUpdatesCheck,
+        fixViewport,
+        eventSource,
+        eventTypes: event_types,
+    });
 }
 
 async function fixViewport() {

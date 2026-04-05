@@ -3620,3 +3620,9 @@ That leaves the end of `script.js` very close to the intended end state for this
 This is the extraction the previous waves were building toward. I added `public/scripts/legacy-dom-bootstrap.js` and moved the remaining end-of-file DOM bootstrap composition there. The long `jQuery(async function () { ... })` block in `public/script.js` now delegates into `initLegacyDomBootstrap(...)` with the same bound callbacks, getters, and initializer calls that were already in use.
 
 This is still a relocation-style move, not a redesign. The point was to get the anonymous bootstrap function out of `script.js` once its inline jQuery behavior had already been peeled away into focused modules. After this batch, `script.js` is much closer to a compatibility shell plus composition entrypoint, which is a better position for either future cleanup of the legacy bootstrap surface or an eventual React-oriented replacement strategy.
+
+### 2026-04-05: Wave 109 - moved first-load startup orchestration out of `script.js`
+
+This follow-up keeps the same strategy by moving the linear `firstLoadInit()` startup sequence into `public/scripts/app-bootstrap.js`. The local `firstLoadInit()` function in `script.js` remains as a thin wrapper that forwards the same initialization responsibilities into the new module, so traceability is preserved while the actual startup orchestration no longer lives in the monolith.
+
+This is a useful extraction even though it does not dramatically shrink line count by itself. The value is that another dense startup block is now outside `script.js`, which makes the remaining monolith more obviously a compatibility shell and less a place where unrelated bootstrapping work still accumulates.
